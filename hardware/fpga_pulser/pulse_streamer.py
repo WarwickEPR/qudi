@@ -66,7 +66,14 @@ class PulseStreamer(Base, PulserInterface):
         else:
             self._pulsestreamer_ip = '192.168.1.100' 
             self.log.warning('No value set for "pulsestreamer_ip" in configuration. The default value '
-                             '"192.168.100.1 will be used.') 
+                             '"192.168.100.1" will be used.') 
+
+        if 'laser_channel' in config.keys():
+            self._laser_channel = config['laser_channel']
+        else:
+            self._laser_channel = 0 
+            self.log.warning('No value set for "laser_channel" in configuration. The default value '
+                             'channel 1 will be used.') 
 
         self.current_status = -1
         self.sample_rate = 1e9
@@ -76,7 +83,7 @@ class PulseStreamer(Base, PulserInterface):
     def on_activate(self, e):
         """ Establish connection to pulse streamer and tell it to cancel all operations """
         self.pulse_streamer = pulse_streamer_pb2.PulseStreamerStub(self._channel)
-        self.pulse_streamer.constant(pulse_streamer_pb2.PulseMessage(ticks=0, digi=0, ao0=0, ao1=0))
+        self.pulser_off()
         self.current_status = 0
 
     def on_deactivate(self, e):
@@ -193,7 +200,8 @@ class PulseStreamer(Base, PulserInterface):
         @return int: error code (0:OK, -1:error)
         """
         # stop the pulse sequence
-        self.pulse_streamer.constant(pulse_streamer_pb2.PulseMessage(ticks=0, digi=0, ao0=0, ao1=0))
+        channels = self._convert_to_bitmask([self._laser_channel])
+        self.pulse_streamer.constant(pulse_streamer_pb2.PulseMessage(ticks=0, digi=channels, ao0=0, ao1=0))
         self.current_status = 0
         return 0
 
