@@ -30,8 +30,13 @@ import struct
 import base64
 
 import grpc
-import pulse_streamer_pb2
-import pulse_streamer_pb2_grpc
+import os
+import sys
+print(os.getcwd() + '\\hardware\\fpga_pulser')
+sys.path.append(os.getcwd() + '\\hardware\\fpga_pulser)')
+print(sys.path)
+import hardware.fpga_pulser.pulse_streamer_pb2 as pulse_streamer_pb2
+import hardware.fpga_pulser.pulse_streamer_pb2_grpc as pulse_streamer_pb2_grpc
 
 class PulseStreamer(Base, PulserInterface):
     """Methods to control PulseStreamer.
@@ -66,7 +71,7 @@ class PulseStreamer(Base, PulserInterface):
         else:
             self._pulsestreamer_ip = '192.168.1.100' 
             self.log.warning('No value set for "pulsestreamer_ip" in configuration. The default value '
-                             '"192.168.100.1" will be used.') 
+                             '"192.168.1.100" will be used.')
 
         if 'laser_channel' in config.keys():
             self._laser_channel = config['laser_channel']
@@ -78,7 +83,7 @@ class PulseStreamer(Base, PulserInterface):
         self.current_status = -1
         self.sample_rate = 1e9
 
-        self._channel = grpc.insecure_channel(self._pulsestreamer_ip + '4444')
+        self._channel = grpc.insecure_channel(self._pulsestreamer_ip + ':50051')
 
     def on_activate(self, e):
         """ Establish connection to pulse streamer and tell it to cancel all operations """
