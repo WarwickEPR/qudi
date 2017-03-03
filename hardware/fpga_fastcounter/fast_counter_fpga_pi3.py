@@ -21,7 +21,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 from interface.fast_counter_interface import FastCounterInterface
 import numpy as np
-import thirdparty.stuttgart_counter.TimeTagger as tt
+import TimeTagger as tt
 from core.base import Base
 import os
 
@@ -46,6 +46,7 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
                 """
 
         config = self.getConfiguration()
+
         if 'fpgacounter_serial' in config.keys():
             self._fpgacounter_serial=config['fpgacounter_serial']
         else:
@@ -71,11 +72,11 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
         else:
             self.log.warning('No sequence channel defined for fpga counter')
 
-        tt._Tagger_setSerial(self._fpgacounter_serial)
-        thirdpartypath = os.path.join(self.get_main_dir(), 'thirdparty')
-        bitfilepath = os.path.join(thirdpartypath, 'stuttgart_counter', 'TimeTaggerController.bit')
-        tt._Tagger_setBitfilePath(bitfilepath)
-        del bitfilepath, thirdpartypath
+        # tt._Tagger_setSerial(self._fpgacounter_serial)
+        # thirdpartypath = os.path.join(self.get_main_dir(), 'thirdparty')
+        # bitfilepath = os.path.join(thirdpartypath, 'stuttgart_counter', 'TimeTaggerController.bit')
+        # tt._Tagger_setBitfilePath(bitfilepath)
+        # del bitfilepath, thirdpartypath
 
         self._number_of_gates = int(100)
         self._bin_width = 1

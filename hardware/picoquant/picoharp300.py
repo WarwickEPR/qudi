@@ -23,6 +23,7 @@ import ctypes
 import numpy as np
 import time
 from qtpy import QtCore
+import os
 
 from core.base import Base
 from core.util.mutex import Mutex
@@ -106,6 +107,7 @@ class PicoHarp300(Base, SlowCounterInterface, FastCounterInterface):
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
 
+        self.log.info('PicoHarp trying to connect')
         if 'deviceID' in config.keys():
             self._deviceID = config['deviceID']
         else:
@@ -143,7 +145,7 @@ class PicoHarp300(Base, SlowCounterInterface, FastCounterInterface):
         self._record_length_ns = 100 *1e9
 
         self._photon_source2 = None #for compatibility reasons with second APD
-        self._count_channel = 1
+        self._count_channel = 0
 
         #locking for thread safety
         self.threadlock = Mutex()
@@ -308,7 +310,6 @@ class PicoHarp300(Base, SlowCounterInterface, FastCounterInterface):
 
     def open_connection(self):
         """ Open a connection to this device. """
-
 
         buf = ctypes.create_string_buffer(16)   # at least 8 byte
         ret = self.check(self._dll.PH_OpenDevice(self._deviceID, ctypes.byref(buf)))
@@ -667,7 +668,7 @@ class PicoHarp300(Base, SlowCounterInterface, FastCounterInterface):
         self.check(self._dll.PH_GetFlags(self._deviceID, ctypes.byref(flags)))
         return flags.value
 
-    def get_elepased_meas_time(self):
+    def get_elepsed_meas_time(self):
         """ Retrieve the elapsed measurement time in ms.
 
         @return double: the elapsed measurement time in ms.
@@ -1009,7 +1010,7 @@ class PicoHarp300(Base, SlowCounterInterface, FastCounterInterface):
 
         return 0
 
-    def set_up_counter(self, counter_channels=1, sources=None,
+    def set_up_counter(self, counter_channels=0, sources=None,
                        clock_channel = None):
         """ Ensure Interface compatibility. The counter allows no set up.
 
@@ -1042,10 +1043,10 @@ class PicoHarp300(Base, SlowCounterInterface, FastCounterInterface):
         FIXME: ask hardware for limits when module is loaded
         """
         constraints = SlowCounterConstraints()
-        constraints.max_detectors = 1
+        constraints.max_detectors = 2
         constraints.min_count_frequency = 1e-3
         constraints.max_count_frequency = 10e9
-        conetraints.counting_mode = [CountingMode.CONTINUOUS]
+        constraints.counting_mode = [CountingMode.CONTINUOUS]
         return constraints
 
     def get_counter(self, samples=None):

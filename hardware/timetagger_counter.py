@@ -25,7 +25,7 @@ import time
 
 from core.base import Base
 from interface.slow_counter_interface import SlowCounterInterface
-
+from interface.slow_counter_interface import SlowCounterConstraints
 
 class TimeTaggerCounter(Base, SlowCounterInterface):
 
