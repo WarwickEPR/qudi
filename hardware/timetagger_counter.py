@@ -26,6 +26,7 @@ import time
 from core.base import Base
 from interface.slow_counter_interface import SlowCounterInterface
 from interface.slow_counter_interface import SlowCounterConstraints
+from interface.slow_counter_interface import CountingMode
 
 class TimeTaggerCounter(Base, SlowCounterInterface):
 
@@ -56,12 +57,25 @@ class TimeTaggerCounter(Base, SlowCounterInterface):
 
         config = self.getConfiguration()
 
-        if 'photon_source' in config.keys():
-            self._photon_source = config['photon_source']
+        if 'timetagger_channel_apd_0' in config.keys():
+            self._channel_apd_0 = config['timetagger_channel_apd_0']
         else:
-            self.log.error('No parameter "photon_source" configured.\n'
+            self.log.error('No parameter "timetagger_photon_channel" configured.\n'
                     'Assign to that parameter an appropriated channel '
                     'from your NI Card!')
+
+        if 'timetagger_channel_apd_1' in config.keys():
+            self._channel_apd_1 = config['timetagger_channel_apd_1']
+        else:
+            self.log.error('No parameter "timetagger_photon_channel" configured.\n'
+                    'Assign to that parameter an appropriated channel '
+                    'from your NI Card!')
+
+        if 'timetagger_sum_channels' in config.keys():
+            self._sum_channels = config['timetagger_sum_channels']
+        else:
+            self.log.warning('No indication whether or not to sum apd channels for timetagger. Assuming true.')
+            self._sum_channels = True
 
     def on_deactivate(self, e=None):
         """ Shut down the NI card.
@@ -109,9 +123,10 @@ class TimeTaggerCounter(Base, SlowCounterInterface):
         """
         self.counter = Counter(
             self._tagger,
-            channels=[self._photon_source],
-            binwidth=int((1/self._count_frequency)*1e12),
-            n_values=1)
+            channels=[self._channel_apd_0],
+            binwidth=int((1 / self._count_frequency) * 1e12),
+            n_values=1
+        )
         self.log.info('set up counter with {0}'.format(self._count_frequency))
         return 0
 
@@ -130,7 +145,7 @@ class TimeTaggerCounter(Base, SlowCounterInterface):
         constraints.max_detectors = 1
         constraints.min_count_frequency = 1e-3
         constraints.max_count_frequency = 10e9
-        conetraints.counting_mode = [CountingMode.CONTINUOUS]
+        constraints.counting_mode = [CountingMode.CONTINUOUS]
         return constraints
 
     def get_counter(self, samples=None):

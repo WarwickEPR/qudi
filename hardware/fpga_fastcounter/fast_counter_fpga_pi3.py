@@ -45,32 +45,35 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
                                  has happen.
                 """
 
+        self._tagger = tt.createTimeTagger()
+        self._tagger.reset()
         config = self.getConfiguration()
 
-        if 'fpgacounter_serial' in config.keys():
-            self._fpgacounter_serial=config['fpgacounter_serial']
+        if 'timetagger_channel_apd_0' in config.keys():
+            self._channel_apd_0 = config['timetagger_channel_apd_0']
         else:
-            self.log.warning('No serial number defined for fpga counter')
+            self.log.warning('No apd0 channel defined for timetagger')
 
-        if 'fpgacounter_channel_apd_0' in config.keys():
-            self._channel_apd_0 = config['fpgacounter_channel_apd_0']
+        if 'timetagger_channel_apd_1' in config.keys():
+            self._channel_apd_1 = config['timetagger_channel_apd_1']
         else:
-            self.log.warning('No apd0 channel defined for fpga counter')
+            self.log.warning('No apd1 channel defined for timetagger')
 
-        if 'fpgacounter_channel_apd_1' in config.keys():
-            self._channel_apd_1 = config['fpgacounter_channel_apd_1']
+        if 'timetagger_channel_detect' in config.keys():
+            self._channel_detect = config['timetagger_channel_detect']
         else:
-            self.log.warning('No apd1 channel defined for fpga counter')
+            self.log.warning('No detect channel defined for timetagger')
 
-        if 'fpgacounter_channel_detect' in config.keys():
-            self._channel_detect = config['fpgacounter_channel_detect']
+        if 'timetagger_channel_sequence' in config.keys():
+            self._channel_sequence = config['timetagger_channel_sequence']
         else:
-            self.log.warning('No no detect channel defined for fpga counter')
+            self.log.warning('No sequence channel defined for timetagger')
 
-        if 'fpgacounter_channel_sequence' in config.keys():
-            self._channel_sequence = config['fpgacounter_channel_sequence']
+        if 'timetagger_sum_channels' in config.keys():
+            self._sum_channels = config['timetagger_sum_channels']
         else:
-            self.log.warning('No sequence channel defined for fpga counter')
+            self.log.warning('No indication whether or not to sum apd channels for timetagger. Assuming true.')
+            self._sum_channels = True
 
         # tt._Tagger_setSerial(self._fpgacounter_serial)
         # thirdpartypath = os.path.join(self.get_main_dir(), 'thirdparty')
@@ -164,14 +167,30 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
         self._record_length = int(record_length_s / bin_width_s)
         self.statusvar = 1
 
-        self.pulsed = tt.Pulsed(
-            self._record_length,
-            int(np.round(self._bin_width*1000)),
-            self._number_of_gates,
-            self._channel_apd_0,
+        if self._sum_channels == True:
+            channel_combined = tt.Combiner(self._tagger, channels = [self._channel_apd_0, self._channel_apd_1])
+            channel_apd = channel_combined.getChannel()
+        else:
+            channel_apd = self._channel_apd_0
+
+        self.pulsed = tt.TimeDifferences(
+            self._tagger,
+            channel_apd,
             self._channel_detect,
-            self._channel_sequence
-        )
+            self._channel_detect,
+            self._channel_sequence,
+            int(np.round(self._bin_width * 1000)),
+            int(self._record_length),
+            number_of_gates)
+
+        # self.pulsed = tt.Pulsed(
+        #     self._record_length,
+        #     int(np.round(self._bin_width*1000)),
+        #     self._number_of_gates,
+        #     self._channel_apd_0,
+        #     self._channel_detect,
+        #     self._channel_sequence
+        # )
         return (bin_width_s, record_length_s, number_of_gates)
 
     def start_measure(self):
