@@ -237,6 +237,8 @@ class PulseStreamer(Base, PulserInterface):
 
         @return int: error code (0:OK, -1:error)
         """
+        import pickle
+
         # ignore if no asset_name is given
         if asset_name is None:
             self.log.warning('"load_asset" called with asset_name = None.')
@@ -250,13 +252,12 @@ class PulseStreamer(Base, PulserInterface):
             return -1
 
         # get samples from file
-        filepath = os.path.join(self.host_waveform_directory, asset_name + '.fpga')
-        with open(filepath, 'rb') as asset_file:
-            samples = bytearray(asset_file.read())
+        filepath = os.path.join(self.host_waveform_directory, asset_name + '.pstream')
+        pulse_sequence = pickle.load(open(filepath, 'rb'))
 
         blank_pulse = pulse_streamer_pb2.PulseMessage(ticks=0, digi=0, ao0=0, ao1=0)
         laser_on = pulse_streamer_pb2.PulseMessage(ticks=0, digi=self._convert_to_bitmask([self._laser_channel]), ao0=0, ao1=0)
-        sequence = pulse_streamer_pb2.SequenceMessage(pulse=samples, n_runs=0, initial=laser_on,
+        sequence = pulse_streamer_pb2.SequenceMessage(pulse=pulse_sequence, n_runs=0, initial=laser_on,
             final=laser_on, underflow=blank_pulse, start=1)
         
         self.log.info('Asset uploaded to PulseStreamer')
