@@ -21,19 +21,12 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 from core.base import Base
 from interface.pulser_interface import PulserInterface
-
-import time
-import os
 from collections import OrderedDict
-
-import struct
-import base64
 
 import grpc
 import os
-import sys
-
 import hardware.fpga_pulser.pulse_streamer_pb2 as pulse_streamer_pb2
+import dill
 
 class PulseStreamer(Base, PulserInterface):
     """Methods to control PulseStreamer.
@@ -79,6 +72,7 @@ class PulseStreamer(Base, PulserInterface):
 
         self.current_status = -1
         self.sample_rate = 1e9
+        self.current_loaded_asset = None
 
         self._channel = grpc.insecure_channel(self._pulsestreamer_ip + ':50051')
 
@@ -237,8 +231,6 @@ class PulseStreamer(Base, PulserInterface):
 
         @return int: error code (0:OK, -1:error)
         """
-        import pickle
-
         # ignore if no asset_name is given
         if asset_name is None:
             self.log.warning('"load_asset" called with asset_name = None.')
@@ -253,7 +245,7 @@ class PulseStreamer(Base, PulserInterface):
 
         # get samples from file
         filepath = os.path.join(self.host_waveform_directory, asset_name + '.pstream')
-        pulse_sequence = pickle.load(open(filepath, 'rb'))
+        pulse_sequence = dill.load(open(filepath, 'rb'))
 
         blank_pulse = pulse_streamer_pb2.PulseMessage(ticks=0, digi=0, ao0=0, ao1=0)
         laser_on = pulse_streamer_pb2.PulseMessage(ticks=0, digi=self._convert_to_bitmask([self._laser_channel]), ao0=0, ao1=0)

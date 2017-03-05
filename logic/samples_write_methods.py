@@ -383,7 +383,7 @@ class SamplesWriteMethods():
                       presampled arrays
         """
         import hardware.fpga_pulser.pulse_streamer_pb2 as pulse_streamer_pb2
-        import pickle
+        import dill
 
         # record the name of the created files
         created_files = []
@@ -391,13 +391,6 @@ class SamplesWriteMethods():
         chunk_length_bins = digital_samples.shape[1]
         channel_number = digital_samples.shape[0]
 
-        print('chunk_length_bins: {0}; channel_number: {1}'.format(chunk_length_bins, channel_number))
-        # FIXME: Also allow for single channel to be specified. Set all others to zero.
-        print('dtype: {0}'.format(digital_samples.dtype))
-        print('first: {0}'.format(digital_samples[0]))
-        print('sizeoffirst: {0}'.format(digital_samples[0].shape))
-        print('fullshape: {0}'.format(digital_samples.shape))
-        print('type one: {0}'.format(digital_samples[:, 0]))
         if channel_number != 8:
             self.log.error('Pulse streamer needs 8 digital channels. {0} is not allowed!'
                            ''.format(channel_number))
@@ -420,7 +413,7 @@ class SamplesWriteMethods():
         created_files.append(filename)
 
         filepath = os.path.join(self.waveform_dir, filename)
-        pickle.dump(pulses, open(filepath, 'wb'))
+        dill.dump(pulses, open(filepath, 'wb'))
 
         return created_files
 
