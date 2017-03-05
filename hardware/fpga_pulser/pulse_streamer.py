@@ -70,6 +70,8 @@ class PulseStreamer(Base, PulserInterface):
             self.log.warning('No value set for "laser_channel" in configuration. The default value '
                              'channel 1 will be used.') 
 
+        self.host_waveform_directory = self._get_dir_for_name('sampled_hardware_files')
+
         self.current_status = -1
         self.sample_rate = 1e9
         self.current_loaded_asset = None
@@ -245,13 +247,18 @@ class PulseStreamer(Base, PulserInterface):
 
         # get samples from file
         filepath = os.path.join(self.host_waveform_directory, asset_name + '.pstream')
-        pulse_sequence = dill.load(open(filepath, 'rb'))
+        pulse_sequence_raw = dill.load(open(filepath, 'rb'))
+
+        pulse_sequence = []
+        for pulse in pulse_sequence_raw:
+            pulse_sequence.append(pulse_streamer_pb2.PulseMessage(ticks=pulse[0], digi=pulse[1], ao0=0, ao1=1))
 
         blank_pulse = pulse_streamer_pb2.PulseMessage(ticks=0, digi=0, ao0=0, ao1=0)
         laser_on = pulse_streamer_pb2.PulseMessage(ticks=0, digi=self._convert_to_bitmask([self._laser_channel]), ao0=0, ao1=0)
         sequence = pulse_streamer_pb2.SequenceMessage(pulse=pulse_sequence, n_runs=0, initial=laser_on,
             final=laser_on, underflow=blank_pulse, start=1)
-        
+        self.pulse_streamer.stream(sequence)
+
         self.log.info('Asset uploaded to PulseStreamer')
         self.current_loaded_asset = asset_name
         return 0
@@ -482,7 +489,7 @@ class PulseStreamer(Base, PulserInterface):
 
         saved_assets = []
         for filename in file_list:
-            if filename.endswith('.fpga'):
+            if filename.endswith('.pstream'):
                 asset_name = filename.rsplit('.', 1)[0]
                 if asset_name not in saved_assets:
                     saved_assets.append(asset_name)
@@ -598,7 +605,7 @@ a
 
         @return: list, The full filenames of all assets saved on the host PC.
         """
-        filename_list = [f for f in os.listdir(self.host_waveform_directory) if f.endswith('.fpga')]
+        filename_list = [f for f in os.listdir(self.host_waveform_directory) if f.endswith('.pstream')]
         return filename_list
 
     def _convert_to_bitmask(self, active_channels):

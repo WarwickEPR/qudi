@@ -382,7 +382,7 @@ class SamplesWriteMethods():
         @return list: the list contains the string names of the created files for the passed
                       presampled arrays
         """
-        import hardware.fpga_pulser.pulse_streamer_pb2 as pulse_streamer_pb2
+        #import hardware.fpga_pulser.pulse_streamer_pb2 as pulse_streamer_pb2
         import dill
 
         # record the name of the created files
@@ -396,7 +396,7 @@ class SamplesWriteMethods():
                            ''.format(channel_number))
             return -1
 
-        current_channels = 0
+        current_channels = _convert_to_bitmask(digital_samples[:,0])
         ticks = 0
         pulses = []
         for sample_number in range(chunk_length_bins):
@@ -404,7 +404,8 @@ class SamplesWriteMethods():
                 ticks += 1
                 continue
             else:
-                pulses.append(pulse_streamer_pb2.PulseMessage(ticks=ticks, digi=current_channels, ao0=0, ao1=0))
+                pulse = [ticks, current_channels]
+                pulses.append(pulse)
                 current_channels =_convert_to_bitmask(digital_samples[:,sample_number])
                 ticks = 1
 
