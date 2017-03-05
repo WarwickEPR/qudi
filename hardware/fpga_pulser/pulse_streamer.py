@@ -195,7 +195,7 @@ class PulseStreamer(Base, PulserInterface):
         @return int: error code (0:OK, -1:error)
         """
         # start the pulse sequence
-        self.pulse_streamer.startNow()
+        self.pulse_streamer.startNow(pulse_streamer_pb2.VoidMessage())
         self.current_status = 1
         return 0
 
@@ -258,8 +258,9 @@ class PulseStreamer(Base, PulserInterface):
             samples = bytearray(asset_file.read())
 
         blank_pulse = pulse_streamer_pb2.PulseMessage(ticks=0, digi=0, ao0=0, ao1=0)
-        sequence = pulse_streamer_pb2.SequenceMessage(pulse=samples, n_runs=0, initial=blank_pulse, 
-            final=blank_pulse, underflow=blank_pulse, start=1)
+        laser_on = pulse_streamer_pb2.PulseMessage(ticks=0, digi=self._convert_to_bitmask([self._laser_channel]), ao0=0, ao1=0)
+        sequence = pulse_streamer_pb2.SequenceMessage(pulse=samples, n_runs=0, initial=laser_on,
+            final=laser_on, underflow=blank_pulse, start=1)
         
         self.log.info('Asset uploaded to PulseStreamer')
         self.current_loaded_asset = asset_name
@@ -580,10 +581,8 @@ a
 
         @return int: error code (0:OK, -1:error)
         """
-        self.fpga.SetWireInValue(0x00, 0x04)
-        self.fpga.UpdateWireIns()
-        self.fpga.SetWireInValue(0x00, 0x00)
-        self.fpga.UpdateWireIns()
+        laser_on = pulse_streamer_pb2.PulseMessage(ticks=0, digi=self._convert_to_bitmask([self._laser_channel]), ao0=0, ao1=0)
+        self.pulse_streamer.constant(laser_on)
         return 0
 
     def has_sequence_mode(self):
