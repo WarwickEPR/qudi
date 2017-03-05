@@ -396,18 +396,14 @@ class SamplesWriteMethods():
                            ''.format(channel_number))
             return -1
 
-        current_channels = _convert_to_bitmask(digital_samples[:,0])
-        ticks = 0
+        channels = np.apply_along_axis(_convert_to_bitmask, 0, digital_samples)
+        new_channel_indices = np.where(channels[:-1] != channels[1:])[0]
+        new_channel_indices = np.insert(new_channel_indices + 1, 0, [0])
+
         pulses = []
-        for sample_number in range(chunk_length_bins):
-            if _convert_to_bitmask(digital_samples[:,sample_number]) == current_channels:
-                ticks += 1
-                continue
-            else:
-                pulse = [ticks, current_channels]
-                pulses.append(pulse)
-                current_channels =_convert_to_bitmask(digital_samples[:,sample_number])
-                ticks = 1
+        for new_channel_index in range(1, new_channel_indices.size):
+            pulse = [new_channel_indices[new_channel_index] - new_channel_indices[new_channel_index - 1], channels[new_channel_indices[new_channel_index - 1]]]
+            pulses.append(pulse)
 
         # append samples to file
         filename = name + '.pstream'
@@ -601,7 +597,8 @@ def _convert_to_bitmask(active_channels):
     Helper method for write_pulse_form.
     """
     bits = 0  # that corresponds to: 0b0
-    for channel in active_channels:
+    active_channels = np.where(active_channels == True)
+    for channel in active_channels[0]:
         # go through each list element and create the digital word out of
         # 0 and 1 that represents the channel configuration. In order to do
         # that a bitwise shift to the left (<< operator) is performed and
