@@ -382,6 +382,9 @@ class SamplesWriteMethods():
         @return list: the list contains the string names of the created files for the passed
                       presampled arrays
         """
+        import hardware.fpga_pulser.pulse_streamer_pb2 as pulse_streamer_pb2
+        import pickle
+
         # record the name of the created files
         created_files = []
 
@@ -391,36 +394,33 @@ class SamplesWriteMethods():
         print('chunk_length_bins: {0}; channel_number: {1}'.format(chunk_length_bins, channel_number))
         # FIXME: Also allow for single channel to be specified. Set all others to zero.
         print('dtype: {0}'.format(digital_samples.dtype))
-
+        print('first: {0}'.format(digital_samples[0]))
+        print('sizeoffirst: {0}'.format(digital_samples[0].shape))
+        print('fullshape: {0}'.format(digital_samples.shape))
+        print('type one: {0}'.format(digital_samples[:, 0]))
         if channel_number != 8:
             self.log.error('Pulse streamer needs 8 digital channels. {0} is not allowed!'
                            ''.format(channel_number))
             return -1
 
-        # encode channels into FPGA samples (bytes)
-        # check if the sequence length is an integer multiple of 32 bins
-        if is_last_chunk and (total_number_of_samples % 32 != 0):
-            # calculate number of zero timeslots to append
-            number_of_zeros = 32 - (total_number_of_samples % 32)
-            encoded_samples = np.zeros(chunk_length_bins + number_of_zeros, dtype='uint8')
-            self.log.warning('FPGA pulse sequence length is no integer multiple of 32 samples. '
-                             'Appending {0} zero-samples to the sequence.'.format(number_of_zeros))
-        else:
-            encoded_samples = np.zeros(chunk_length_bins, dtype='uint8')
-
-        for channel in range(channel_number):
-            encoded_samples[:chunk_length_bins] += (2 ** channel) * np.uint8(
-                digital_samples[channel])
-
-        del digital_samples  # no longer needed
+        current_channels = 0
+        ticks = 0
+        pulses = []
+        for sample_number in range(chunk_length_bins):
+            if _convert_to_bitmask(digital_samples[:,sample_number]) == current_channels:
+                ticks += 1
+                continue
+            else:
+                pulses.append(pulse_streamer_pb2.PulseMessage(ticks=ticks, digi=current_channels, ao0=0, ao1=0))
+                current_channels =_convert_to_bitmask(digital_samples[:,sample_number])
+                ticks = 1
 
         # append samples to file
-        filename = name + '.fpga'
+        filename = name + '.pstream'
         created_files.append(filename)
 
         filepath = os.path.join(self.waveform_dir, filename)
-        with open(filepath, 'wb') as fpgafile:
-            fpgafile.write(encoded_samples)
+        pickle.dump(pulses, open(filepath, 'wb'))
 
         return created_files
 
@@ -585,3 +585,39 @@ class SamplesWriteMethods():
         f = open(filepath, "wb")
         f.write(text[39:-1])
         f.close()
+
+def _convert_to_bitmask(active_channels):
+    """ Convert a list of channels into a bitmask.
+    @param numpy.array active_channels: the list of active channels like
+                        e.g. [0,4,7]. Note that the channels start from 0.
+    @return int: The channel-list is converted into a bitmask (an sequence
+                 of 1 and 0). The returned integer corresponds to such a
+                 bitmask.
+    Note that you can get a binary representation of an integer in python
+    if you use the command bin(<integer-value>). All higher unneeded digits
+    will be dropped, i.e. 0b00100 is turned into 0b100. Examples are
+        bin(0) =    0b0
+        bin(1) =    0b1
+        bin(8) = 0b1000
+    Each bit value (read from right to left) corresponds to the fact that a
+    channel is on or off. I.e. if you have
+        0b001011
+    then it would mean that only channel 0, 1 and 3 are switched to on, the
+    others are off.
+    Helper method for write_pulse_form.
+    """
+    bits = 0  # that corresponds to: 0b0
+    for channel in active_channels:
+        # go through each list element and create the digital word out of
+        # 0 and 1 that represents the channel configuration. In order to do
+        # that a bitwise shift to the left (<< operator) is performed and
+        # the current channel configuration is compared with a bitwise OR
+        # to check whether the bit was already set. E.g.:
+        #   0b1001 | 0b0110: compare elementwise:
+        #           1 | 0 => 1
+        #           0 | 1 => 1
+        #           0 | 1 => 1
+        #           1 | 1 => 1
+        #                   => 0b1111
+        bits = bits | (1 << channel)
+    return bits

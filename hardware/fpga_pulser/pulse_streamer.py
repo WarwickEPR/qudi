@@ -32,11 +32,8 @@ import base64
 import grpc
 import os
 import sys
-print(os.getcwd() + '\\hardware\\fpga_pulser')
-sys.path.append(os.getcwd() + '\\hardware\\fpga_pulser)')
-print(sys.path)
+
 import hardware.fpga_pulser.pulse_streamer_pb2 as pulse_streamer_pb2
-import hardware.fpga_pulser.pulse_streamer_pb2_grpc as pulse_streamer_pb2_grpc
 
 class PulseStreamer(Base, PulserInterface):
     """Methods to control PulseStreamer.
