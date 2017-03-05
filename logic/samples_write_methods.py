@@ -41,6 +41,7 @@ class SamplesWriteMethods():
         self._write_to_file['seq'] = self._write_seq
         self._write_to_file['seqx'] = self._write_seqx
         self._write_to_file['fpga'] = self._write_fpga
+        self._write_to_file['pstream'] = self._write_pstream
         return
 
     def _write_wfmx(self, name, analog_samples, digital_samples, total_number_of_samples,
@@ -326,6 +327,73 @@ class SamplesWriteMethods():
         # FIXME: Also allow for single channel to be specified. Set all others to zero.
         if channel_number != 8:
             self.log.error('FPGA pulse generator needs 8 digital channels. {0} is not allowed!'
+                           ''.format(channel_number))
+            return -1
+
+        # encode channels into FPGA samples (bytes)
+        # check if the sequence length is an integer multiple of 32 bins
+        if is_last_chunk and (total_number_of_samples % 32 != 0):
+            # calculate number of zero timeslots to append
+            number_of_zeros = 32 - (total_number_of_samples % 32)
+            encoded_samples = np.zeros(chunk_length_bins + number_of_zeros, dtype='uint8')
+            self.log.warning('FPGA pulse sequence length is no integer multiple of 32 samples. '
+                             'Appending {0} zero-samples to the sequence.'.format(number_of_zeros))
+        else:
+            encoded_samples = np.zeros(chunk_length_bins, dtype='uint8')
+
+        for channel in range(channel_number):
+            encoded_samples[:chunk_length_bins] += (2 ** channel) * np.uint8(
+                digital_samples[channel])
+
+        del digital_samples  # no longer needed
+
+        # append samples to file
+        filename = name + '.fpga'
+        created_files.append(filename)
+
+        filepath = os.path.join(self.waveform_dir, filename)
+        with open(filepath, 'wb') as fpgafile:
+            fpgafile.write(encoded_samples)
+
+        return created_files
+
+    def _write_pstream(self, name, analog_samples, digital_samples, total_number_of_samples,
+                    is_first_chunk, is_last_chunk):
+        """
+        Appends a sampled chunk of a whole waveform to a fpga-file. Create the file
+        if it is the first chunk.
+        If both flags (is_first_chunk, is_last_chunk) are set to TRUE it means
+        that the whole ensemble is written as a whole in one big chunk.
+
+        @param name: string, represents the name of the sampled ensemble
+        @param analog_samples: float32 numpy ndarray, contains the
+                                       samples for the analog channels that
+                                       are to be written by this function call.
+        @param digital_samples: bool numpy ndarray, contains the samples
+                                      for the digital channels that
+                                      are to be written by this function call.
+        @param total_number_of_samples: int, The total number of samples in the
+                                        entire waveform. Has to be known it advance.
+        @param is_first_chunk: bool, indicates if the current chunk is the
+                               first write to this file.
+        @param is_last_chunk: bool, indicates if the current chunk is the last
+                              write to this file.
+
+        @return list: the list contains the string names of the created files for the passed
+                      presampled arrays
+        """
+        # record the name of the created files
+        created_files = []
+
+        chunk_length_bins = digital_samples.shape[1]
+        channel_number = digital_samples.shape[0]
+
+        print('chunk_length_bins: {0}; channel_number: {1}'.format(chunk_length_bins, channel_number))
+        # FIXME: Also allow for single channel to be specified. Set all others to zero.
+        print('dtype: {0}'.format(digital_samples.dtype))
+
+        if channel_number != 8:
+            self.log.error('Pulse streamer needs 8 digital channels. {0} is not allowed!'
                            ''.format(channel_number))
             return -1
 
