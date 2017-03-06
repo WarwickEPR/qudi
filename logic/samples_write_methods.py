@@ -388,21 +388,21 @@ class SamplesWriteMethods():
         # record the name of the created files
         created_files = []
 
-        chunk_length_bins = digital_samples.shape[1]
         channel_number = digital_samples.shape[0]
+        digital_samples = np.transpose(digital_samples)
 
         if channel_number != 8:
             self.log.error('Pulse streamer needs 8 digital channels. {0} is not allowed!'
                            ''.format(channel_number))
             return -1
 
-        channels = np.apply_along_axis(_convert_to_bitmask, 0, digital_samples)
-        new_channel_indices = np.where(channels[:-1] != channels[1:])[0]
-        new_channel_indices = np.insert(new_channel_indices + 1, 0, [0])
+        new_channel_indices = np.where(digital_samples[:-1,:] != digital_samples[1:,:])[0]
+        new_channel_indices = new_channel_indices[np.where(new_channel_indices[:-1] != new_channel_indices[1:])[0]] #get rid of repeats
+        new_channel_indices = np.insert(new_channel_indices, 0, [-1])
 
         pulses = []
         for new_channel_index in range(1, new_channel_indices.size):
-            pulse = [new_channel_indices[new_channel_index] - new_channel_indices[new_channel_index - 1], channels[new_channel_indices[new_channel_index - 1]]]
+            pulse = [new_channel_indices[new_channel_index] - new_channel_indices[new_channel_index - 1], _convert_to_bitmask(digital_samples[new_channel_indices[new_channel_index - 1] + 1,:])]
             pulses.append(pulse)
 
         # append samples to file
