@@ -173,15 +173,20 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
         else:
             channel_apd = self._channel_apd_0
 
+        print('Configuring timetagger. detect: {0}, sequence: {1}, bin width: {2}, length: {3}, ngates: {4}, apd: {5}'.format(self._channel_detect, self._channel_sequence, int(np.round(self._bin_width * 1000)), self._record_length, number_of_gates, channel_apd))
+
         self.pulsed = tt.TimeDifferences(
-            self._tagger,
-            channel_apd,
-            self._channel_detect,
-            self._channel_detect,
-            self._channel_sequence,
-            int(np.round(self._bin_width * 1000)),
-            int(self._record_length),
-            number_of_gates)
+            tagger=self._tagger,
+            click_channel=channel_apd,
+            start_channel=self._channel_detect,
+            next_channel=self._channel_detect,
+            sync_channel=tt.CHANNEL_INVALID,
+            binwidth=int(np.round(self._bin_width * 1000)),
+            n_bins=int(self._record_length),
+            n_histograms=number_of_gates)
+
+        self.pulsed.stop()
+        self.pulsed.clear()
 
         # self.pulsed = tt.Pulsed(
         #     self._record_length,
@@ -191,12 +196,13 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
         #     self._channel_detect,
         #     self._channel_sequence
         # )
+
         return (bin_width_s, record_length_s, number_of_gates)
 
     def start_measure(self):
         """ Start the fast counter. """
+        print('Starting timetagger measurement')
         self.lock()
-        self.pulsed.clear()
         self.pulsed.start()
         self.statusvar = 2
         return 0
@@ -249,6 +255,10 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
         care of in this hardware class. A possible overflow of the histogram
         bins must be caught here and taken care of.
         """
+        print('Getting data')
+        print('Is running: {0}; counts: {1}'.format(self.pulsed.isRunning(), self.pulsed.getCounts()))
+        print('Data: {0}'.format(self.pulsed.getData()))
+        print('Shape: {0}'.format(self.pulsed.getData().shape))
         return np.array(self.pulsed.getData(), dtype='int64')
 
 
