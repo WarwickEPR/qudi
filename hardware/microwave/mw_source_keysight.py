@@ -299,7 +299,7 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         self._connection.write(':SWE:DWEL 10 ms')
         self._connection.write('*WAI')
 
-        n = int(np.round(float(self._connection(':SWE:POIN?'))))
+        n = int(np.round(float(self._connection.query(':SWE:POIN?'))))
 
 #         self._connection.write(':SWE:AMPL:STAR {0:f}'.format(power))
 #         self._connection.write(':SWE:AMPL:STOP {0:f}'.format(power))
