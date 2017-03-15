@@ -68,7 +68,14 @@ class PulseStreamer(Base, PulserInterface):
         else:
             self._laser_channel = 0 
             self.log.warning('No value set for "laser_channel" in configuration. The default value '
-                             'channel 1 will be used.') 
+                             'channel 0 will be used.')
+
+        if 'uw_x_channel' in config.keys():
+            self._uw_x_channel = config['uw_x_channel']
+        else:
+            self._uw_x_channel = 2
+            self.log.warning('No value set for "uw_x_channel" in configuration. The default value '
+                             'channel 2 will be used.')
 
         self.host_waveform_directory = self._get_dir_for_name('sampled_hardware_files')
 
@@ -198,7 +205,7 @@ class PulseStreamer(Base, PulserInterface):
         @return int: error code (0:OK, -1:error)
         """
         # stop the pulse sequence
-        channels = self._convert_to_bitmask([self._laser_channel])
+        channels = self._convert_to_bitmask([self._laser_channel, self._uw_x_channel])
         self.pulse_streamer.constant(pulse_streamer_pb2.PulseMessage(ticks=0, digi=channels, ao0=0, ao1=0))
         self.current_status = 0
         return 0
