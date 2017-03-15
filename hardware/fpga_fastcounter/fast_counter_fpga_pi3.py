@@ -85,6 +85,12 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
         self._bin_width = 1
         self._record_length = int(4000)
 
+        if self._sum_channels == True:
+            channel_combined = tt.Combiner(self._tagger, channels=[self._channel_apd_0, self._channel_apd_1])
+            self._channel_apd = channel_combined.getChannel()
+        else:
+            self._channel_apd = self._channel_apd_0
+
         self.configure(self._bin_width*1e-9,self._record_length*1e-9,self._number_of_gates)
 
         self.statusvar = 0
@@ -167,20 +173,14 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
         self._record_length = int(record_length_s / bin_width_s)
         self.statusvar = 1
 
-        if self._sum_channels == True:
-            channel_combined = tt.Combiner(self._tagger, channels = [self._channel_apd_0, self._channel_apd_1])
-            channel_apd = channel_combined.getChannel()
-        else:
-            channel_apd = self._channel_apd_0
-
-        print('Configuring timetagger. detect: {0}, sequence: {1}, bin width: {2}, length: {3}, ngates: {4}, apd: {5}'.format(self._channel_detect, self._channel_sequence, int(np.round(self._bin_width * 1000)), self._record_length, number_of_gates, channel_apd))
+        print('Configuring timetagger. detect: {0}, sequence: {1}, bin width: {2}, length: {3}, ngates: {4}, apd: {5}'.format(self._channel_detect, self._channel_sequence, int(np.round(self._bin_width * 1000)), self._record_length, number_of_gates, self._channel_apd))
 
         self.pulsed = tt.TimeDifferences(
             tagger=self._tagger,
-            click_channel=channel_apd,
+            click_channel=self._channel_apd,
             start_channel=self._channel_detect,
             next_channel=self._channel_detect,
-            sync_channel=tt.CHANNEL_INVALID,
+            sync_channel=tt.CHANNEL_UNUSED,
             binwidth=int(np.round(self._bin_width * 1000)),
             n_bins=int(self._record_length),
             n_histograms=number_of_gates)
