@@ -20,7 +20,7 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
 
-from TimeTagger import createTimeTagger, Counter
+import TimeTagger as tt
 import time
 
 from core.base import Base
@@ -51,31 +51,41 @@ class TimeTaggerCounter(Base, SlowCounterInterface):
                          had happened.
         """
 
-        self._tagger = createTimeTagger()
+        self._tagger = tt.createTimeTagger()
 
-        self._count_frequency = 10  # Hz
+        self._count_frequency = 50  # Hz
 
         config = self.getConfiguration()
 
         if 'timetagger_channel_apd_0' in config.keys():
             self._channel_apd_0 = config['timetagger_channel_apd_0']
         else:
-            self.log.error('No parameter "timetagger_photon_channel" configured.\n'
-                    'Assign to that parameter an appropriated channel '
-                    'from your NI Card!')
+            self.log.error('No parameter "timetagger_channel_apd_0" configured.\n')
 
         if 'timetagger_channel_apd_1' in config.keys():
             self._channel_apd_1 = config['timetagger_channel_apd_1']
         else:
-            self.log.error('No parameter "timetagger_photon_channel" configured.\n'
-                    'Assign to that parameter an appropriated channel '
-                    'from your NI Card!')
+            self._channel_apd_1 = None
 
         if 'timetagger_sum_channels' in config.keys():
             self._sum_channels = config['timetagger_sum_channels']
         else:
-            self.log.warning('No indication whether or not to sum apd channels for timetagger. Assuming true.')
-            self._sum_channels = True
+            self.log.warning('No indication whether or not to sum apd channels for timetagger. Assuming false.')
+            self._sum_channels = False
+
+        if self._sum_channels and ('timetagger_channel_apd_1' in config.keys()):
+            self.log.error('Cannot sum channels when only one apd channel given')
+
+        ## self._mode can take 3 values:
+        # 0: single channel, no summing
+        # 1: single channel, summed over apd_0 and apd_1
+        # 2: dual channel for apd_0 and apd_1
+        if self._sum_channels:
+            self._mode = 1
+        elif self._channel_apd_1 is None:
+            self._mode = 0
+        else:
+            self._mode = 2
 
     def on_deactivate(self, e=None):
         """ Shut down the NI card.
@@ -121,18 +131,49 @@ class TimeTaggerCounter(Base, SlowCounterInterface):
 
         @return int: error code (0:OK, -1:error)
         """
-        self.counter = Counter(
-            self._tagger,
-            channels=[self._channel_apd_0],
-            binwidth=int((1 / self._count_frequency) * 1e12),
-            n_values=1
-        )
+
+        if self._mode == 1:
+            channel_combined = tt.Combiner(self._tagger, channels = [self._channel_apd_0, self._channel_apd_1])
+            self._channel_apd = channel_combined.getChannel()
+
+            self.counter = tt.Counter(
+                self._tagger,
+                channels=[self._channel_apd],
+                binwidth=int((1 / self._count_frequency) * 1e12),
+                n_values=1
+            )
+        elif self._mode == 2:
+            self.counter0 = tt.Counter(
+                self._tagger,
+                channels=[self._channel_apd_0],
+                binwidth=int((1 / self._count_frequency) * 1e12),
+                n_values=1
+            )
+
+            self.counter1 = tt.Counter(
+                self._tagger,
+                channels=[self._channel_apd_1],
+                binwidth=int((1 / self._count_frequency) * 1e12),
+                n_values=1
+            )
+        else:
+            self._channel_apd = self._channel_apd_0
+            self.counter = tt.Counter(
+                self._tagger,
+                channels=[self._channel_apd],
+                binwidth=int((1 / self._count_frequency) * 1e12),
+                n_values=1
+            )
+
         self.log.info('set up counter with {0}'.format(self._count_frequency))
         return 0
 
     def get_counter_channels(self):
         """ Return one channel for now. """
-        return ['Ctr0']
+        if self._mode < 2:
+            return self._channel_apd
+        else:
+            return [self._channel_apd_0, self._channel_apd_1]
 
     def get_constraints(self):
         """ Get hardware limits of NI device.
@@ -157,7 +198,10 @@ class TimeTaggerCounter(Base, SlowCounterInterface):
         """
 
         time.sleep(2 / self._count_frequency)
-        return [self.counter.getData()]
+        if self._mode < 2:
+            return self.counter.getData() * self._count_frequency
+        else:
+            return [self.counter0.getData() * self._count_frequency, self.counter1.getData() * self._count_frequency]
 
     def close_counter(self):
         """ Closes the counter and cleans up afterwards.
