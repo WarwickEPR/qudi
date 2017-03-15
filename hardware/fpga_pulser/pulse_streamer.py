@@ -264,8 +264,8 @@ class PulseStreamer(Base, PulserInterface):
         laser_on = pulse_streamer_pb2.PulseMessage(ticks=0, digi=self._convert_to_bitmask([self._laser_channel]), ao0=0, ao1=0)
         sequence = pulse_streamer_pb2.SequenceMessage(pulse=pulse_sequence, n_runs=0, initial=laser_on,
             final=laser_on, underflow=blank_pulse, start=1)
-        self.pulse_streamer.stream(sequence)
 
+        self.pulse_streamer.stream(sequence)
         self.log.info('Asset uploaded to PulseStreamer')
         self.current_loaded_asset = asset_name
         return 0

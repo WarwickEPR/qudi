@@ -188,15 +188,6 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
         self.pulsed.stop()
         self.pulsed.clear()
 
-        # self.pulsed = tt.Pulsed(
-        #     self._record_length,
-        #     int(np.round(self._bin_width*1000)),
-        #     self._number_of_gates,
-        #     self._channel_apd_0,
-        #     self._channel_detect,
-        #     self._channel_sequence
-        # )
-
         return (bin_width_s, record_length_s, number_of_gates)
 
     def start_measure(self):
@@ -255,10 +246,12 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
         care of in this hardware class. A possible overflow of the histogram
         bins must be caught here and taken care of.
         """
-        print('Getting data')
-        print('Is running: {0}; counts: {1}'.format(self.pulsed.isRunning(), self.pulsed.getCounts()))
-        print('Data: {0}'.format(self.pulsed.getData()))
-        print('Shape: {0}'.format(self.pulsed.getData().shape))
+        # print('Getting data')
+        # print('Is running: {0}; counts: {1}'.format(self.pulsed.isRunning(), self.pulsed.getCounts()))
+        # d =self.pulsed.getData()
+        # print('Data: {0}'.format(d))
+        # print('Shape: {0}'.format(d.shape))
+        # print('Sum: {0}'.format(sum(d)))
         return np.array(self.pulsed.getData(), dtype='int64')
 
 
