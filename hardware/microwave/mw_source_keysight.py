@@ -115,7 +115,7 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         limits.sweep_maxstep = 6.4e9
         limits.sweep_maxentries = 10001
 
-        if self.model == 'N5172B':
+        if str.lstrip(self.model) == 'N5172B':
             limits.min_frequency = 9e3
             limits.max_frequency = 6.0e9
             limits.min_power = -127
