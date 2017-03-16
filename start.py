@@ -46,7 +46,6 @@ else:
     myenv['QUDI_PARENT_PID'] = str(os.getpid())
 
 argv = [sys.executable, '-m', 'core'] + sys.argv[1:]
-
 while True:
     process = subprocess.Popen(argv, close_fds=False, env=myenv, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr, shell=False)
     if sys.platform == 'win32':

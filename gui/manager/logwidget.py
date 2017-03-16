@@ -317,15 +317,25 @@ class LogWidget(QtWidgets.QWidget):
         # setResizeMode is deprecated in Qt5 (and therefore not available
         # in pyqt5
         if qtpy.PYQT4 or qtpy.PYSIDE:
-            self.output.horizontalHeader().setResizeMode(
+            # self.output.horizontalHeader().setResizeMode(
+            #     0, QtWidgets.QHeaderView.Interactive)
+            # self.output.horizontalHeader().setResizeMode(
+            #     1, QtWidgets.QHeaderView.ResizeToContents)
+            # self.output.horizontalHeader().setResizeMode(
+            #     2, QtWidgets.QHeaderView.ResizeToContents)
+            # self.output.horizontalHeader().setResizeMode(
+            #     3, QtWidgets.QHeaderView.ResizeToContents)
+            # self.output.verticalHeader().setResizeMode(
+            #     QtWidgets.QHeaderView.ResizeToContents)
+            self.output.horizontalHeader().setSectionResizeMode(
                 0, QtWidgets.QHeaderView.Interactive)
-            self.output.horizontalHeader().setResizeMode(
+            self.output.horizontalHeader().setSectionResizeMode(
                 1, QtWidgets.QHeaderView.ResizeToContents)
-            self.output.horizontalHeader().setResizeMode(
+            self.output.horizontalHeader().setSectionResizeMode(
                 2, QtWidgets.QHeaderView.ResizeToContents)
-            self.output.horizontalHeader().setResizeMode(
+            self.output.horizontalHeader().setSectionResizeMode(
                 3, QtWidgets.QHeaderView.ResizeToContents)
-            self.output.verticalHeader().setResizeMode(
+            self.output.verticalHeader().setSectionResizeMode(
                 QtWidgets.QHeaderView.ResizeToContents)
         else:
             self.output.horizontalHeader().setSectionResizeMode(
