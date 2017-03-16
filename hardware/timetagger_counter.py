@@ -22,6 +22,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 import TimeTagger as tt
 import time
+import numpy as np
 
 from core.base import Base
 from interface.slow_counter_interface import SlowCounterInterface
@@ -198,7 +199,8 @@ class TimeTaggerCounter(Base, SlowCounterInterface):
         if self._mode < 2:
             return self.counter.getData() * self._count_frequency
         else:
-            return [self.counter0.getData() * self._count_frequency, self.counter1.getData() * self._count_frequency]
+            return np.array([self.counter0.getData() * self._count_frequency,
+                             self.counter1.getData() * self._count_frequency])
 
     def close_counter(self):
         """ Closes the counter and cleans up afterwards.

@@ -72,12 +72,6 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
             self.log.warning('No indication whether or not to sum apd channels for timetagger. Assuming true.')
             self._sum_channels = True
 
-        # tt._Tagger_setSerial(self._fpgacounter_serial)
-        # thirdpartypath = os.path.join(self.get_main_dir(), 'thirdparty')
-        # bitfilepath = os.path.join(thirdpartypath, 'stuttgart_counter', 'TimeTaggerController.bit')
-        # tt._Tagger_setBitfilePath(bitfilepath)
-        # del bitfilepath, thirdpartypath
-
         self._number_of_gates = int(100)
         self._bin_width = 1
         self._record_length = int(4000)

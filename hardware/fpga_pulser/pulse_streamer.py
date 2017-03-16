@@ -20,7 +20,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 """
 
 from core.base import Base
-from interface.pulser_interface import PulserInterface
+from interface.pulser_interface import PulserInterface, PulserConstraints
 from collections import OrderedDict
 
 import grpc
@@ -33,7 +33,6 @@ class PulseStreamer(Base, PulserInterface):
     """
     _modclass = 'pulserinterface'
     _modtype = 'hardware'
-    _out = {'pulse_streamer': 'PulserInterface'}
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -123,69 +122,103 @@ class PulseStreamer(Base, PulserInterface):
         integer input (0).
         ALL THE PRESENT KEYS OF THE CONSTRAINTS DICT MUST BE ASSIGNED!
         """
-        constraints = dict()
+        constraints = PulserConstraints()
 
-        # if interleave option is available, then sample rate constraints must
-        # be assigned to the output of a function called
-        # _get_sample_rate_constraints()
-        # which outputs the shown dictionary with the correct values depending
-        # on the present mode. The the GUI will have to check again the
-        # limitations if interleave was selected.
-        constraints['sample_rate'] = {'min': 1e9, 'max': 1e9,
-                                      'step': 0, 'unit': 'Samples/s'}
+        # The file formats are hardware specific.
+        constraints.waveform_format = ['fpga']
+        constraints.sequence_format = []
 
-        # The file formats are hardware specific. The sequence_generator_logic will need this
-        # information to choose the proper output format for waveform and sequence files.
-        constraints['waveform_format'] = 'fpga'
-        constraints['sequence_format'] = None
+        constraints.sample_rate.min = 1e9
+        constraints.sample_rate.max = 1e9
+        constraints.sample_rate.step = 0
+        constraints.sample_rate.default = 1e9
 
-        # the stepsize will be determined by the DAC in combination with the
-        # maximal output amplitude (in Vpp):
-        constraints['a_ch_amplitude'] = {'min': 0, 'max': 0,
-                                         'step': 0, 'unit': 'Vpp'}
-                                        #initially ignore analog capability
-                                        #{'min': -1, 'max': 1,
-                                        # 'step': 0.00048828125, 'unit': 'Vpp'}
+        constraints.d_ch_low.min = 0.0
+        constraints.d_ch_low.max = 0.0
+        constraints.d_ch_low.step = 0.0
+        constraints.d_ch_low.default = 0.0
 
-        constraints['a_ch_offset'] = {'min': 0, 'max': 0,
-                                      'step': 0, 'unit': 'V'}
+        constraints.d_ch_high.min = 3.3
+        constraints.d_ch_high.max = 3.3
+        constraints.d_ch_high.step = 0.0
+        constraints.d_ch_high.default = 3.3
 
-        constraints['d_ch_low'] = {'min': 0, 'max': 0,
-                                   'step': 0, 'unit': 'V'}
+        constraints.sampled_file_length.min = 1
+        constraints.sampled_file_length.max = 134217728
+        constraints.sampled_file_length.step = 1
+        constraints.sampled_file_length.default = 1
 
-        constraints['d_ch_high'] = {'min': 3.3, 'max': 3.3,
-                                    'step': 0, 'unit': 'V'}
-
-        constraints['sampled_file_length'] = {'min': 1, 'max': 10000000,
-                                              'step': 1, 'unit': 'Samples'}
-
-        constraints['digital_bin_num'] = {'min': 0, 'max': 0.0,
-                                          'step': 0, 'unit': '#'}
-
-        constraints['waveform_num'] = {'min': 0, 'max': 0,
-                                       'step': 0, 'unit': '#'}
-
-        constraints['sequence_num'] = {'min': 1, 'max': 1,
-                                       'step': 0, 'unit': '#'}
-
-        constraints['subsequence_num'] = {'min': 0, 'max': 0,
-                                          'step': 0, 'unit': '#'}
-
-        # If sequencer mode is enable than sequence_param should be not just an
-        # empty dictionary. Insert here in the same fashion like above the
-        # parameters, which the device is needing for a creating sequences:
-        sequence_param = OrderedDict()
-        constraints['sequence_param'] = sequence_param
-
-        # the name a_ch<num> and d_ch<num> are generic names, which describe
-        # UNAMBIGUOUSLY the channels. Here all possible channel configurations
-        # are stated, where only the generic names should be used. The names
-        # for the different configurations can be customary chosen.
-
+        # the name a_ch<num> and d_ch<num> are generic names, which describe UNAMBIGUOUSLY the
+        # channels. Here all possible channel configurations are stated, where only the generic
+        # names should be used. The names for the different configurations can be customary chosen.
         activation_config = OrderedDict()
-        activation_config['all'] = ['d_ch1', 'd_ch2', 'd_ch3', 'd_ch4',
-                                    'd_ch5', 'd_ch6', 'd_ch7', 'd_ch8']
-        constraints['activation_config'] = activation_config
+        activation_config['all'] = ['d_ch1', 'd_ch2', 'd_ch3', 'd_ch4', 'd_ch5', 'd_ch6', 'd_ch7',
+                                    'd_ch8']
+        constraints.activation_config = activation_config
+
+        # constraints = dict()
+        #
+        # # if interleave option is available, then sample rate constraints must
+        # # be assigned to the output of a function called
+        # # _get_sample_rate_constraints()
+        # # which outputs the shown dictionary with the correct values depending
+        # # on the present mode. The the GUI will have to check again the
+        # # limitations if interleave was selected.
+        # constraints['sample_rate'] = {'min': 1e9, 'max': 1e9,
+        #                               'step': 0, 'unit': 'Samples/s'}
+        #
+        # # The file formats are hardware specific. The sequence_generator_logic will need this
+        # # information to choose the proper output format for waveform and sequence files.
+        # constraints['waveform_format'] = 'fpga'
+        # constraints['sequence_format'] = None
+        #
+        # # the stepsize will be determined by the DAC in combination with the
+        # # maximal output amplitude (in Vpp):
+        # constraints['a_ch_amplitude'] = {'min': 0, 'max': 0,
+        #                                  'step': 0, 'unit': 'Vpp'}
+        #                                 #initially ignore analog capability
+        #                                 #{'min': -1, 'max': 1,
+        #                                 # 'step': 0.00048828125, 'unit': 'Vpp'}
+        #
+        # constraints['a_ch_offset'] = {'min': 0, 'max': 0,
+        #                               'step': 0, 'unit': 'V'}
+        #
+        # constraints['d_ch_low'] = {'min': 0, 'max': 0,
+        #                            'step': 0, 'unit': 'V'}
+        #
+        # constraints['d_ch_high'] = {'min': 3.3, 'max': 3.3,
+        #                             'step': 0, 'unit': 'V'}
+        #
+        # constraints['sampled_file_length'] = {'min': 1, 'max': 10000000,
+        #                                       'step': 1, 'unit': 'Samples'}
+        #
+        # constraints['digital_bin_num'] = {'min': 0, 'max': 0.0,
+        #                                   'step': 0, 'unit': '#'}
+        #
+        # constraints['waveform_num'] = {'min': 0, 'max': 0,
+        #                                'step': 0, 'unit': '#'}
+        #
+        # constraints['sequence_num'] = {'min': 1, 'max': 1,
+        #                                'step': 0, 'unit': '#'}
+        #
+        # constraints['subsequence_num'] = {'min': 0, 'max': 0,
+        #                                   'step': 0, 'unit': '#'}
+        #
+        # # If sequencer mode is enable than sequence_param should be not just an
+        # # empty dictionary. Insert here in the same fashion like above the
+        # # parameters, which the device is needing for a creating sequences:
+        # sequence_param = OrderedDict()
+        # constraints['sequence_param'] = sequence_param
+        #
+        # # the name a_ch<num> and d_ch<num> are generic names, which describe
+        # # UNAMBIGUOUSLY the channels. Here all possible channel configurations
+        # # are stated, where only the generic names should be used. The names
+        # # for the different configurations can be customary chosen.
+        #
+        # activation_config = OrderedDict()
+        # activation_config['all'] = ['d_ch1', 'd_ch2', 'd_ch3', 'd_ch4',
+        #                             'd_ch5', 'd_ch6', 'd_ch7', 'd_ch8']
+        # constraints['activation_config'] = activation_config
 
         return constraints
 
