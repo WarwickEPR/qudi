@@ -6,6 +6,7 @@ from pyqtgraph.SignalProxy import SignalProxy
 from pyqtgraph import functions as fn
 from math import log
 from decimal import Decimal as D  ## Use decimal to avoid accumulating floating-point errors
+from decimal import ROUND_FLOOR
 #from decimal import *
 import weakref
 
