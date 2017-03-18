@@ -239,29 +239,8 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         self._connection.write(':LIST:DWEL 10 ms')
         self._connection.write(freqcommand)
         self._connection.write(':POWER {0:f}'.format(power))
-        #print('6: {0}'.format(self._connection.write('*WAI')))
 
-        #self.on()
-        print('6: {0}'.format(self._connection.write(':OUTP:STAT ON')))
-
-#         self._connection.write(':SWE:RF:STAR {0:e} Hz'.format(freq[0]))
-#         self._connection.write(':SWE:RF:STOP {0:e} Hz'.format(freq[-1]))
-#         self._connection.write(':SWE:STEP:POIN {0}'.format(n))
-#         self._connection.write(':SWE:STEP:DWEL 10 ms')
-#         self._connection.write('*WAI')
-#
-#         self._connection.write(':SWE:AMPL:STAR {0:f}'.format(power))
-#         self._connection.write(':SWE:AMPL:STOP {0:f}'.format(power))
-#         self._connection.write(':SWE:REP CONT')
-#         self._connection.write(':SWE:STRG IMM')
-# #        self._usb_connection.write(':SWE:STRG:SLOP EXTP')
-#         self._connection.write(':SWE:PTRG IMM')
-# #        self._usb_connection.write(':SWE:PTRG:SLOP EXTP')
-#         self._connection.write(':SWE:DIR:UP')
-#         self._connection.write('*WAI')
-#
-#         self._connection.write(':RFO:STAT ON')
-#         self._connection.write(':SWE:RF:STAT ON')
+        self._connection.write(':OUTP:STAT ON')
 
         return 0
 
@@ -290,36 +269,10 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         self._connection.write(':FREQ:STOP {0:e} Hz'.format(stop))
         self._connection.write(':SWE:FREQ:STEP:LIN {0:e} Hz'.format(step))
         self._connection.write(':SWE:DWEL 10 ms')
-        #self._connection.write('*WAI')))
 
         n = int(np.round(float(self._connection.query(':SWE:POIN?\n'))))
         self.on()
 
-#         self._connection.write(':SWE:AMPL:STAR {0:f}'.format(power))
-#         self._connection.write(':SWE:AMPL:STOP {0:f}'.format(power))
-#         self._connection.write(':SWE:REP CONT')
-#         self._connection.write(':SWE:STRG IMM')
-# #        self._usb_connection.write(':SWE:STRG:SLOP EXTP')
-#         self._connection.write(':SWE:PTRG IMM')
-# #        self._usb_connection.write(':SWE:PTRG:SLOP EXTP')
-#         self._connection.write(':SWE:DIR:UP')
-#         self._connection.write('*WAI')
-
-        #self._connection.write(':RFO:STAT ON')
-        #self._connection.write(':SWE:RF:STAT ON')
-
-        # self._gpib_connection.write(':SWE:MODE STEP')
-        # self._gpib_connection.write(':SOUR:FREQ:STAR ' + str(start-step))
-        # self._gpib_connection.write(':SOUR:FREQ:STOP ' + str(stop))
-        # self._gpib_connection.write(':SOUR:SWE:SPAC LIN')
-        # self._gpib_connection.write(':SOUR:SWE:STEP ' + str(step))
-        # self._gpib_connection.write(':TRIG1:SWE:SOUR EXT')
-        # self._gpib_connection.write(':TRIG1:SLOP POS')
-        # self._gpib_connection.write('*WAI')
-        # n = int(np.round(float(self._gpib_connection.query(':SWE:FREQ:POIN?'))))
-        # print(n)
-        # if n != len(self._mw_frequency_list):
-        #     return -1
         return n
 
     def reset_sweep(self):
@@ -338,13 +291,7 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         """
         print('sweep on')
         self._connection.write(':OUTP:STAT ON')
-        #
-        # self._connection.write(':RFO:STAT ON')
-        # self._connection.write(':SWE:RF:STAT ON')
-        #self._connection.write('*WAI')
-        # If there are timeout  problems after this command, update the smiq
-        # firmware to > 5.90 as there was a problem with excessive wait times
-        # after issuing :LIST:LEARN over a GPIB connection in firmware 5.88
+
         return 1
 
     def list_on(self):
@@ -353,7 +300,6 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         @return int: error code (1: ready, 0:not ready, -1:error)
         """
         self._connection.write(':OUTP:STAT ON')
-        #self._connection.write('*WAI')
 
         return 1
 
