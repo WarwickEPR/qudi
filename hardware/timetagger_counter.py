@@ -38,7 +38,7 @@ class TimeTaggerCounter(Base, SlowCounterInterface):
 
 
     def on_activate(self, e=None):
-        """ Starts up the NI Card at activation.
+        """ Start up TimeTagger interface
 
         @param object e: Event class object from Fysom.
                          An object created by the state machine module Fysom,
@@ -86,7 +86,7 @@ class TimeTaggerCounter(Base, SlowCounterInterface):
             self._mode = 2
 
     def on_deactivate(self, e=None):
-        """ Shut down the NI card.
+        """ Shut down the TimeTagger.
 
         @param object e: Event class object from Fysom. A more detailed
                          explanation can be found in method activation.
@@ -95,7 +95,7 @@ class TimeTaggerCounter(Base, SlowCounterInterface):
         pass
 
     def set_up_clock(self, clock_frequency=None, clock_channel=None):
-        """ Configures the hardware clock of the NiDAQ card to give the timing.
+        """ Configures the hardware clock of the TimeTagger for timing
 
         @param float clock_frequency: if defined, this sets the frequency of
                                       the clock
@@ -130,6 +130,8 @@ class TimeTaggerCounter(Base, SlowCounterInterface):
         @return int: error code (0:OK, -1:error)
         """
 
+        # currently, parameters passed to this function are ignored -- the channels used and clock frequency are
+        # set at startup
         if self._mode == 1:
             channel_combined = tt.Combiner(self._tagger, channels = [self._channel_apd_0, self._channel_apd_1])
             self._channel_apd = channel_combined.getChannel()
@@ -167,21 +169,20 @@ class TimeTaggerCounter(Base, SlowCounterInterface):
         return 0
 
     def get_counter_channels(self):
-        """ Return one channel for now. """
         if self._mode < 2:
             return self._channel_apd
         else:
             return [self._channel_apd_0, self._channel_apd_1]
 
     def get_constraints(self):
-        """ Get hardware limits of NI device.
+        """ Get hardware limits the device
 
         @return SlowCounterConstraints: constraints class for slow counter
 
         FIXME: ask hardware for limits when module is loaded
         """
         constraints = SlowCounterConstraints()
-        constraints.max_detectors = 1
+        constraints.max_detectors = 2
         constraints.min_count_frequency = 1e-3
         constraints.max_count_frequency = 10e9
         constraints.counting_mode = [CountingMode.CONTINUOUS]
