@@ -82,7 +82,7 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
         else:
             self._channel_apd = self._channel_apd_0
 
-        self.configure(self._bin_width*1e-9,self._record_length*1e-9,self._number_of_gates)
+        #self.configure(self._bin_width*1e-9,self._record_length*1e-9,self._number_of_gates)
 
         self.statusvar = 0
 
@@ -161,7 +161,7 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
         """
         self._number_of_gates = number_of_gates
         self._bin_width = bin_width_s * 1e9
-        self._record_length = int(record_length_s / bin_width_s)
+        self._record_length = 1 + int(record_length_s / bin_width_s)
         self.statusvar = 1
 
         print('Configuring timetagger. detect: {0}, sequence: {1}, bin width: {2}, length: {3}, ngates: {4}, apd: {5}'.format(self._channel_detect, self._channel_sequence, int(np.round(self._bin_width * 1000)), self._record_length, number_of_gates, self._channel_apd))
@@ -185,6 +185,7 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
         """ Start the fast counter. """
         print('Starting timetagger measurement')
         self.lock()
+        self.pulsed.clear()
         self.pulsed.start()
         self.statusvar = 2
         return 0
@@ -237,12 +238,6 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
         care of in this hardware class. A possible overflow of the histogram
         bins must be caught here and taken care of.
         """
-        # print('Getting data')
-        # print('Is running: {0}; counts: {1}'.format(self.pulsed.isRunning(), self.pulsed.getCounts()))
-        # d =self.pulsed.getData()
-        # print('Data: {0}'.format(d))
-        # print('Shape: {0}'.format(d.shape))
-        # print('Sum: {0}'.format(sum(d)))
         return np.array(self.pulsed.getData(), dtype='int64')
 
 

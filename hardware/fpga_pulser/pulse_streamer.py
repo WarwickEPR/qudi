@@ -166,6 +166,8 @@ class PulseStreamer(Base, PulserInterface):
         @return int: error code (0:OK, -1:error)
         """
         # start the pulse sequence
+        self.pulse_streamer.stream(self._sequence)
+        self.log.info('Asset uploaded to PulseStreamer')
         self.pulse_streamer.startNow(pulse_streamer_pb2.VoidMessage())
         self.current_status = 1
         return 0
@@ -233,11 +235,11 @@ class PulseStreamer(Base, PulserInterface):
 
         blank_pulse = pulse_streamer_pb2.PulseMessage(ticks=0, digi=0, ao0=0, ao1=0)
         laser_on = pulse_streamer_pb2.PulseMessage(ticks=0, digi=self._convert_to_bitmask([self._laser_channel]), ao0=0, ao1=0)
-        sequence = pulse_streamer_pb2.SequenceMessage(pulse=pulse_sequence, n_runs=0, initial=laser_on,
-            final=laser_on, underflow=blank_pulse, start=1)
+        laser_and_uw_channels = self._convert_to_bitmask([self._laser_channel, self._uw_x_channel])
+        laser_and_uw_on = pulse_streamer_pb2.PulseMessage(ticks=0, digi=laser_and_uw_channels, ao0=0, ao1=0)
+        self._sequence = pulse_streamer_pb2.SequenceMessage(pulse=pulse_sequence, n_runs=0, initial=laser_on,
+            final=laser_and_uw_on, underflow=blank_pulse, start=1)
 
-        self.pulse_streamer.stream(sequence)
-        self.log.info('Asset uploaded to PulseStreamer')
         self.current_loaded_asset = asset_name
         return 0
 
@@ -556,7 +558,8 @@ a
 
         @return int: error code (0:OK, -1:error)
         """
-        laser_on = pulse_streamer_pb2.PulseMessage(ticks=0, digi=self._convert_to_bitmask([self._laser_channel]), ao0=0, ao1=0)
+        channels = self._convert_to_bitmask([self._laser_channel, self._uw_x_channel])
+        self.pulse_streamer.constant(pulse_streamer_pb2.PulseMessage(ticks=0, digi=channels, ao0=0, ao1=0))
         self.pulse_streamer.constant(laser_on)
         return 0
 
