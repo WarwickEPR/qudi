@@ -382,7 +382,6 @@ class SamplesWriteMethods():
         @return list: the list contains the string names of the created files for the passed
                       presampled arrays
         """
-        #import hardware.fpga_pulser.pulse_streamer_pb2 as pulse_streamer_pb2
         import dill
 
         # record the name of the created files
