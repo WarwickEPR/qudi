@@ -26,7 +26,7 @@ from core.base import Base
 import os
 
 
-class FastCounterFGAPiP3(Base, FastCounterInterface):
+class TimeTaggerFastCounter(Base, FastCounterInterface):
     _modclass = 'FastCounterFGAPiP3'
     _modtype = 'hardware'
 
