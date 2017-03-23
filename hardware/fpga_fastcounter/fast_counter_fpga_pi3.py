@@ -77,12 +77,13 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
         self._record_length = int(4000)
 
         if self._sum_channels == True:
-            channel_combined = tt.Combiner(self._tagger, channels=[self._channel_apd_0, self._channel_apd_1])
-            self._channel_apd = channel_combined.getChannel()
+            self._channel_combined = tt.Combiner(self._tagger, channels=[self._channel_apd_0, self._channel_apd_1])
+            self._channel_apd = self._channel_combined.getChannel()
         else:
             self._channel_apd = self._channel_apd_0
 
-        #self.configure(self._bin_width*1e-9,self._record_length*1e-9,self._number_of_gates)
+        self.log.info('TimeTagger (fast counter) configured to use  channel {0}'
+                      .format(self._channel_apd))
 
         self.statusvar = 0
 
@@ -177,7 +178,6 @@ class FastCounterFGAPiP3(Base, FastCounterInterface):
             n_histograms=number_of_gates)
 
         self.pulsed.stop()
-        self.pulsed.clear()
 
         return (bin_width_s, record_length_s, number_of_gates)
 
