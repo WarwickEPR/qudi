@@ -89,10 +89,15 @@ class OptimizerLogic(GenericLogic):
         self._scanning_device = self.get_connector('confocalscanner1')
         self._fit_logic = self.get_connector('fitlogic')
 
+        number_of_axes = len(self._scanning_device.get_scanner_axes())
+
         # Reads in the maximal scanning range. The unit of that scan range is micrometer!
         self.x_range = self._scanning_device.get_position_range()[0]
         self.y_range = self._scanning_device.get_position_range()[1]
-        self.z_range = self._scanning_device.get_position_range()[2]
+        if number_of_axes > 2:
+            self.z_range = self._scanning_device.get_position_range()[2]
+        else:
+            self.z_range = [0.0, 0.0]
 
         self._initial_pos_x = 0.
         self._initial_pos_y = 0.

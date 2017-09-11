@@ -49,7 +49,7 @@ class NICard(Base, SlowCounterInterface, ConfocalScannerInterface, ODMRCounterIn
         which will, dependent on the clock, count within the clock interval. The faster
         the clock channel is configured, the smaller is the gated counting
         interval and the less counts per clock periode you will count.
-
+` 
     Therefore the whole issue is to establish a time based gated-counting
     channel.
 
@@ -294,7 +294,8 @@ class NICard(Base, SlowCounterInterface, ConfocalScannerInterface, ODMRCounterIn
                 self.log.warning('No a_range configured taking [0,100e-6] instead.')
 
         if 'voltage_range' in config.keys():
-            if float(config['voltage_range'][0]) < float(config['voltage_range'][1]):
+            if float(config['voltage_range'][0]) \
+                    < float(config['voltage_range'][1]):
                 vlow = float(config['voltage_range'][0])
                 vhigh = float(config['voltage_range'][1])
                 self._voltage_range = [

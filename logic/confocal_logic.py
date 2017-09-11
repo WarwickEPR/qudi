@@ -56,10 +56,15 @@ class ConfocalHistoryEntry(QtCore.QObject):
         self.xy_line_pos = 0
         self.depth_line_pos = 0
 
+        number_of_axes = len(confocal._scanning_device.get_scanner_axes())
+
         # Reads in the maximal scanning range. The unit of that scan range is meters!
         self.x_range = confocal._scanning_device.get_position_range()[0]
         self.y_range = confocal._scanning_device.get_position_range()[1]
-        self.z_range = confocal._scanning_device.get_position_range()[2]
+        if number_of_axes > 2:
+            self.z_range = confocal._scanning_device.get_position_range()[2]
+        else:
+            self.z_range = [0.0, 0.0]
 
         # Sets the current position to the center of the maximal scanning range
         self.current_x = (self.x_range[0] + self.x_range[1]) / 2
@@ -305,9 +310,13 @@ class ConfocalLogic(GenericLogic):
         self._save_logic = self.get_connector('savelogic')
 
         # Reads in the maximal scanning range. The unit of that scan range is micrometer!
+        number_of_axes = len(self._scanning_device.get_scanner_axes())
         self.x_range = self._scanning_device.get_position_range()[0]
         self.y_range = self._scanning_device.get_position_range()[1]
-        self.z_range = self._scanning_device.get_position_range()[2]
+        if number_of_axes > 2:
+            self.z_range = self._scanning_device.get_position_range()[2]
+        else:
+            self.z_range = [0, 0]
 
         # restore here ...
         self.history = []
