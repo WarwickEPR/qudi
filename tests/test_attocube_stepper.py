@@ -1,5 +1,5 @@
 from unittest.mock import Mock, MagicMock
-from hardware.attocube_stepper import AttoCubeStepper
+from hardware.anc300_stepper import AttoCubeStepper
 from core.manager import Manager
 import telnetlib
 

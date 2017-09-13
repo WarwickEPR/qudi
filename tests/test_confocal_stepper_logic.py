@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from hardware.attocube_stepper import AttoCubeStepper
+from hardware.anc300_stepper import AttoCubeStepper
 from logic.confocal_stepper_logic import ConfocalStepperLogic
 from core.manager import Manager
 import numpy as np

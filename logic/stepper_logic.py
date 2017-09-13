@@ -20,20 +20,28 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
 
-import abc
-from core.util.interfaces import InterfaceMetaclass
+from logic.generic_logic import GenericLogic
+from core.module import Connector
 
 
-class PiezoStepperInterface(metaclass=InterfaceMetaclass):
-    """ This is the Interface class to define the controls for the simple
-    piezo stepper hardware.
+class StepperLogic(GenericLogic):
+
+    """ This is the logic module to control simple piezo stepper hardware.
     """
 
-    _modtype = 'PiezoStepperInterface'
-    _modclass = 'interface'
+    _modtype = 'StepperLogic'
+    _modclass = 'logic'
 
+    stepper = Connector(interface='PiezoStepperInterface')
+    _hw = None
 
-    @abc.abstractmethod
+    def on_activate(self):
+        """ Initialisation performed during activation of the module.
+        """
+
+        # Connectors
+        self._hw = self.get_connector('stepper')
+
     def reset_hardware(self):
         """ Resets the hardware, so the connection is lost and other programs
             can access it.
@@ -42,16 +50,14 @@ class PiezoStepperInterface(metaclass=InterfaceMetaclass):
         """
         pass
 
-    @abc.abstractmethod
     def get_step_voltage(self, axis):
         """ Gets the voltage of the steps.
 
         @param axis: string specifying axis
         @return float: voltage
         """
-        pass
+        return self._hw.get_step_voltage(axis)
 
-    @abc.abstractmethod
     def set_step_voltage(self, axis, voltage=None):
         """ Sets the voltage of the steps.
 
@@ -60,18 +66,16 @@ class PiezoStepperInterface(metaclass=InterfaceMetaclass):
 
         @return int: error code (0:OK, -1:error)
         """
-        pass
+        return self._hw.set_step_voltage(axis, voltage)
 
-    @abc.abstractmethod
     def get_step_frequency(self, axis):
         """ Gets the frequency of the steps.
 
         @param axis: string specifying axis
         @return int: frequency
         """
-        pass
+        return self._hw.get_step_frequency(axis)
 
-    @abc.abstractmethod
     def set_step_frequency(self, axis, frequency=None):
         """ Sets the frequency of the steps.
 
@@ -80,18 +84,16 @@ class PiezoStepperInterface(metaclass=InterfaceMetaclass):
 
         @return int: error code (0:OK, -1:error)
         """
-        pass
+        return self._hw.set_step_frequency(axis, frequency)
 
-    @abc.abstractmethod
     def get_axis_mode(self, axis):
         """ Gets the mode of the axis
 
         @param axis: string specifying axis
         @return string: mode of axis
         """
-        pass
+        return self._hw.get_axis_mode(axis)
 
-    @abc.abstractmethod
     def set_axis_mode(self, axis, mode):
         """ Sets the mode of the axis
 
@@ -100,27 +102,24 @@ class PiezoStepperInterface(metaclass=InterfaceMetaclass):
 
         @return int: error code (0:OK, -1:error)
         """
-        pass
+        return self._hw.set_axis_mode(axis, mode)
 
-    @abc.abstractmethod
     def get_voltage_range(self, axis):
         """ Get the range of allowed voltage
 
         @param axis: string specifying axis
 
         @return [float,float] of low, high voltage limits"""
-        pass
+        return self._hw.get_voltage_range(axis)
 
-    @abc.abstractmethod
     def get_frequency_range(self, axis):
         """ Get the range of allowed frequencies
 
         @param axis: string specifying axis
 
         @return [int,int] of low, high frequency limits"""
-        pass
+        return self._hw.get_frequency_range(axis)
 
-    @abc.abstractmethod
     def step_up(self, axis=None, steps=1):
         """ Steps the positioner up a given number of steps
 
@@ -129,9 +128,8 @@ class PiezoStepperInterface(metaclass=InterfaceMetaclass):
 
         @return: error code (0:OK, -1:error)
         """
-        pass
+        return self._hw.step_up(axis, steps)
 
-    @abc.abstractmethod
     def step_down(self, axis=None, steps=1):
         """ Steps the positioner down a given number of steps
 
@@ -140,9 +138,8 @@ class PiezoStepperInterface(metaclass=InterfaceMetaclass):
 
         @return: error code (0:OK, -1:error)
         """
-        pass
+        return self._hw.step_down(axis, steps)
 
-    @abc.abstractmethod
     def step_up_continuously(self, axis=None):
         """ Steps the positioner up until stopped
 
@@ -151,9 +148,8 @@ class PiezoStepperInterface(metaclass=InterfaceMetaclass):
 
         @return: error code (0:OK, -1:error)
         """
-        pass
+        return self._hw.step_up_continuously(axis)
 
-    @abc.abstractmethod
     def step_down_continuously(self, axis=None):
         """ Steps the positioner down until stopped
 
@@ -162,9 +158,8 @@ class PiezoStepperInterface(metaclass=InterfaceMetaclass):
 
         @return: error code (0:OK, -1:error)
         """
-        pass
+        return self._hw.step_down_continuously(axis)
 
-    @abc.abstractmethod
     def stop_axis(self, axis=None):
         """ Stops the axis
 
@@ -172,12 +167,11 @@ class PiezoStepperInterface(metaclass=InterfaceMetaclass):
 
         @return: error code (0:OK, -1:error)
         """
-        pass
+        return self._hw.stop_axis(axis)
 
-    @abc.abstractmethod
     def stop_all_axes(self):
         """ Stops all axes
 
         @return: error code (0:OK, -1:error)
         """
-        pass
+        return self._hw.stop_all_axes()
