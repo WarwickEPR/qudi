@@ -475,14 +475,14 @@ class Anc300(Base, PiezoStepperInterface):
         self.log.warning('Attocube Device does not need to be reset.')
         pass
 
-    def get_voltage_range(self):
+    def get_voltage_range(self, axis):
         """Returns the current possible stepping voltage range of the stepping device for all axes
 
         @return list: voltage range of scanner
         """
         return self._voltage_range
 
-    def get_frequency_range(self):
+    def get_frequency_range(self, axis):
         """Returns the current possible stepping frequency range of the stepping device for all axes
         @return list: voltage range of scanner
         """

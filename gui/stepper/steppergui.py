@@ -1,12 +1,14 @@
 import os
 from gui.guibase import GUIBase
-from qtpy import QtWidgets
-from qtpy import uic
+from qtpy import QtWidgets, QtCore, uic
+
 from core.module import Connector, ConfigOption
 
 
 class StepperWindow(QtWidgets.QMainWindow):
     """ Create the Main Window based on the *.ui file. """
+
+    activityChanged = QtCore.Signal(bool)
 
     def __init__(self):
         # Get the path to the *.ui file
@@ -17,6 +19,10 @@ class StepperWindow(QtWidgets.QMainWindow):
         super().__init__()
         uic.loadUi(ui_file, self)
         self.show()
+
+    def changeEvent(self, event):
+        if event.type() == QtCore.QEvent.ActivationChange:
+            self.activityChanged.emit(self.isActiveWindow())
 
 
 class StepperGui(GUIBase):
@@ -46,9 +52,33 @@ class StepperGui(GUIBase):
         self.speed = dict(x=self.x_speed, y=self.y_speed, z=self.z_speed)
 
         # set initial values
+        for speed in self.x_speed:
+            self._mw.speed_x.addItem(speed)
+        self._mw.speed_x.addItem("User set")
         self.set_speed_x("Normal")
+
+        for speed in self.y_speed:
+            self._mw.speed_y.addItem(speed)
+        self._mw.speed_y.addItem("User set")
         self.set_speed_y("Normal")
+
+        for speed in self.z_speed:
+            self._mw.speed_z.addItem(speed)
+        self._mw.speed_z.addItem("User set")
         self.set_speed_z("Normal")
+
+        [v_min, v_max] = self._hw.get_voltage_range('x')
+        [f_min, f_max] = self._hw.get_frequency_range('y')
+        self._mw.voltage_x.setRange(v_min, v_max)
+        self._mw.voltage_y.setRange(v_min, v_max)
+        self._mw.voltage_z.setRange(v_min, v_max)
+        self._mw.frequency_x.setRange(f_min, f_max)
+        self._mw.frequency_y.setRange(f_min, f_max)
+        self._mw.frequency_z.setRange(f_min, f_max)
+
+        # todo: toggle between stepper and offset mode
+
+        self._mw.activityChanged.connect(lambda x: self.log.info("Activity changed: {}".format(x)))
 
         # connect user interaction for movement
 
@@ -95,9 +125,9 @@ class StepperGui(GUIBase):
         self._mw.step_down_x.clicked.disconnect()
         self._mw.step_down_y.clicked.disconnect()
         self._mw.step_down_z.clicked.disconnect()
-        self._mw.buzz_up_x.pressed.diconnect()
-        self._mw.buzz_up_y.pressed.diconnect()
-        self._mw.buzz_up_z.pressed.diconnect()
+        self._mw.buzz_up_x.pressed.disconnect()
+        self._mw.buzz_up_y.pressed.disconnect()
+        self._mw.buzz_up_z.pressed.disconnect()
         self._mw.buzz_down_x.pressed.disconnect()
         self._mw.buzz_down_y.pressed.disconnect()
         self._mw.buzz_down_z.pressed.disconnect()
@@ -125,6 +155,13 @@ class StepperGui(GUIBase):
         self._mw.stop_all.clicked.disconnect()
 
         self._mw.close()
+
+    def show(self):
+        """Make main window visible and put it above all other windows. """
+        # Show the Main Confocal GUI:
+        self._mw.show()
+        self._mw.activateWindow()
+        self._mw.raise_()
 
     def set_speed_edit_enabled(self, axis, state):
         if axis == 'x':
