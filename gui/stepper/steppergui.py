@@ -79,6 +79,7 @@ class StepperGui(GUIBase):
         # todo: toggle between stepper and offset mode
 
         self._mw.activityChanged.connect(lambda x: self.log.info("Activity changed: {}".format(x)))
+        self._mw.tabs.currentChanged.connect(lambda x: self.log.info("Tab changed: {}".format(x)))
 
         # connect user interaction for movement
 
@@ -119,6 +120,7 @@ class StepperGui(GUIBase):
 
     def on_deactivate(self):
 
+        self._mw.activityChanged.disconnect()
         self._mw.step_up_y.clicked.disconnect()
         self._mw.step_up_x.clicked.disconnect()
         self._mw.step_up_z.clicked.disconnect()
@@ -242,6 +244,14 @@ class StepperGui(GUIBase):
             self._hw.set_step_frequency(axis, f)
         else:
             self.log.warn("Failed to set speed for axis {} to {}".format(axis, speed))
+
+    def set_mode_for_tab(self, index):
+        if index == 1:
+            # fine control of z mode
+            self._hw.set_axis_mode('z', 'offset')
+        else:
+            self._he
+            self._hw.set_axis_mode('z', 'step')
 
     def set_speed_x_i(self, i):
         speed = self._mw.speed_x.itemText(i)
