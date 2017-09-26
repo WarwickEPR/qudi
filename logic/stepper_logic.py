@@ -175,3 +175,32 @@ class StepperLogic(GenericLogic):
         @return: error code (0:OK, -1:error)
         """
         return self._hw.stop_all_axes()
+
+    def get_offset(self, axis):
+        """ Gets the offset voltage for an axis
+
+        @param axis: string selecting axis
+
+        @return: float voltage
+        """
+        return self._hw.get_offset(self, axis)
+
+    def set_offset(self, axis, voltage):
+        """ Sets the offset voltage for an axis
+
+        @param axis: string selecting axis
+        @param offset: voltage
+
+        @return: error code (0:OK, -1:error)
+        """
+        return self._hw.set_offset(self, axis, voltage)
+
+    def scan_offset(self, axis, offset_list, dwell):
+        """ Sets off a scan of a predefined list of voltages
+
+        @param axis: string selecting axis
+        @param offset_list: string selecting offset list from configuration
+        @param dwell: approximate number of ms to dwell at each point
+
+        @return: error code (0:OK, -1:error)"""
+        return self._hw.scan_offset(self, axis, offset_list, dwell)
