@@ -70,35 +70,37 @@ class Anc300(Base, PiezoStepperInterface):
     _lua_functions = [
         'require "io"',
         'require "os"',
-        ('function trigger() ' # Cause DTR line on serial port to go high, triggering acquisition (via electronics)
+        'ok = 1',
+        ('function trigger() '  # Cause DTR line on serial port to go high, triggering acquisition (via electronics)
             'local f = io.open("/dev/ttyS2","w"); '
             'f:write(" "); '
             'f:close(); '
             'end'),
         'function dir(d) for i in io.popen("ls " .. d):lines() do print(i) end end',
         'function run(x) for i in io.popen(x):lines() do print(i) end end',
-        'function busywait(t) local n = math.ceil(t / 1.42e-3); for i = 0,n do end end', # estimated, in ms
+        'function busywait(t) local n = math.ceil(t / 1.42e-3); for i = 0,n do end end',  # estimated, in ms
         'function setOffset(axis,v) axis.mode=OSV; axis.osv=v end',
         'function setMode(axis,mode) axis.mode = mode end',
-        'function append(x,y) offset=#x for i,v in pairs(y) do x[offset+i] = v end end', # append two arrays
+        'function append(x,y) offset=#x for i,v in pairs(y) do x[offset+i] = v end end',  # append two arrays
+        's=0.2',
         ('function setOffsetSmoothly(axis,v) '
-           'while axis.osv - list[1] > .1 do axis.osv = axis.osv - .1 '  # adjust smoothly without a jump at ~ 10V/150us
-           'while axis.osv - list[1] < -.1 do axis.osv = axis.osv + .1 '
-           'axis.osv = v '
+           'while s < axis.osv - v do axis.osv = axis.osv - s  end '  # adjust smoothly without a jump at ~ 10V/150us
+           'while axis.osv - v < -s do axis.osv = axis.osv + s end '
+           'axis.osv = v; '
          'end'),
         ('function scan(axis,list,delay) '
-           'oldmode = axis.mode '
-           'oldv = axis.osv '
-           'axis.mode = OSV '
-           'setOffsetSmoothly(axis,list[1]) '
-           'for i,v in ipairs(list) '
-             'axis.osv = v '
-             'trigger() '
-             'busywait(delay) '
+           'oldmode = axis.mode; '
+           'oldv = axis.osv; '
+           'axis.mode = OSV; '
+           'setOffsetSmoothly(axis,list[1]); '
+           'for i,v in ipairs(list) do '
+             'setOffsetSmoothly(axis,v); '
+             'trigger(); '
+             'busywait(delay); '
            'end '
-           'trigger() '
-           'axis.mode = oldmode '
-           'setOffsetSmoothly(axis,oldv) '
+           'trigger(); '
+           'axis.mode = oldmode; '
+           'setOffsetSmoothly(axis,oldv); '
          'end')]
 
     def on_activate(self):
@@ -151,27 +153,37 @@ class Anc300(Base, PiezoStepperInterface):
         # connect Ethernet socket and FTP
         self._control_connection = self._connect(self._control_port)
         self._lua_connection = self._connect(self._lua_port)
-
-        # Load Lua functions and variables
-        for cmd in self._lua_functions:
-            err, msg = self._send_lua_cmd(cmd)
-            if err != 0:
-                self.log.error("Lua function load error loading {}:\n{}".format(cmd, msg))
-        for name, offsets in self._offset_list.items():  # set as a Lua variable 'name'
-            cmd = name + "={" + ",".join(map(lambda x: "%.5f"%x, offsets)) + "}"
-            rc, msg = self._send_lua_cmd(cmd)
-            if rc != 0:
-                self.log.error("Loading offset_lists failed {}".format(msg))
+        self.load_lua_functions()
 
         self._initalize_axis()
         # This reads all the values from the hardware and checks if values ly inside defined boundaries
         self._get_all_hardwaresettings()
 
-    def on_deactivate(self, e):
-        """ Deinitialisation performed during deactivation of the module.
+    def load_lua_functions(self):
 
-        @param object e: Event class object from Fysom. A more detailed
-                         explanation can be found in method activation.
+        # check if they're already loaded
+        err, msg = self._send_lua_cmd('print(ok)', read=True, checkLoaded=False)
+        self.log.info("Lua functions ok? '{0}' '{1}' '{2}'".format(err, len(msg), msg[-2]))
+        if err == 0 and len(msg) >= 2 and msg[-2] == '1':
+            return
+        else:
+            self.log.info("Reloading Lua functions")
+
+        # Load Lua functions and variables
+        for cmd in self._lua_functions:
+            err, msg = self._send_lua_cmd(cmd, read=False, checkLoaded=False)
+            if err != 0:
+                self.log.error("Lua function load error loading {}:\n{}".format(cmd, msg))
+        for name, offsets in self._offset_list.items():  # set as a Lua variable 'name'
+            cmd = name + "={" + ",".join(map(lambda x: "%.5f" % x, offsets)) + "}"
+            rc, msg = self._send_lua_cmd(cmd, read=False, checkLoaded=False)
+            if rc != 0:
+                self.log.error("Loading offset_lists failed {}".format(msg))
+
+        return
+
+    def on_deactivate(self):
+        """ Deinitialisation performed during deactivation of the module.
         """
         self._control_connection.close()
         self._lua_connection.close()
@@ -214,7 +226,7 @@ class Anc300(Base, PiezoStepperInterface):
             return 0
         return -1, value
 
-    def _send_lua_cmd(self, cmd, read=False):
+    def _send_lua_cmd(self, cmd, read=False, checkLoaded=True):
         """Sends a Lua command to the attocube steppers on the other port and checks response value
 
         @param str cmd: Attocube ANC300 Lua code
@@ -222,6 +234,10 @@ class Anc300(Base, PiezoStepperInterface):
 
         @return (int,str list): error code (0: OK, -1:error), response
         """
+
+        if checkLoaded:
+            self.load_lua_functions()
+
         full_cmd = cmd.encode('ascii') + b"\r\n"  # converting to binary
         self._lua_connection.read_eager()  # disregard old print outs
         self._lua_connection.write(full_cmd)  # send command
@@ -233,7 +249,9 @@ class Anc300(Base, PiezoStepperInterface):
             return -1, []
 
         # transform into string and split at any sequence of LF/CR/CRLF - sometimes the ANC300 omits one
-        value = re.split("[\r\n]+", value_binary.decode())
+        output = value_binary.decode()
+        self.log.info("Lua response: '{}'".format(output))
+        value = re.split("[\r\n]+", output)
         if len(value) > 1 and value[-2].startswith("ERROR"):
             if read:
                 return -1, value
