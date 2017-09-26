@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>442</width>
-    <height>346</height>
+    <height>360</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -18,10 +18,10 @@
     <item>
      <widget class="QTabWidget" name="tabs">
       <property name="styleSheet">
-       <string notr="true">QTabBar::tab { height: 25px; width: 150px; }</string>
+       <string notr="true">QTabBar::tab { height: 25px; width: 130px; }</string>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="stepTab">
        <attribute name="title">
@@ -749,7 +749,7 @@
            </layout>
           </item>
           <item>
-           <widget class="QWidget" name="" native="true">
+           <widget class="QWidget" name="widget" native="true">
             <property name="maximumSize">
              <size>
               <width>16777215</width>
@@ -780,7 +780,6 @@
         </item>
        </layout>
        <zorder></zorder>
-       <zorder>verticalLayoutWidget</zorder>
       </widget>
       <widget class="QWidget" name="offsetTab">
        <property name="sizePolicy">
@@ -885,9 +884,75 @@
          </layout>
         </item>
        </layout>
-       <zorder>horizontalLayoutWidget</zorder>
-       <zorder>horizontalSpacer_2</zorder>
-       <zorder>horizontalLayoutWidget</zorder>
+      </widget>
+      <widget class="QWidget" name="tab_5">
+       <attribute name="title">
+        <string>Z scan</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_10">
+        <item>
+         <widget class="PlotWidget" name="z_PlotWidget">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_5">
+          <property name="sizeConstraint">
+           <enum>QLayout::SetDefaultConstraint</enum>
+          </property>
+          <item>
+           <spacer name="horizontalSpacer_3">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>200</width>
+              <height>30</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Scan</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_4">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+       </layout>
       </widget>
      </widget>
     </item>
@@ -925,6 +990,13 @@
   </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>PlotWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>pyqtgraph</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>

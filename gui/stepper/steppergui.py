@@ -1,6 +1,10 @@
 import os
 from gui.guibase import GUIBase
 from qtpy import QtWidgets, QtCore, uic
+import pyqtgraph as pg
+from gui.guiutils import ColorBar
+from gui.colordefs import ColorScaleInferno
+from gui.colordefs import QudiPalettePale as palette
 
 from core.module import Connector, ConfigOption
 
@@ -117,6 +121,24 @@ class StepperGui(GUIBase):
 
         # stop all
         self._mw.stop_all.clicked.connect(self.stop_all)
+
+        self.z_plot_image = pg.PlotDataItem(self._short_scan_logic.plot_z, # logic for z scan
+                                            self._short_scan_logic.plot_counts,
+                                            pen=pg.mkPen(palette.c1, style=QtCore.Qt.DotLine),
+                                            symbol='o',
+                                            symbolPen=palette.c1,
+                                            symbolBrush=palette.c1,
+                                            symbolSize=7)
+
+        self.z_fit_image = pg.PlotDataItem(self._short_scan_logic.fit_z,
+                                           self._short_scan_logic.fit_counts,
+                                           pen=pg.mkPen(palette.c2))
+
+        # Add the display item to the xy and xz ViewWidget, which was defined in the UI file.
+        self._mw.z_PlotWidget.addItem(self.odmr_image)
+        self._mw.z_PlotWidget.setLabel(axis='left', text='Counts', units='Counts/s')
+        self._mw.z_PlotWidget.setLabel(axis='bottom', text='Offset', units='V')
+        self._mw.z_PlotWidget.showGrid(x=True, y=True, alpha=0.8)
 
     def on_deactivate(self):
 
