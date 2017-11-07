@@ -286,8 +286,7 @@ class ODMRLogic(GenericLogic):
             constraints = self.get_hw_constraints()
             frequency_to_set = constraints.frequency_in_range(frequency)
             power_to_set = constraints.power_in_range(power)
-            self.cw_mw_frequency, self.cw_mw_power, dummy = self._mw_device.set_cw(frequency_to_set,
-                                                                                   power_to_set)
+            self.cw_mw_frequency, self.cw_mw_power, dummy = self._mw_device.set_cw(frequency_to_set, power_to_set)
         else:
             self.log.warning('set_cw_frequency failed. Logic is either locked or input value is '
                              'no integer or float.')
@@ -378,8 +377,7 @@ class ODMRLogic(GenericLogic):
             self.mw_stop, \
             self.mw_step, \
             self.sweep_mw_power, \
-            mode = self._mw_device.set_sweep(self.mw_start, self.mw_stop,
-                                             self.mw_step, self.sweep_mw_power)
+            mode = self._mw_device.set_sweep(self.mw_start, self.mw_stop, self.mw_step, self.sweep_mw_power)
             param_dict = {'mw_start': self.mw_start, 'mw_stop': self.mw_stop,
                           'mw_step': self.mw_step, 'sweep_mw_power': self.sweep_mw_power}
         else:

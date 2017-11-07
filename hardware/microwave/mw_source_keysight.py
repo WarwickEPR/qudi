@@ -25,8 +25,9 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 import visa
 import numpy as np
+import time
 
-from core.base import Base
+from core.module import Base
 from interface.microwave_interface import MicrowaveInterface
 from interface.microwave_interface import MicrowaveLimits
 from interface.microwave_interface import MicrowaveMode
@@ -72,11 +73,12 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
 
         # trying to load the visa connection to the module
         self.rm = visa.ResourceManager()
+        self.log.info('Opening connection to Keysight {}'.format(self._address))
         self._connection = self.rm.open_resource(resource_name=self._address,
                                                  timeout=self._timeout)
 
-        self.log.info('MWKEYSIGHT initialised and connected to hardware.')
         self.model = self._connection.query('*IDN?').split(',')[1]
+        self.log.info('MWKEYSIGHT initialised and connected to hardware. {}'.format(self.model))
 
     def on_deactivate(self, e):
         """ Deinitialisation performed during deactivation of the module.
@@ -161,11 +163,26 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
             return -1
 
     def get_frequency(self):
-        """ Gets the frequency of the microwave output.
-
-        @return float: frequency (in Hz), which is currently set for this device
         """
-        return float(self._connection.query(':FREQ?'))
+        Gets the frequency of the microwave output.
+        Returns single float value if the device is in cw mode.
+        Returns list like [start, stop, step] if the device is in sweep mode.
+        Returns list of frequencies if the device is in list mode.
+
+        @return [float, list]: frequency(s) currently set for this device in Hz
+        """
+        mode, is_running = self.get_status()
+        if 'cw' in mode:
+            return float(self._connection.query(':FREQ?'))
+        elif 'sweep' in mode:
+            start = float(self._connection.query(':FREQ:STAR?'))
+            stop = float(self._connection.query(':FREQ:STOP?'))
+            step = float(self._connection.query(':SWE:FREQ:STEP?'))
+            return [start+step, stop, step]
+        elif 'list' in mode:
+            f = float(self._connection.query(':LIST:FREQ?'))
+            self.log.error('Getting frequency list in list sweep mode is not implemented')
+            return [0.0, 0.0, 0.0]
 
     def set_frequency(self, freq=None):
         """ Sets the frequency of the microwave output.
@@ -180,6 +197,47 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         else:
             return -1
 
+    def get_status(self):
+        """
+        Gets the current status of the MW source, i.e. the mode (cw, list or sweep) and
+        the output state (stopped, running)
+
+        @return str, bool: mode ['cw', 'list', 'sweep'], is_running [True, False]
+        """
+        is_running = bool(int(float(self._connection.query('OUTP:STAT?'))))
+        mode = self._connection.query(':FREQ:MODE?').strip('\n').lower()
+        list_type = self._connection.query(':LIST:TYPE?').strip('\n').lower()
+        if mode == 'list':
+            if list_type == 'list':
+                mode = 'list'
+            else:
+                mode = 'sweep'
+        else:
+            mode = 'cw'
+        return mode, is_running
+
+    def cw_on(self):
+        """ Switches on any preconfigured microwave output.
+
+        @return int: error code (0:OK, -1:error)
+        """
+        mode, is_running = self.get_status()
+        if is_running:
+            if mode == 'cw':
+                return 0
+            else:
+                self.off()
+
+        if mode != 'cw':
+            self._connection.write(':FREQ:MODE CW')
+
+        self._connection.write(':OUTP:STAT ON')
+        dummy, is_running = self.get_status()
+        while not is_running:
+            time.sleep(0.2)
+            dummy, is_running = self.get_status()
+        return 0
+
     def set_cw(self, freq=None, power=None, useinterleave=None):
         """ Sets the MW mode to cw and additionally frequency and power
         #For agilent device there is no CW mode, so just do nothing
@@ -188,21 +246,24 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         @param float power: power to set in dBm
         @param bool useinterleave: If this mode exists you can choose it.
 
-        @return int: error code (0:OK, -1:error)
+        @return float, float, str: current frequency in Hz, current power in dBm, current mode
 
         Interleave option is used for arbitrary waveform generator devices.
         """
-        error = 0
 
         if freq is not None:
-            error = self.set_frequency(freq)
+            self.set_frequency(freq)
         else:
-            return -1
+            self.log.warning('Frequency is none')
         if power is not None:
-            error = self.set_power(power)
+            self.set_power(power)
         else:
-            return -1
-        return error
+            self.log.warning('Power is none')
+
+        mode, dummy = self.get_status()
+        actual_freq = self.get_frequency()
+        actual_power = self.get_power()
+        return actual_freq, actual_power, mode
 
     def set_list(self, freq=None, power=None):
         """
@@ -244,6 +305,15 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         self._connection.write('*WAI')
         return 0
 
+    def reset_sweeppos(self):
+        """
+        Reset of MW sweep mode position to start (start frequency)
+
+        @return int: error code (0:OK, -1:error)
+        """
+        self._connection.write(':ABORT')
+        return 0
+
     def set_sweep(self, start, stop, step, power):
         """
         @param start:
@@ -261,10 +331,15 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         self._connection.write(':SWE:FREQ:STEP:LIN {0:e} Hz'.format(step))
         self._connection.write(':SWE:DWEL 10 ms')
 
+        if power is not None:
+            self.set_power(power)
+
+        power = self.get_power()
+
         n = int(np.round(float(self._connection.query(':SWE:POIN?\n'))))
         self.on()
 
-        return n
+        return start, stop, step, power, 'sweep'
 
     def reset_sweep(self):
         """ Reset of MW List Mode position to start from first given frequency
