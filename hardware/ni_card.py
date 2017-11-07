@@ -1523,6 +1523,7 @@ class NICard(Base, SlowCounterInterface, ConfocalScannerInterface, ODMRCounterIn
         except:
             self.log.exception('Error while scanning line.')
             return np.array([[-1.]])
+
         # return values is a rate of counts/s
         return (self._real_data * self._scanner_clock_frequency).transpose()
 
@@ -1626,7 +1627,7 @@ class NICard(Base, SlowCounterInterface, ConfocalScannerInterface, ODMRCounterIn
                 '')
 
             # connect the pulses from the clock to the counter
-            daq.DAQmxSetCIPulseWidthTerm(
+            daq.DAQmxSetCISemiPeriodTerm(
                 task,
                 my_counter_channel,
                 my_clock_channel + 'InternalOutput')
