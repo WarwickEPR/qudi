@@ -257,7 +257,6 @@ class TimeTagger(Base, FastCounterInterface):
         if name in self.gated_counter:
             counter = self.gated_counter[name]
             if self.getState() == 'locked' and self.current_measurement == 'gated counter ' + name:
-                counter.stop()
                 self.unlock()
                 self.measurement_status = MeasurementState.idle
                 self.current_measurement = None
@@ -302,11 +301,9 @@ class TimeTagger(Base, FastCounterInterface):
             count = np.array(ctr.getData(), dtype='int64')
             times = np.array(ctr.getIndex(), dtype='int64')
             duration = times[1:] - times[0:-1]
-            ready = np.nonzero(duration)
-            self.log.info('count: {}'.format(count))
-            self.log.info('times: {}'.format(count))
-            self.log.info('duration: {}'.format(count))
-            return np.floor_divide(count[ready]*int(1e9), duration[ready])
+            ready = duration > 0
+            count = np.resize(count, len(duration))  # drop the last element
+            return np.floor_divide(count[ready]*int(1e12), duration[ready])
         else:
             return np.array([], dtype='int64')
 
