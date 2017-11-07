@@ -213,3 +213,10 @@ class PiezoStepperInterface(metaclass=InterfaceMetaclass):
 
         @return: error code (0:OK, -1:error)"""
         pass
+
+    @abc.abstractmethod
+    def get_offset_list(self, offset_list):
+        """ Get the list of offset voltages used
+        @param str offset_list: offset list to retrieve
+        @return: float array"""
+        pass

@@ -42,6 +42,9 @@ class StepperLogic(GenericLogic):
         # Connectors
         self._hw = self.get_connector('stepper')
 
+    def on_deactivate(self):
+        pass
+
     def reset_hardware(self):
         """ Resets the hardware, so the connection is lost and other programs
             can access it.
@@ -183,7 +186,7 @@ class StepperLogic(GenericLogic):
 
         @return: float voltage
         """
-        return self._hw.get_offset(self, axis)
+        return self._hw.get_offset(axis)
 
     def set_offset(self, axis, voltage):
         """ Sets the offset voltage for an axis
@@ -193,7 +196,7 @@ class StepperLogic(GenericLogic):
 
         @return: error code (0:OK, -1:error)
         """
-        return self._hw.set_offset(self, axis, voltage)
+        return self._hw.set_offset(axis, voltage)
 
     def scan_offset(self, axis, offset_list, dwell):
         """ Sets off a scan of a predefined list of voltages
@@ -203,4 +206,4 @@ class StepperLogic(GenericLogic):
         @param dwell: approximate number of ms to dwell at each point
 
         @return: error code (0:OK, -1:error)"""
-        return self._hw.scan_offset(self, axis, offset_list, dwell)
+        return self._hw.scan_offset(axis, offset_list, dwell)

@@ -103,6 +103,7 @@ class Anc300(Base, PiezoStepperInterface):
          'trigger(); '
          'axis.mode = oldmode; '
          'setOffsetSmoothly(axis,oldv); '
+         'trigger(); '
          'end')]
 
     def on_activate(self):
@@ -217,8 +218,8 @@ class Anc300(Base, PiezoStepperInterface):
         if value[-2] == "ERROR":
             if read:
                 return -1, value
-            self.log.warning('The command {} did not work but produced an {}'.format(value[-3],
-                                                                                     value[-2]))
+            self.log.warning('The command {} did not work but produced {}'.format(full_cmd,
+                                                                                     value))
             return -1
         elif value == expected_response and read:
             return 0, value
@@ -387,7 +388,7 @@ class Anc300(Base, PiezoStepperInterface):
             if self._frequency_range[0] > self._axis_frequency[axis]\
                or self._axis_frequency[axis] > self._frequency_range[1]:
                 self.log.error(
-                    "The value of {} V of axis {} in the ANC300 lies outside the defined range{},{]".format(
+                    "The value of {} V of axis {} in the ANC300 lies outside the defined range{},{}".format(
                         self._axis_frequency[axis], axis, self._frequency_range[0],
                         self._frequency_range[1]))
             return self._axis_frequency[axis]
@@ -408,7 +409,7 @@ class Anc300(Base, PiezoStepperInterface):
         if mode in self._attocube_modes.keys():
             if axis in self._axes.keys():
                 attocube_mode = self._attocube_lua_modes[mode]
-                command = "setOffset({},{})".format(self._lua_axis(axis), attocube_mode)
+                command = "setMode({},{})".format(self._lua_axis(axis), attocube_mode)
                 result, msg = self._send_lua_cmd(command)  # some modes can only be set via the lua port
                 if result == 0:
                     self._axis_mode[axis] = mode
@@ -507,13 +508,16 @@ class Anc300(Base, PiezoStepperInterface):
             self.log.error("offset list {} not in configuration".format(offset_list))
             return -1
         else:
-            t0 = time.perf_counter()
             command = "scan({},{},{})".format(self._lua_axis(axis), offset_list, dwell)
             rc, msg = self._send_lua_cmd(command)
-            t1 = time.perf_counter()
-            self.log.info("Scan took {}s".format(t1-t0))
             return rc
 
+    def get_offset_list(self, offset_list):
+        if offset_list in self._offset_list:
+            return self._offset_list[offset_list]
+        else:
+            self.log.warn("Offset list '{}' is not in the configuration".format(offset_list))
+            return []
 
     def set_DC_in(self, axis, on):
         """Changes Attocube axis DC input status
