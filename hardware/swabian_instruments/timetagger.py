@@ -24,6 +24,10 @@ import numpy as np
 import TimeTagger as tt
 from enum import Enum
 from core.module import Base, ConfigOption
+from interface.slow_counter_interface import SlowCounterInterface
+from interface.slow_counter_interface import SlowCounterConstraints
+from interface.slow_counter_interface import CountingMode
+import time
 
 
 class MeasurementState(Enum):
@@ -34,7 +38,7 @@ class MeasurementState(Enum):
     error = -1
 
 
-class TimeTagger(Base, FastCounterInterface):
+class TimeTagger(Base, FastCounterInterface, SlowCounterInterface):
     _modclass = 'TimeTagger'
     _modtype = 'hardware'
 
@@ -47,10 +51,11 @@ class TimeTagger(Base, FastCounterInterface):
     _combine = ConfigOption('combine', {})
     _fast_click = ConfigOption('fast_click', 'apd0', missing='warn')
     _fast_detect = ConfigOption('fast_detect', 'pulse', missing='warn')
+    _slow_click = ConfigOption('slow_click', missing='error')
+    _slow_clock = ConfigOption('slow_clock', 50, missing='warn')
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
-
 
         self.channels = {}
         self.combined = {}
@@ -61,6 +66,8 @@ class TimeTagger(Base, FastCounterInterface):
         self.gated_counter = {}
         self.fast_click = ''
         self.fast_detect = ''
+        self.slow_click = []
+        self.slow_clock = 50
 
     def on_activate(self):
         """ Connect and configure the access to the FPGA.
@@ -80,6 +87,9 @@ class TimeTagger(Base, FastCounterInterface):
 
         self.fast_click = config['fast_click']
         self.fast_detect = config['fast_detect']
+
+        self.slow_click = config['slow_click']
+        self.slow_clock = config['slow_clock']
 
         self.current_measurement = None
         self.measurement_status = MeasurementState.unconfigured
@@ -387,3 +397,90 @@ class TimeTagger(Base, FastCounterInterface):
             self.measurement_status = MeasurementState.running
         return 0
 
+    # SlowCounterInterface
+
+    def set_up_clock(self, clock_frequency=None, clock_channel=None):
+        """ Configures the hardware clock of the TimeTagger for timing
+
+        @param float clock_frequency: if defined, this sets the frequency of
+                                      the clock
+        @param string clock_channel: if defined, this is the physical channel
+                                     of the clock
+
+        @return int: error code (0:OK, -1:error)
+        """
+
+        self.slow_clock = clock_frequency
+        return 0
+
+    def set_up_counter(self,
+                       counter_channels=None,
+                       sources=None,
+                       clock_channel=None,
+                       counter_buffer=None):
+        """ Configures the actual counter with a given clock.
+
+        @param str counter_channel: optional, physical channel of the counter
+        @param str photon_source: optional, physical channel where the photons
+                                  are to count from
+        @param str counter_channel2: optional, physical channel of the counter 2
+        @param str photon_source2: optional, second physical channel where the
+                                   photons are to count from
+        @param str clock_channel: optional, specifies the clock channel for the
+                                  counter
+        @param int counter_buffer: optional, a buffer of specified integer
+                                   length, where in each bin the count numbers
+                                   are saved.
+
+        @return int: error code (0:OK, -1:error)
+        """
+
+        self.counter = tt.Counter(self._tt,
+                                  channels=list(map(lambda x: self.channel(x), self.slow_click)),
+                                  binwidth=int((1/self._slow_clock) * 1e12),
+                                  n_values=1)
+
+        self.log.info('set up counter at {0} Hz'.format(self._slow_clock))
+        return 0
+
+    def get_counter_channels(self):
+        return list(map(lambda x: self.channel(x), self.slow_click))
+
+    def get_constraints(self):
+        """ Get hardware limits the device
+
+        @return SlowCounterConstraints: constraints class for slow counter
+
+        FIXME: ask hardware for limits when module is loaded
+        """
+        constraints = SlowCounterConstraints()
+        constraints.max_detectors = 2
+        constraints.min_count_frequency = 1e-3
+        constraints.max_count_frequency = 10e9
+        constraints.counting_mode = [CountingMode.CONTINUOUS]
+        return constraints
+
+    def get_counter(self, samples=None):
+        """ Returns the current counts per second of the counter.
+
+        @param int samples: if defined, number of samples to read in one go
+
+        @return numpy.array(uint32): the photon counts per second
+        """
+
+        time.sleep(2 / self._slow_clock)
+        return np.array(list(map(lambda x: x * self._slow_clock, self.counter.getData())))
+
+    def close_counter(self):
+        """ Closes the counter and cleans up afterwards.
+
+        @return int: error code (0:OK, -1:error)
+        """
+        return 0
+
+    def close_clock(self):
+        """ Closes the clock and cleans up afterwards.
+
+        @return int: error code (0:OK, -1:error)
+        """
+        return 0
