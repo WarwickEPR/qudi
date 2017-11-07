@@ -2,6 +2,7 @@ import os
 from gui.guibase import GUIBase
 from qtpy import QtWidgets, QtCore, uic
 import pyqtgraph as pg
+import time
 from gui.guiutils import ColorBar
 from gui.colordefs import ColorScaleInferno
 from gui.colordefs import QudiPalettePale as palette
@@ -29,11 +30,29 @@ class StepperWindow(QtWidgets.QMainWindow):
             self.activityChanged.emit(self.isActiveWindow())
 
 
+class Oscillate(QtCore.QThread):
+    finished = QtCore.Signal()
+
+    def __init__(self, wobbler):
+        QtCore.QThread.__init__(self)
+        self.wobbler = wobbler
+
+    def __del__(self):
+        self.wait()
+
+    def run(self):
+        while not self.isInterruptionRequested():
+            self.wobbler.scan_z()
+            time.sleep(0.1)
+        self.finished.emit()
+
 class StepperGui(GUIBase):
     _modclass = 'StepperGui'
     _modtype = 'gui'
 
     stepperlogic = Connector(interface='StepperLogic')
+    scanlogic = Connector(interface='AttocubeZScanLogic')
+    oscillatelogic = Connector(interface='AttocubeZScanLogic')
 
     x_speed = ConfigOption('x_speed', {"Normal": [30, 100]})  # voltage, frequency
     y_speed = ConfigOption('y_speed', {"Normal": [30, 100]})
@@ -46,12 +65,15 @@ class StepperGui(GUIBase):
           @param dict kwargs: further optional arguments
         """
         super().__init__(config=config, **kwargs)
+        self._oscillateThread = None
 
     def on_activate(self):
         """This sets up all the necessary UI elements, initialises and wires user interactions
         """
         self._mw = StepperWindow()
         self._hw = self.get_connector('stepperlogic')
+        self._scan = self.get_connector('scanlogic')
+        self._wobble = self.get_connector('oscillatelogic')
 
         self.speed = dict(x=self.x_speed, y=self.y_speed, z=self.z_speed)
 
@@ -83,7 +105,7 @@ class StepperGui(GUIBase):
         # todo: toggle between stepper and offset mode
 
         self._mw.activityChanged.connect(lambda x: self.log.info("Activity changed: {}".format(x)))
-        self._mw.tabs.currentChanged.connect(lambda x: self.log.info("Tab changed: {}".format(x)))
+        self._mw.tabs.currentChanged.connect(self.tab_changed)
 
         # connect user interaction for movement
 
@@ -119,23 +141,35 @@ class StepperGui(GUIBase):
         self._mw.speed_y.currentIndexChanged.connect(self.set_speed_y_i)
         self._mw.speed_z.currentIndexChanged.connect(self.set_speed_z_i)
 
-        # stop all
+        # buttons
         self._mw.stop_all.clicked.connect(self.stop_all)
+        self._mw.z_scan.clicked.connect(self.run_z_scan)
 
-        self.z_plot_image = pg.PlotDataItem(self._short_scan_logic.plot_z, # logic for z scan
-                                            self._short_scan_logic.plot_counts,
-                                            pen=pg.mkPen(palette.c1, style=QtCore.Qt.DotLine),
-                                            symbol='o',
-                                            symbolPen=palette.c1,
-                                            symbolBrush=palette.c1,
-                                            symbolSize=7)
+        # slider
+        self._mw.offset_slider.valueChanged.connect(self.offset_changed)
 
-        self.z_fit_image = pg.PlotDataItem(self._short_scan_logic.fit_z,
-                                           self._short_scan_logic.fit_counts,
-                                           pen=pg.mkPen(palette.c2))
+        # oscillations
+        self._mw.oscillate.toggled.connect(self.oscillate)
+
+        # initialise in stepping mode
+        self._mw.tabs.setCurrentIndex(0)
+        self.tab_changed(0)
+
+
+        self.z_image = pg.PlotDataItem(self._scan.offsets,
+                                       self._scan.rates,
+                                       pen=pg.mkPen(palette.c1, style=QtCore.Qt.DotLine),
+                                       symbol='x',
+                                       symbolPen=palette.c1,
+                                       symbolBrush=palette.c1,
+                                       symbolSize=7)
+
+        # self.z_fit_image = pg.PlotDataItem(self._short_scan_logic.fit_z,
+        #                                    self._short_scan_logic.fit_counts,
+        #                                    pen=pg.mkPen(palette.c2))
 
         # Add the display item to the xy and xz ViewWidget, which was defined in the UI file.
-        self._mw.z_PlotWidget.addItem(self.odmr_image)
+        self._mw.z_PlotWidget.addItem(self.z_image)
         self._mw.z_PlotWidget.setLabel(axis='left', text='Counts', units='Counts/s')
         self._mw.z_PlotWidget.setLabel(axis='bottom', text='Offset', units='V')
         self._mw.z_PlotWidget.showGrid(x=True, y=True, alpha=0.8)
@@ -175,8 +209,10 @@ class StepperGui(GUIBase):
         self._mw.speed_y.currentIndexChanged.disconnect()
         self._mw.speed_z.currentIndexChanged.disconnect()
 
-        # stop all
         self._mw.stop_all.clicked.disconnect()
+        self._mw.z_scan.clicked.disconnect()
+
+        self._mw.offset_slider.valueChanged.disconnect()
 
         self._mw.close()
 
@@ -343,3 +379,65 @@ class StepperGui(GUIBase):
 
     def stop_all(self):
         self._hw.stop_all_axes()
+
+    def run_z_scan(self):
+        self._scan.scan_z()
+        self.z_image.setData(self._scan.offsets, self._scan.rates)
+
+    def wobble(self):
+        self._wobble.scan_z()
+        # could copy data too, but leave it
+
+    def offset_changed(self):
+        n = self._mw.offset_slider.value()
+        offset = 60.0 * n/1000.0;
+        self._mw.voltage.setText("%.2f" % offset)
+        self._hw.set_offset('z', offset)
+
+    def set_offset_from_hardware(self):
+        offset = self._hw.get_offset('z')
+        n = int(offset / 60.0 * 1000)
+        self._mw.offset_slider.setValue(n)
+        self.offset_changed()
+
+    def oscillate(self, stopped):
+        # oscillate until unchecked`
+        self.log.info("Oscillate changed to {}".format(not stopped))
+        if not stopped:
+            if not self._oscillateThread:
+                self._oscillateThread = Oscillate(self._wobble)
+
+            self._oscillateThread.finished.connect(self.oscillate_done)
+            self._oscillateThread.start()
+        elif self._oscillateThread is not None:
+            self._oscillateThread.requestInterruption()
+
+    def oscillate_done(self):
+        self._oscillateThread.quit()
+        self._oscillateThread.wait()
+
+    def tab_changed(self, tab):
+        # check offset mode (of z at least)
+        mode_x = self._hw.get_axis_mode('x')
+        mode_y = self._hw.get_axis_mode('y')
+        mode_z = self._hw.get_axis_mode('z')
+        self.log.info("Axis x {}".format(mode_x))
+
+        if tab != 1:
+            self._hw.set_offset('z', 0.0)
+
+        if tab == 0:
+            if mode_x != 'step' or mode_y != 'step' or mode_z != 'step':
+                self.log.info("Switching to stepping mode")
+                self._hw.set_axis_mode('x', 'step')
+                self._hw.set_axis_mode('y', 'step')
+                self._hw.set_axis_mode('z', 'step')
+                self.log.info("Axis x after {}".format(mode_x))
+        else:
+            if mode_z != 'offset':
+                self.log.info("Switching 'z' to offset mode")
+                self._hw.set_axis_mode('z', 'offset')
+
+        if tab == 1:
+            self.set_offset_from_hardware()
+

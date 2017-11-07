@@ -885,7 +885,7 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="tab_5">
+      <widget class="QWidget" name="z_scan_tab">
        <attribute name="title">
         <string>Z scan</string>
        </attribute>
@@ -919,7 +919,7 @@
            </spacer>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButton">
+           <widget class="QPushButton" name="z_scan">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
               <horstretch>0</horstretch>
@@ -934,6 +934,16 @@
             </property>
             <property name="text">
              <string>Scan</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="oscillate">
+            <property name="text">
+             <string>Oscillate</string>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
             </property>
            </widget>
           </item>
