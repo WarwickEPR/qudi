@@ -250,23 +250,24 @@ class ConfocalGui(GUIBase):
 
         # Get the image for the display from the logic
         raw_data_xy = self._scanning_logic.xy_image[:, :, 3 + self.xy_channel]
-        raw_data_depth = self._scanning_logic.depth_image[:, :, 3 + self.depth_channel]
 
         # Set initial position for the crosshair, default is the middle of the
         # screen:
         ini_pos_x_crosshair = len(raw_data_xy) / 2
         ini_pos_y_crosshair = len(raw_data_xy) / 2
-        ini_pos_z_crosshair = len(raw_data_depth) / 2
-
 
         # Load the images for xy and depth in the display:
         self.xy_image = pg.ImageItem(image=raw_data_xy, axisOrder='row-major')
 
         if not self.xy_only:
+            raw_data_depth = self._scanning_logic.depth_image[:, :, 3 + self.depth_channel]
+            ini_pos_z_crosshair = len(raw_data_depth) / 2
             self.depth_image = pg.ImageItem(image=raw_data_depth, axisOrder='row-major')
 
             # Hide tilt correction window
             self._mw.tilt_correction_dockWidget.hide()
+        else:
+            ini_pos_z_crosshair = 0
 
         # Hide scan line display
         self._mw.scanLineDockWidget.hide()
@@ -275,7 +276,8 @@ class ConfocalGui(GUIBase):
         sc = self._scanning_logic._scan_counter
         sc = sc - 1 if sc >= 1 else sc
         if self._scanning_logic._zscan:
-            data = self._scanning_logic.depth_image[sc, :, 0:4:3]
+            if not self.xy_only:
+                data = self._scanning_logic.depth_image[sc, :, 0:4:3]
         else:
             data = self._scanning_logic.xy_image[sc, :, 0:4:3]
 
@@ -1262,7 +1264,7 @@ class ConfocalGui(GUIBase):
         if self.adjust_cursor_roi:
             newsize_h = self._optimizer_logic.refocus_XY_size
             newsize_v = self._optimizer_logic.refocus_Z_size
-        else:
+        elif not self.xy_only:
             viewrange = self.depth_image.getViewBox().viewRange()
             newsize = np.sqrt(np.sum(np.ptp(viewrange, axis=1)**2)) / 20
             newsize_h = newsize
@@ -1746,8 +1748,10 @@ class ConfocalGui(GUIBase):
         # It is extremly crutial that before adjusting the window view and
         # limits, to make an update of the current image. Otherwise the
         # adjustment will just be made for the previous image.
-        self.refresh_depth_image()
+        if self.xy_only:
+            return
 
+        self.refresh_depth_image()
         depth_viewbox = self.depth_image.getViewBox()
 
         if self._scanning_logic.depth_img_is_xz:
@@ -1870,6 +1874,9 @@ class ConfocalGui(GUIBase):
 
     def save_depth_scan_data(self):
         """ Run the save routine from the logic to save the xy confocal pic."""
+        if self.xy_only:
+            return
+
         cb_range = self.get_depth_cb_range()
 
         # Percentile range is None, unless the percentile scaling is selected in GUI.
@@ -1987,10 +1994,12 @@ class ConfocalGui(GUIBase):
         # ViewWidgets and pass them to setDragMode.
         if is_checked:
             self.xy_image.getViewBox().setLeftButtonAction('rect')
-            self.depth_image.getViewBox().setLeftButtonAction('rect')
+            if not self.xy_only:
+                self.depth_image.getViewBox().setLeftButtonAction('rect')
         else:
             self.xy_image.getViewBox().setLeftButtonAction('pan')
-            self.depth_image.getViewBox().setLeftButtonAction('pan')
+            if not self.xy_only:
+                self.depth_image.getViewBox().setLeftButtonAction('pan')
 
     def xy_scan_start_zoom_point(self, event):
         """ Get the mouse coordinates if the mouse button was pressed.
@@ -2173,6 +2182,10 @@ class ConfocalGui(GUIBase):
         Take the image range values directly from the scanned image and set
         them as the current image ranges.
         """
+
+        if self.xy_only:
+            return
+
         # extract the range directly from the image:
         xMin = self._scanning_logic.depth_image[0, 0, 0]
         zMin = self._scanning_logic.depth_image[0, 0, 2]
