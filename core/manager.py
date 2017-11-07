@@ -643,7 +643,7 @@ class Manager(QtCore.QObject):
             if (c not in connectors):
                 logger.error('Connector {0}.{1}.{2} is supposed to get '
                              'connected but is not declared in the module '
-                             'class.'.format(c, base, mkey))
+                             'class. Defined connectors {3}'.format(base, mkey, c, connectors))
                 continue
             # new-style connector
             if isinstance(connectors[c], Connector):
