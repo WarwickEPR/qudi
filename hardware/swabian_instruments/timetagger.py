@@ -129,7 +129,7 @@ class TimeTagger(Base, FastCounterInterface, SlowCounterInterface):
 
     # Implementation of FastCounterInterface
 
-    def get_constraints(self):
+    def get_fast_counter_constraints(self):
         """ Retrieve the hardware constrains from the Fast counting device.
 
         @return dict: dict with keys being the constraint names as string and
@@ -446,7 +446,7 @@ class TimeTagger(Base, FastCounterInterface, SlowCounterInterface):
     def get_counter_channels(self):
         return list(map(lambda x: self.channel(x), self.slow_click))
 
-    def get_constraints(self):
+    def get_slow_counter_constraints(self):
         """ Get hardware limits the device
 
         @return SlowCounterConstraints: constraints class for slow counter

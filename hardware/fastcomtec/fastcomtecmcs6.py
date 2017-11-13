@@ -168,7 +168,7 @@ class FastComtec(Base, FastCounterInterface):
         """
         return
 
-    def get_constraints(self):
+    def get_fast_counter_constraints(self):
         """ Retrieve the hardware constrains from the Fast counting device.
 
         @return dict: dict with keys being the constraint names as string and
@@ -394,7 +394,7 @@ class FastComtec(Base, FastCounterInterface):
 
         @return float: Red out length of measurement
         """
-        constraints = self.get_constraints()
+        constraints = self.get_fast_counter_constraints()
         if length_bins * self.get_binwidth() < constraints['max_sweep_len']:
             cmd = 'RANGE={0}'.format(int(length_bins))
             self.dll.RunCmd(0, bytes(cmd, 'ascii'))

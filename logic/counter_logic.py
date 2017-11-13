@@ -149,7 +149,7 @@ class CounterLogic(GenericLogic):
 
         @return SlowCounterConstraints: object with constraints for the counter
         """
-        return self._counting_device.get_constraints()
+        return self._counting_device.get_slow_counter_constraints()
 
     def set_counting_samples(self, samples=1):
         """

@@ -441,7 +441,7 @@ class NICard(Base, SlowCounterInterface, ConfocalScannerInterface, ODMRCounterIn
 
     # =================== SlowCounterInterface Commands ========================
 
-    def get_constraints(self):
+    def get_slow_counter_constraints(self):
         """ Get hardware limits of NI device.
 
         @return SlowCounterConstraints: constraints class for slow counter

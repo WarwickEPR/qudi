@@ -79,7 +79,7 @@ class SlowCounterDummy(Base, SlowCounterInterface):
         """
         self.log.warning('slowcounterdummy>deactivation')
 
-    def get_constraints(self):
+    def get_slow_counter_constraints(self):
         """ Return a constraints class for the slow counter."""
         constraints = SlowCounterConstraints()
         constraints.min_count_frequency = 5e-5

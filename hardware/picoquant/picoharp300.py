@@ -1002,7 +1002,7 @@ class PicoHarp300(Base, SlowCounterInterface, FastCounterInterface):
         """ Return one counter channel. """
         return ['Ctr0']
 
-    def get_constraints(self):
+    def get_slow_counter_constraints(self):
         """ Get hardware limits of NI device.
 
         @return SlowCounterConstraints: constraints class for slow counter

@@ -146,7 +146,7 @@ class TimeTaggerCounter(Base, SlowCounterInterface):
         else:
             return [self._channel_apd_0, self._channel_apd_1]
 
-    def get_constraints(self):
+    def get_slow_counter_constraints(self):
         """ Get hardware limits the device
 
         @return SlowCounterConstraints: constraints class for slow counter

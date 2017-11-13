@@ -57,7 +57,7 @@ class SlowGatedNICard(NICard):
                 'No parameter "photon_source" configured.\n'
                 'Assign to that parameter an appropriated channel from your NI Card!')
 
-    def get_constraints(self):
+    def get_slow_counter_constraints(self):
         """ Get hardware limits of NI device.
 
         @return SlowCounterConstraints: constraints class for slow counter

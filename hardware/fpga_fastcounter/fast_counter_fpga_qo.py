@@ -295,7 +295,7 @@ class FastCounterFPGAQO(Base, FastCounterInterface):
             self._fpga.ActivateTriggerIn(0x41, 31)
         return
 
-    def get_constraints(self):
+    def get_fast_counter_constraints(self):
         """ Retrieve the hardware constrains from the Fast counting device.
 
 

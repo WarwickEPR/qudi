@@ -195,7 +195,7 @@ class PulsedMeasurementLogic(GenericLogic):
 
         # Check and configure fast counter
         self.fast_counter_gated = self._fast_counter_device.is_gated()
-        binning_constraints = self.get_fastcounter_constraints()['hardware_binwidth_list']
+        binning_constraints = self.get_fast_counter_constraints()['hardware_binwidth_list']
         if self.fast_counter_binwidth not in binning_constraints:
             self.fast_counter_binwidth = binning_constraints[0]
         if self.fast_counter_record_length is None or self.fast_counter_record_length <= 0:
@@ -306,7 +306,7 @@ class PulsedMeasurementLogic(GenericLogic):
         @return:
         """
         # get hardware constraints
-        fc_constraints = self.get_fastcounter_constraints()
+        fc_constraints = self.get_fast_counter_constraints()
         # check and set bin width
         self.fast_counter_binwidth = bin_width_s
         # check and set record length
@@ -360,13 +360,13 @@ class PulsedMeasurementLogic(GenericLogic):
         return self.controlled_vals, self.number_of_lasers, self.sequence_length_s, \
                self.laser_ignore_list, self.alternating
 
-    def get_fastcounter_constraints(self):
+    def get_fast_counter_constraints(self):
         """ Request the constrains from the hardware, in order to pass them
             to the GUI if necessary.
 
         @return: dict where the keys in it are predefined in the interface.
         """
-        return self._fast_counter_device.get_constraints()
+        return self._fast_counter_device.get_fast_counter_constraints()
 
     def fast_counter_on(self):
         """Switching on the fast counter

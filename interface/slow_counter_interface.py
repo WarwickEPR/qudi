@@ -32,7 +32,7 @@ class SlowCounterInterface(metaclass=InterfaceMetaclass):
     _modclass = 'interface'
 
     @abc.abstractmethod
-    def get_constraints(self):
+    def get_slow_counter_constraints(self):
         """ Retrieve the hardware constrains from the counter device.
 
         @return SlowCounterConstraints: object with constraints for the counter

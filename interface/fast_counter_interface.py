@@ -31,7 +31,7 @@ class FastCounterInterface(metaclass=InterfaceMetaclass):
     _modclass = 'interface'
 
     @abc.abstractmethod
-    def get_constraints(self):
+    def get_fast_counter_constraints(self):
         """ Retrieve the hardware constrains from the Fast counting device.
 
         @return dict: dict with keys being the constraint names as string and

@@ -384,7 +384,7 @@ class PulsedMasterLogic(GenericLogic):
 
         @return:
         """
-        fastcounter_constraints = self._measurement_logic.get_fastcounter_constraints()
+        fastcounter_constraints = self._measurement_logic.get_fast_counter_constraints()
         pulsegenerator_constraints = self._measurement_logic.get_pulser_constraints()
         return pulsegenerator_constraints, fastcounter_constraints
 
@@ -1193,8 +1193,8 @@ class PulsedMasterLogic(GenericLogic):
         # sample rate
         samplerate_constraint = pulser_constraints.sample_rate
         if sample_rate < samplerate_constraint.min or sample_rate > samplerate_constraint.max:
-            self.log.warning('Sample rate of {0} MHz lies not within pulse generator constraints. '
-                             'Using max. allowed sample rate of {1} MHz instead.'
+            self.log.warning('Sample rate of {0} Hz lies not within pulse generator constraints. '
+                             'Using max. allowed sample rate of {1} Hz instead.'
                              ''.format(sample_rate, samplerate_constraint.max))
             sample_rate = samplerate_constraint.max
         # amplitude dictionary
