@@ -1839,11 +1839,8 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
         return retval
 
     def get_odmr_channels(self):
-        if len(self._scanner_counter_channels) != 0:
-            ch = [self._scanner_counter_channels[0]]
-            ch.extend(self._scanner_ai_channels)
-        else:
-            ch = self._scanner_ai_channels
+        ch = [self._scanner_counter_channels[0]]
+        ch.extend(self._scanner_ai_channels)
         return ch
 
     def close_odmr_clock(self):
