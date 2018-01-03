@@ -1844,7 +1844,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
             ch.extend(self._scanner_ai_channels)
         else:
             ch = self._scanner_ai_channels
-        return list(set(ch)) #remove duplicates
+        return ch
 
     def close_odmr_clock(self):
         """ Closes the odmr and cleans up afterwards.
