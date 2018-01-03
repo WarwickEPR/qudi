@@ -1841,7 +1841,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
     def get_odmr_channels(self):
         ch = [self._scanner_counter_channels[0]]
         ch.extend(self._scanner_ai_channels)
-        return ch
+        return list(set(ch)) #remove duplicates
 
     def close_odmr_clock(self):
         """ Closes the odmr and cleans up afterwards.
