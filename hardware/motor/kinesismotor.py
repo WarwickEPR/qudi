@@ -1,6 +1,7 @@
 import clr
 import os
 from enum import Enum
+from collections import OrderedDict
 
 basePath = os.path.join(os.environ['ProgramFiles'], 'Thorlabs', 'Kinesis')
 dllPath = os.path.join(basePath, 'ThorLabs.MotionControl.KCube.DCServoCLI.dll')
@@ -240,6 +241,8 @@ class KDC101Motor:
         self._device = Thorlabs.MotionControl.KCube.DCServoCLI.KCubeDCServo.CreateKCubeDCServo(self._serial_number)
         self._device.Connect(self._serial_number)
 
+        self._device_type = DeviceTypes.KCubeDCServo
+
         if not self._device.IsSettingsInitialized():
             self._device.WaitForSettingsInitialized(5000)
 
@@ -274,6 +277,13 @@ class KDC101Motor:
         """
         device_info = self._device.GetDeviceInfo()
         return device_info.Name, device_info.SoftwareVersion.ToString(), device_info.HardwareVersion
+
+    @property
+    def device_type(self):
+        """
+        Returns the hardware type of the device
+        """
+        return self._device_type
 
     @property
     def _status_bits(self):
@@ -660,3 +670,186 @@ class KDC101Motor:
 
     def disconnect(self):
         self._device.Disconnect()
+
+
+class KinesisStage(Base, MotorInterface):
+    """ Control class for an arbitrary collection of Kinesis axes.
+
+     The required config file entries are based around a few key ideas:
+       - There needs to be a list of axes, so that everything can be "iterated" across this list.
+       - There are some config options for each axis that are all in sub-dictionary of the config file.
+         The key is the axis label.
+       - One of the config parameters is the constraints, which are given in a sub-sub-dictionary,
+         which has the key 'constraints'.
+
+     This interface is taken from the similar interface defined in the APTStage class
+
+     For example, a config file entry for a single-axis rotating half-wave-plate stage would look like
+
+     hwp_motor:
+         module.Class: 'motor.kinesismotor.KinesisStage'
+         axis_labels:
+             - phi
+         phi:
+             serial_num: 27500136
+             unit: 'degree'
+             constraints:
+                 pos_min: -360
+                 pos_max: 720
+                 vel_min: 1.0
+                 vel_max: 10.0
+                 acc_min: 4.0
+                 acc_max: 10.0
+     """
+
+    def on_activate(self):
+        """
+        Initialize instance variables and connect to hardware as configured
+        """
+
+        config = self.getConfiguration()
+
+        if 'axis_labels' in config.keys():
+            axis_label_list = config['axis_labels']
+        else:
+            self.log.error(
+                'No axis labels were specified for the KinesisStage.'
+                'It is impossible to proceed. You might need to read more about how to configure the KinesisStage'
+                'in the config file, and you can find this information (with example) at'
+                'https://ulm-iqo.github.io/qudi-generated-docs/html-docs/classaptmotor_1_1APTStage.html#details'
+            )
+
+        self._axis_dict = OrderedDict()
+        hw_conf_dict = self._get_config()
+        limits_dict = self.get_constraints()
+
+        for axis_label in axis_label_list:
+            serial_number = hw_conf_dict[axis_label]['serial_num']
+            label = axis_label
+            unit = hw_conf_dict[axis_label]['unit']
+
+            self._axis_dict[axis_label] = KDC101Motor(serial_number)
+
+            #TODO: figure out how to set temporary movement limits
+            # see the original aptmotor.py
+
+
+    def on_deactivate(self):
+        """
+        Disconnect from hardware
+        """
+        for label_axis in self._axis_dict:
+            self._axis_dict[label_axis].Disconnect()
+
+    def get_constraints(self):
+        """
+        #TODO: complete!
+        """
+
+    def move_rel(self, param_dict):
+        """ Moves stage in given direction (relative movement)
+
+        @param dict param_dict: dictionary, which passes all the relevant
+                                parameters, which should be changed.
+                                With get_constraints() you can obtain all
+                                possible parameters of that stage. According to
+                                this parameter set you have to pass a dictionary
+                                with keys that are called like the parameters
+                                from get_constraints() and assign a SI value to
+                                that. For a movement in x the dict should e.g.
+                                have the form:
+                                    dict = { 'x' : 23 }
+                                where the label 'x' corresponds to the chosen
+                                axis label.
+
+        A smart idea would be to ask the position after the movement.
+        """
+        curr_pos_dict = self.get_pos()
+        constraints = self.get_constraints()
+
+        for label_axis in self._axis_dict:
+            if param_dict.get(label_axis) is not None:
+                move = param_dict[label_axis]
+                curr_pos = curr_pos_dict[label_axis]
+
+                if (curr_pos + move > constraints[label_axis]['pos_max']) or \
+                        (curr_pos + move < constraints[label_axis]['pos_min']):
+
+                    self.log.warning('Cannot make further relative movement '
+                                     'of the axis "{0}" since the motor is at '
+                                     'position {1} and with the step of {2} it would '
+                                     'exceed the allowed border [{3},{4}]! Movement '
+                                     'is ignored!'.format(
+                        label_axis,
+                        move,
+                        curr_pos,
+                        constraints[label_axis]['pos_min'],
+                        constraints[label_axis]['pos_max']
+                    ))
+                else:
+                    self._save_pos({label_axis: curr_pos + move})
+                    self._axis_dict[label_axis].move_rel(move)
+
+    def move_abs(self, param_dict):
+        """ Moves stage to absolute position (absolute movement)
+
+        @param dict param_dict: dictionary, which passes all the relevant
+                                parameters, which should be changed. Usage:
+                                 {'axis_label': <a-value>}.
+                                 'axis_label' must correspond to a label given
+                                 to one of the axis.
+        A smart idea would be to ask the position after the movement.
+        """
+        constraints = self.get_constraints()
+
+        for label_axis in self._axis_dict:
+            if param_dict.get(label_axis) is not None:
+                desired_pos = param_dict[label_axis]
+
+                constr = constraints[label_axis]
+                if not(constr['pos_min'] <= desired_pos <= constr['pos_max']):
+
+                    self.log.warning(
+                        'Cannot make absolute movement of the '
+                        'axis "{0}" to position {1}, since it exceeds '
+                        'the limts [{2},{3}]. Movement is ignored!'
+                        ''.format(label_axis, desired_pos, constr['pos_min'], constr['pos_max'])
+                    )
+                else:
+                    self._save_pos({label_axis: desired_pos})
+                    self._axis_dict[label_axis].move_abs(desired_pos)
+
+   def abort(self):
+        """ Stops movement of the stage. """
+
+        for label_axis in self._axis_dict:
+            self._axis_dict[label_axis].stop_profiled()
+
+        self.log.warning('Movement of all the axis aborted! Stage stopped.')
+
+    def get_pos(self, param_list=None):
+        """ Gets current position of the stage arms
+
+        @param list param_list: optional, if a specific position of an axis
+                                is desired, then the labels of the needed
+                                axis should be passed as the param_list.
+                                If nothing is passed, then from each axis the
+                                position is asked.
+
+        @return dict: with keys being the axis labels and item the current
+                      position.
+        """
+        pos = {}
+
+        if param_list is not None:
+            for label_axis in param_list:
+                if label_axis in self._axis_dict:
+                    pos[label_axis] = self._axis_dict[label_axis].position
+        else:
+            for label_axis in self._axis_dict:
+                pos[label_axis] = self._axis_dict[label_axis].position
+
+        return pos
+
+    def get_status(self, param_list=None):
+        #TODO: implement and finish class
