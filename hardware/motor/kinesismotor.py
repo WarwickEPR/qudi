@@ -1,10 +1,10 @@
-import clr
-import os
-from enum import Enum
-from collections import OrderedDict
-
 from core.module import Base
 from interface.motor_interface import MotorInterface
+
+import os
+import clr
+from enum import Enum
+from collections import OrderedDict
 
 basePath = os.path.join(os.environ['ProgramFiles'], 'Thorlabs', 'Kinesis')
 dllPath = os.path.join(basePath, 'ThorLabs.MotionControl.KCube.DCServoCLI.dll')
@@ -784,7 +784,7 @@ class KinesisStage(Base, MotorInterface):
         Disconnect from hardware
         """
         for label_axis in self._axis_dict:
-            self._axis_dict[label_axis].Disconnect()
+            self._axis_dict[label_axis].disconnect()
 
     def get_constraints(self):
         """ Retrieve the hardware constrains from the motor device.
