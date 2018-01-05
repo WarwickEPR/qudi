@@ -3,6 +3,9 @@ import os
 from enum import Enum
 from collections import OrderedDict
 
+from core.module import Base
+from interface.motor_interface import MotorInterface
+
 basePath = os.path.join(os.environ['ProgramFiles'], 'Thorlabs', 'Kinesis')
 dllPath = os.path.join(basePath, 'ThorLabs.MotionControl.KCube.DCServoCLI.dll')
 clr.AddReference(dllPath)
@@ -193,7 +196,7 @@ class DeviceTypes(Enum):
 def _hardware_type_from_serial(serial_number):
     return DeviceTypes(int(serial_number[0:2]))
 
-def list_available_devices():
+def _list_available_devices():
     """
     Lists all devices connected to the computer.
 
@@ -230,8 +233,10 @@ class KDC101Motor:
     ----------
     serial_number : int
         Serial number identifying device
+    unit          : 'm' or 'degree'
+        Units of input the motor axis
     """
-    def __init__(self, serial_number):
+    def __init__(self, serial_number, unit):
         self._serial_number = serial_number
         device_type = _hardware_type_from_serial(self._serial_number)
         if device_type != DeviceTypes.KCubeDCServo:
@@ -248,6 +253,44 @@ class KDC101Motor:
 
         self._motor_configuration = self._device.LoadMotorConfiguration(self._serial_number)
         self._device_settings = self._device.MotorDeviceSettings
+        self._unit = unit
+
+    def _convert_to_stage_unit(self, value):
+        """
+        Convert a given value in the input units to stage units. If the input is set to meters,
+        this will return a value in mm;
+
+        Parameters
+        ----------
+        value : float
+            Value to be converted e.g. 0.015 m
+
+        Returns
+        ----------
+        value in stage units e.g. 15 mm
+        """
+        if self._unit == 1:
+            return 1000 * value
+        else:
+            return value
+
+    def _convert_from_stage_unit(self, value):
+        """
+        Convert a given value from stage units to SI.
+
+        Parameters
+        ----------
+        value : float
+            Value to be converted e.g. 15 mm
+
+        Returns
+        ----------
+        value in stage units e.g. 0.015 m
+        """
+        if self._unit == 1:
+            return 0.001 * value
+        else:
+            return value
 
     @property
     def serial_number(self):
@@ -422,9 +465,9 @@ class KDC101Motor:
             (minimum velocity, acceleration, maximum velocity)
         """
         vel_params = self._device.GetVelocityParams()
-        return float(str(vel_params.MinVelocity)),\
-               float(str(vel_params.Acceleration)),\
-               float(str(vel_params.MaxVelocity))
+        return self._convert_from_stage_unit(float(str(vel_params.MinVelocity))),\
+               self._convert_from_stage_unit(float(str(vel_params.Acceleration))),\
+               self._convert_from_stage_unit(float(str(vel_params.MaxVelocity)))
 
     def set_velocity_parameters(self, min_vel, accn, max_vel):
         """
@@ -441,9 +484,9 @@ class KDC101Motor:
             maximum velocity
         """
         vel_params = Thorlabs.MotionControl.GenericMotorCLI.ControlParameters.VelocityParameters()
-        vel_params.MinVelocity = System.Decimal(min_vel)
-        vel_params.Acceleration = System.Decimal(accn)
-        vel_params.MaxVelocity = System.Decimal(max_vel)
+        vel_params.MinVelocity = System.Decimal(self._convert_to_stage_unit(min_vel))
+        vel_params.Acceleration = System.Decimal(self._convert_to_stage_unit(accn))
+        vel_params.MaxVelocity = System.Decimal(self._convert_to_stage_unit(max_vel))
         self._device.SetVelocityParams(vel_params)
 
     def get_move_home_parameters(self):
@@ -458,8 +501,8 @@ class KDC101Motor:
         homing_params = self._device.GetHomingParams()
         return homing_params.Direction,\
                    homing_params.LimitSwitch,\
-                   float(str(homing_params.Velocity)),\
-                   float(str(homing_params.OffsetDistance))
+                   self._convert_from_stage_unit(float(str(homing_params.Velocity))),\
+                   self._convert_from_stage_unit(float(str(homing_params.OffsetDistance)))
 
     def set_move_home_parameters(self, direction, lim_switch, velocity,
             zero_offset):
@@ -485,8 +528,8 @@ class KDC101Motor:
         home_params = Thorlabs.MotionControl.GenericMotorCLI.ControlParameters.HomeParameters()
         home_params.Direction = direction
         home_params.LimitSwitch = lim_switch
-        home_params.Velocity = System.Decimal(velocity)
-        home_params.OffsetDistance = System.Decimal(zero_offset)
+        home_params.Velocity = System.Decimal(self._convert_to_stage_unit(velocity))
+        home_params.OffsetDistance = System.Decimal(self._convert_to_stage_unit(zero_offset))
         self._device.SetHomingParams(home_params)
 
     def get_limit_switch_parameters(self):
@@ -498,10 +541,10 @@ class KDC101Motor:
         (anticlockwise_limit, clockwise_limit, anticlockwise_hardware_limit, clockwise_hardware_limit)
         """
         lim_switch_params = self._device.GetLimitSwitchParams()
-        return float(str(lim_switch_params.AnticlockwisePosition)),\
-            float(str(lim_switch_params.ClockwisePosition)),\
-            LimitSwitchModes(lim_switch_params.AnticlockwiseHardwareLimit),\
-            LimitSwitchModes(lim_switch_params.ClockwiseHardwareLimit)
+        return self._convert_from_stage_unit(float(str(lim_switch_params.AnticlockwisePosition))),\
+               self._convert_from_stage_unit(float(str(lim_switch_params.ClockwisePosition))),\
+               LimitSwitchModes(lim_switch_params.AnticlockwiseHardwareLimit),\
+               LimitSwitchModes(lim_switch_params.ClockwiseHardwareLimit)
 
     def get_travel_limits(self):
         """
@@ -512,7 +555,8 @@ class KDC101Motor:
         (minimum_limit, maximum_limit)
         """
         motor_limits = self._device.AdvancedMotorLimits
-        return float(str(motor_limits.LengthMinimum)), float(str(motor_limits.LengthMaximum))
+        return self._convert_from_stage_unit(float(str(motor_limits.LengthMinimum))),\
+               self._convert_from_stage_unit(float(str(motor_limits.LengthMaximum)))
 
     def move_to(self, absolute_position, timeout = 0):
         """
@@ -525,7 +569,7 @@ class KDC101Motor:
         timeout : int
             timeout in ms
         """
-        self._device.MoveTo(System.Decimal(absolute_position), timeout)
+        self._device.MoveTo(System.Decimal(self._convert_to_stage_unit(absolute_position)), timeout)
 
     def move_by(self, relative_position, timeout = 0):
         """
@@ -543,7 +587,9 @@ class KDC101Motor:
             direction = 2
         else:
             direction = 1
-        self._device.MoveRelative(direction, System.Decimal(relative_position), timeout)
+        self._device.MoveRelative(direction,\
+                                  System.Decimal(self._convert_to_stage_unit(relative_position)),\
+                                  timeout)
 
     @property
     def position(self):
@@ -551,7 +597,7 @@ class KDC101Motor:
         Position of motor. Setting the position is absolute and non-blocking.
         """
         position = self._device.Position
-        return float(str(position))
+        return self._convert_from_stage_unit(float(str(position)))
 
     @position.setter
     def position(self, absolute_position):
@@ -643,13 +689,14 @@ class KDC101Motor:
         """
         Set the relative move parameters for later hardware triggering
         """
+        relative_distance_to_move = self._convert_to_stage_unit(relative_distance_to_move)
         self._device.SetMoveRelativeDistance(System.Decimal(relative_distance_to_move))
 
     def get_relative_move_distance(self):
         """
         Get the relative move distance for later hardware triggering
         """
-        return float(str(self._device.GetMoveRelativeDistance()))
+        return self._convert_from_stage_unit(float(str(self._device.GetMoveRelativeDistance())))
 
     def set_absolute_move_postion(self, absolute_position_to_move_to):
         """
@@ -660,13 +707,14 @@ class KDC101Motor:
         absolute_position_to_move_to : float
             The absolute position (in mm) to move to
         """
+        absolute_position_to_move_to = self._convert_to_stage_unit(absolute_position_to_move_to)
         self._device.SetMoveAbsolutePosition(System.Decimal(absolute_position_to_move_to))
 
     def get_absolute_move_postion(self):
         """
         Gets the absolute position to move to on a later hardware trigger
         """
-        return float(str(self._device.GetMoveAbsolutePosition()))
+        return self._convert_from_stage_unit(float(str(self._device.GetMoveAbsolutePosition())))
 
     def disconnect(self):
         self._device.Disconnect()
@@ -716,23 +764,20 @@ class KinesisStage(Base, MotorInterface):
                 'No axis labels were specified for the KinesisStage.'
                 'It is impossible to proceed. You might need to read more about how to configure the KinesisStage'
                 'in the config file, and you can find this information (with example) at'
-                'https://ulm-iqo.github.io/qudi-generated-docs/html-docs/classaptmotor_1_1APTStage.html#details'
+                'https://ulm-iqo.github.io/qudi-generated-docs/html-docs/classkinesismotor_1_1APTStage.html#details'
             )
 
         self._axis_dict = OrderedDict()
         hw_conf_dict = self._get_config()
-        limits_dict = self.get_constraints()
+        # limits_dict = self.get_constraints()
+
+        available_devices = _list_available_devices()
 
         for axis_label in axis_label_list:
-            serial_number = hw_conf_dict[axis_label]['serial_num']
-            label = axis_label
+            serial_number = str(hw_conf_dict[axis_label]['serial_num'])
             unit = hw_conf_dict[axis_label]['unit']
 
-            self._axis_dict[axis_label] = KDC101Motor(serial_number)
-
-            #TODO: figure out how to set temporary movement limits
-            # see the original aptmotor.py
-
+            self._axis_dict[axis_label] = KDC101Motor(serial_number, unit)
 
     def on_deactivate(self):
         """
@@ -742,9 +787,106 @@ class KinesisStage(Base, MotorInterface):
             self._axis_dict[label_axis].Disconnect()
 
     def get_constraints(self):
+        """ Retrieve the hardware constrains from the motor device.
+
+        @return dict: dict with constraints for the motor stage hardware. These
+                      constraints will be passed via the logic to the GUI so
+                      that proper display elements with boundary conditions
+                      can be made.
+
+        Provides all the constraints for each axis of a motorized stage
+        (like total travel distance, velocity, ...)
+        Each axis has its own dictionary, where the label is used as the
+        identifier throughout the whole module. The dictionaries for each axis
+        are again grouped together in a constraints dictionary in the form
+
+            {'<label_axis0>': axis0 }
+
+        where axis0 is again a dict with the possible values defined below. The
+        possible keys in the constraint are defined in the interface file.
+        If the hardware does not support the values for the constraints, then
+        insert just None. If you are not sure about the meaning, look in other
+        hardware files to get an impression.
         """
-        #TODO: complete!
-        """
+        constraints = {}
+
+        config = self.getConfiguration()
+
+        for axis_label in config['axis_labels']:
+            # create a dictionary for the constraints of this axis
+            this_axis = {}
+
+            axisconfig = config[axis_label]
+
+            # Get the constraints from the config file if they have been specified.
+            if 'constraints' in axisconfig:
+                constraintsconfig = axisconfig['constraints']
+            else:
+                constraintsconfig = OrderedDict()
+
+            # Now we can read through these axisconstraints
+
+            # Position minimum (units)
+            if 'pos_min' in constraintsconfig.keys():
+                this_axis['pos_min'] = constraintsconfig['pos_min']
+            else:
+                self.log.warning('kinesismotor has no pos_min specified in config file,'
+                                 'using default value of 0.'
+                                 )
+                this_axis['pos_min'] = 0
+
+            # Position maximum (units)
+            if 'pos_max' in constraintsconfig.keys():
+                this_axis['pos_max'] = constraintsconfig['pos_max']
+            else:
+                self.log.warning('kinesismotor has no pos_max specified in config file,'
+                                 'using default value of 360.'
+                                 )
+                this_axis['pos_max'] = 360
+
+            # Velocity minimum (units/s)
+            if 'vel_min' in constraintsconfig.keys():
+                this_axis['vel_min'] = constraintsconfig['vel_min']
+            else:
+                self.log.warning('kinesismotor has no vel_min specified in config file,'
+                                 'using default value of 0.1.'
+                                 )
+                this_axis['vel_min'] = 0.1
+
+            # Velocity maximum (units/s)
+            if 'vel_max' in constraintsconfig.keys():
+                this_axis['vel_max'] = constraintsconfig['vel_max']
+            else:
+                self.log.warning('kinesismotor has no vel_max specified in config file,'
+                                 'using default value of 5.0.'
+                                 )
+                this_axis['vel_max'] = 5.0
+
+            # Acceleration minimum (units/s^2)
+            if 'acc_min' in constraintsconfig.keys():
+                this_axis['acc_min'] = constraintsconfig['acc_min']
+            else:
+                self.log.warning('kinesismotor has no acc_min specified in config file,'
+                                 'using default value of 1.0.'
+                                 )
+                this_axis['acc_min'] = 1.0
+
+            # Acceleration maximum (units/s^2)
+            if 'acc_max' in constraintsconfig.keys():
+                this_axis['acc_max'] = constraintsconfig['acc_max']
+            else:
+                self.log.warning('kinesismotor has no acc_max specified in config file,'
+                                 'using default value of 5.0.'
+                                 )
+                this_axis['acc_max'] = 5.0
+
+            this_axis['pos_step'] = 0.01  # in °
+            this_axis['vel_step'] = 0.1  # in °/s (a rather arbitrary number)
+            this_axis['acc_step'] = 0.01  # in °/s^2 (a rather arbitrary number)
+
+            constraints[axis_label] = this_axis
+
+        return constraints
 
     def move_rel(self, param_dict):
         """ Moves stage in given direction (relative movement)
@@ -819,7 +961,7 @@ class KinesisStage(Base, MotorInterface):
                     self._save_pos({label_axis: desired_pos})
                     self._axis_dict[label_axis].move_abs(desired_pos)
 
-   def abort(self):
+    def abort(self):
         """ Stops movement of the stage. """
 
         for label_axis in self._axis_dict:
@@ -853,3 +995,52 @@ class KinesisStage(Base, MotorInterface):
 
     def get_status(self, param_list=None):
         #TODO: implement and finish class
+        return 1
+
+    def _get_config(self):
+        """ Get the HW information about the APT motors from the config file
+
+        @return: dictionary simlar to the constraints. It has keys matching the axis labels
+                            and the items for these keys are a set of config parameters.
+        """
+        hw_conf_dict = {}
+
+        config = self.getConfiguration()
+
+        for axis_label in config['axis_labels']:
+
+            # create a dictionary for the hw_conf of this axis
+            this_axis = {}
+
+            # get the axis config parameters from the config file
+            axis_config = config[axis_label]
+
+            if 'serial_num' in axis_config.keys():
+                this_axis['serial_num'] = axis_config['serial_num']
+            else:
+                self.log.error('No serial number given for APTmotor stage axis {}.'
+                               'It is impossible to proceed without this information.'.format(axis_label)
+                               )
+                break
+
+            # Unit must be 'degree' or 'meter'
+            if 'unit' in axis_config.keys():
+                this_axis['unit'] = axis_config['unit']
+            else:
+                self.log.warning('APTmotor has no unit specified in config file,'
+                                 'taking degree by default.'
+                                 )
+                this_axis['unit'] = 'degree'  # TODO what is the best default?
+
+            hw_conf_dict[axis_label] = this_axis
+
+        return hw_conf_dict
+
+    def calibrate(self, param_list=None):
+        return True
+
+    def get_velocity(self, param_list=None):
+        return 1
+
+    def set_velocity(self, param_dict):
+        return 1
