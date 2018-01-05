@@ -269,7 +269,7 @@ class KDC101Motor:
         ----------
         value in stage units e.g. 15 mm
         """
-        if self._unit == 1:
+        if self._unit == 'm':
             return 1000 * value
         else:
             return value
@@ -287,7 +287,7 @@ class KDC101Motor:
         ----------
         value in stage units e.g. 0.015 m
         """
-        if self._unit == 1:
+        if self._unit == 'm':
             return 0.001 * value
         else:
             return value
