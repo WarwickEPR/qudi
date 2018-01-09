@@ -78,11 +78,8 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         self.log.info('MWKEYSIGHT initialised and connected to hardware.')
         self.model = self._connection.query('*IDN?').split(',')[1]
 
-    def on_deactivate(self, e):
+    def on_deactivate(self):
         """ Deinitialisation performed during deactivation of the module.
-
-        @param object e: Event class object from Fysom. A more detailed
-                         explanation can be found in method activation.
         """
 
         self._connection.close()
