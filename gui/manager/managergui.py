@@ -26,6 +26,7 @@ import os
 
 from collections import OrderedDict
 from core.module import StatusVar
+from core.util.modules import get_main_dir
 from .errordialog import ErrorDialog
 from gui.guibase import GUIBase
 from qtpy import QtCore, QtWidgets, uic
@@ -163,14 +164,21 @@ class ManagerGui(GUIBase):
         # thread widget
         self._mw.threadWidget.threadListView.setModel(self._manager.tm)
         # remote widget
-        self._mw.remoteWidget.hostLabel.setText('URL:')
-        self._mw.remoteWidget.portLabel.setText(
-            'rpyc://{0}:{1}/'.format(self._manager.rm.host,
-                                     self._manager.rm.server.port))
-        self._mw.remoteWidget.remoteModuleListView.setModel(
-            self._manager.rm.remoteModules)
-        self._mw.remoteWidget.sharedModuleListView.setModel(
-            self._manager.rm.sharedModules)
+        # hide remote menu item if rpyc is not available
+        self._mw.actionRemoteView.setVisible(self._manager.rm is not None)
+        if (self._manager.rm is not None):
+            self._mw.remoteWidget.remoteModuleListView.setModel(self._manager.rm.remoteModules)
+            if (self._manager.remote_server):
+                self._mw.remoteWidget.hostLabel.setText('Server URL:')
+                self._mw.remoteWidget.portLabel.setText(
+                    'rpyc://{0}:{1}/'.format(self._manager.rm.server.host,
+                                             self._manager.rm.server.port))
+                self._mw.remoteWidget.sharedModuleListView.setModel(
+                    self._manager.rm.sharedModules)
+            else:
+                self._mw.remoteWidget.hostLabel.setVisible(False)
+                self._mw.remoteWidget.portLabel.setVisible(False)
+                self._mw.remoteWidget.sharedModuleListView.setVisible(False)
 
         self._mw.configDisplayDockWidget.hide()
         self._mw.remoteDockWidget.hide()
@@ -439,7 +447,7 @@ Go, play.
             a git repository.
         """
         try:
-            repo = Repo(self.get_main_dir())
+            repo = Repo(get_main_dir())
             branch = repo.active_branch
             rev = str(repo.head.commit)
             return (rev, str(branch))
@@ -476,7 +484,7 @@ Go, play.
         """ Ask the user for a file where the configuration should be loaded
             from
         """
-        defaultconfigpath = os.path.join(self.get_main_dir(), 'config')
+        defaultconfigpath = os.path.join(get_main_dir(), 'config')
         filename = QtWidgets.QFileDialog.getOpenFileName(
             self._mw,
             'Load Configration',
@@ -497,7 +505,7 @@ Go, play.
         """ Ask the user for a file where the configuration should be saved
             to.
         """
-        defaultconfigpath = os.path.join(self.get_main_dir(), 'config')
+        defaultconfigpath = os.path.join(get_main_dir(), 'config')
         filename = QtWidgets.QFileDialog.getSaveFileName(
             self._mw,
             'Save Configration',
@@ -633,7 +641,7 @@ class ModuleListItem(QtWidgets.QFrame):
             try:
                 if (self.base in self.manager.tree['loaded']
                         and self.name in self.manager.tree['loaded'][self.base]):
-                    state = self.manager.tree['loaded'][self.base][self.name].getState()
+                    state = self.manager.tree['loaded'][self.base][self.name].module_state()
                 else:
                     state = 'not loaded'
             except:
