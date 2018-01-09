@@ -26,6 +26,19 @@ class BurstCount:
         total = data[0] + data[1]
         return total * self.frequency
 
+    def mean_with_error(self):
+        data = self.take()
+        data = list(filter(lambda x: x > 0, data))
+        sum = 0.0
+        sumsq = 0.0
+        for c in data:
+            sum += c
+            sumsq += c*c
+        mean = sum / len(data)
+        meansq = sumsq / len(data)
+        stddev = math.sqrt(meansq - mean*mean)
+        return mean, stddev
+
     def histogram(self, bins):
         data = self.take()
         data = list(filter(lambda x: x > 0, data))
@@ -37,9 +50,10 @@ class BurstCount:
         data = self.take()
         t = self.measurement.getIndex() * 1e-6
         if limit is not None:
-            decimation = int(len(data) / limit);
-            data = data[0:-1:decimation]
-            t = t[0:-1:decimation]
+            if len(data) > limit:
+                decimation = int(len(data) / limit);
+                data = data[0:-1:decimation]
+                t = t[0:-1:decimation]
 
         plt.plot(t, data)
         plt.ylabel('counts')
@@ -52,7 +66,7 @@ class BurstCount:
         f = np.fft.fftfreq(len(data), t[1]-t[0])
         start = int(math.floor(len(y)*.5-1))
         y = np.abs(y)
-        plt.plot(f[0:start], y[0:start])
+        plt.plot(f[2:start], y[2:start])
         plt.ylabel('Intensity (counts/Hz)')
         plt.xlabel('Frequency (Hz)')
 
@@ -64,3 +78,5 @@ class BurstCount:
         self.histogram(bins)
         plt.subplot(313)
         self.ft()
+        plt.tight_layout()
+        plt.show()
