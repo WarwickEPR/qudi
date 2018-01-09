@@ -232,11 +232,6 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         @param float power: MW power of the frequency list in dBm
 
         """
-#        if self.set_cw(freq[0],power) != 0:
-#            error = -1
-
-        #self._connection.write(':SWE:RF:STAT ON')
-
         # put all frequencies into a string, first element is doubled
         # so there are n+1 list entries for scanning n frequencies
         # due to counter/trigger issues
@@ -251,11 +246,13 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         self._connection.write(':LIST:TYPE LIST')
         self._connection.write(':LIST:DWEL 10 ms')
         self._connection.write(freqcommand)
-        self._connection.write(':POWER {0:f}'.format(power))
+        self.set_power(power)
 
-        self._connection.write(':OUTP:STAT ON')
+        freq_power = self.get_power()
 
-        return 0
+        mode = "list"
+
+        return freq, freq_power, mode
 
     def reset_listpos(self):
         """ Reset of MW List Mode position to start from first given frequency
@@ -293,7 +290,7 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         self._connection.write(':FREQ:STOP {0:e} Hz'.format(stop))
         self._connection.write(':SWE:FREQ:STEP:LIN {0:e} Hz'.format(step))
         self._connection.write(':SWE:DWEL 10 ms')
-
+        self.set_power(power)
 
         time.sleep(0.2)
 
