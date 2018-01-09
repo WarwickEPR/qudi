@@ -150,7 +150,7 @@ class TimeTaggerFastCounter(Base, FastCounterInterface):
         """
         self._number_of_gates = number_of_gates
         self._bin_width = bin_width_s * 1e9
-        self._record_length = 1 + int(record_length_s / bin_width_s)
+        self._record_length = 1 + int(record_length_s / bin_width_s) + 2000
         self.statusvar = 1
 
         self.pulsed = tt.TimeDifferences(
