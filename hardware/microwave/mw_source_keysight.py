@@ -24,9 +24,9 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 """
 
 import visa
-import numpy as np
+import time
 
-from core.base import Base
+from core.module import Base, ConfigOption
 from interface.microwave_interface import MicrowaveInterface
 from interface.microwave_interface import MicrowaveLimits
 from interface.microwave_interface import MicrowaveMode
@@ -41,40 +41,19 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
     _modclass = 'MicrowaveKeysight'
     _modtype = 'hardware'
 
+    _address = ConfigOption('address', missing='error')
+    _timeout = ConfigOption('timeout', 1000, missing='warn')
+    _trigger = ConfigOption('trigger', "TRIG1", missing='warn')
+
     def on_activate(self):
         """ Initialisation performed during activation of the module."""
         # checking for the right configuration
-        config = self.getConfiguration()
-        # agilent mw source has USB connection, therefore configuration checks for USB address
-        if 'address' in config.keys():
-            self._address = config['address']
-        else:
-            self.log.error(
-                'This is MWKEYSIGHT: did not find >>address<< in '
-                'configuration.')
-
-        if 'timeout' in config.keys():
-            self._timeout = int(config['timeout'])
-        else:
-            self._timeout = 10 * 1000
-            self.log.error(
-                'This is MWKEYSIGHT: did not find >>timeout<< in '
-                'configuration. I will set it to 10 seconds.')
-
-        if 'trigger' in config.keys():
-            self._trigger = config['trigger']
-        else:
-            self._trigger = 'TRIG1'
-            self.log.error(
-                'This is MWKEYSIGHT: did not find >>trigger<< in '
-                'configuration. Setting to TRIG1'
-            )
 
         # trying to load the visa connection to the module
         self.rm = visa.ResourceManager()
         self._connection = self.rm.open_resource(resource_name=self._address,
                                                  timeout=self._timeout)
-
+        self._connection.write_termination = '\n'
         self.log.info('MWKEYSIGHT initialised and connected to hardware.')
         self.model = self._connection.query('*IDN?').split(',')[1]
 
@@ -87,7 +66,7 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
 
     def get_limits(self):
         limits = MicrowaveLimits()
-        limits.supported_modes = ('CW', 'LIST', 'SWEEP')
+        limits.supported_modes = (MicrowaveMode.CW, MicrowaveMode.LIST, MicrowaveMode.SWEEP)
 
         limits.min_frequency = 300e3
         limits.max_frequency = 6.4e9
@@ -117,15 +96,25 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
 
         return limits
 
-    def on(self):
+    def cw_on(self):
         """ Switches on any preconfigured microwave output.
 
         @return int: error code (0:OK, -1:error)
         """
+        current_mode, is_running = self.get_status()
+        if is_running:
+            if current_mode == 'cw':
+                return 0
+            else:
+                self.off()
 
         self._connection.write(':OUTP:STAT ON')
+        while not is_running:
+            time.sleep(0.2)
+            dummy, is_running = self.get_status()
 
         return 0
+
 
     def off(self):
         """ Switches off any microwave output.
@@ -133,9 +122,40 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         @return int: error code (0:OK, -1:error)
         """
 
+        self._connection.write(':OUTP:STATe OFF')
+        time.sleep(0.2)
+
+        # check if running
+        mode, is_running = self.get_status()
+        if not is_running:
+            return 0
+
         self._connection.write(':OUTP:STAT OFF')
+        while int(float(self._connection.query(':OUTP:STAT?'))) != 0:
+            time.sleep(0.2)
 
         return 0
+
+
+    def get_status(self):
+        """
+        Gets the current status of the MW source, i.e. the mode (cw, list or sweep) and
+        the output state (stopped, running)
+
+        @return str, bool: mode ['cw', 'list', 'sweep'], is_running [True, False]
+        """
+
+        is_running = bool(int(float(self._connection.ask(":OUTP:STATe?"))))
+
+        if bool(int(float(self._connection.ask(":OUTP:STATe?")))):
+            if self._connection.ask(":LIST:TYPE?") == "STEP":
+                mode = "sweep"
+            else:
+                mode = "list"
+        else:
+            mode = "cw"
+        return mode, is_running
+
 
     def get_power(self):
         """ Gets the microwave output power.
@@ -189,17 +209,22 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
 
         Interleave option is used for arbitrary waveform generator devices.
         """
-        error = 0
+        mode, is_running = self.get_status()
+        if is_running:
+            self.off()
 
         if freq is not None:
-            error = self.set_frequency(freq)
-        else:
-            return -1
+            self.set_frequency(freq)
         if power is not None:
-            error = self.set_power(power)
-        else:
-            return -1
-        return error
+            self.set_power(power)
+        if useinterleave is not None:
+            self.log.warning("No interleave available at the moment!")
+
+        mode, is_running = self.get_status()
+        actual_freq = self.get_frequency()
+        actual_power = self.get_power()
+        return actual_freq, actual_power, mode
+
 
     def set_list(self, freq=None, power=None):
         """
@@ -210,7 +235,7 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
 #        if self.set_cw(freq[0],power) != 0:
 #            error = -1
 
-        #self._usb_connection.write(':SWE:RF:STAT ON')
+        #self._connection.write(':SWE:RF:STAT ON')
 
         # put all frequencies into a string, first element is doubled
         # so there are n+1 list entries for scanning n frequencies
@@ -241,6 +266,17 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         self._connection.write('*WAI')
         return 0
 
+
+    def reset_sweeppos(self):
+        """ Reset of MW Sweep Mode position to start from first given frequency
+
+        @return int: error code (0:OK, -1:error)
+        """
+        self._connection.write(':LIST:MAN 1')
+        self._connection.write('*WAI')
+        return 0
+
+
     def set_sweep(self, start, stop, step, power):
         """
         @param start:
@@ -258,29 +294,30 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         self._connection.write(':SWE:FREQ:STEP:LIN {0:e} Hz'.format(step))
         self._connection.write(':SWE:DWEL 10 ms')
 
-        n = int(np.round(float(self._connection.query(':SWE:POIN?\n'))))
-        self.on()
 
-        return n
+        time.sleep(0.2)
 
-    def reset_sweep(self):
-        """ Reset of MW List Mode position to start from first given frequency
+        freq_start = float(self._connection.ask(':FREQ:STAR?'))
+        freq_stop = float(self._connection.ask(':FREQ:STOP?'))
+        num_of_points = int(self._connection.ask(':LIST:FREQ:POIN?'))
+        freq_range = freq_stop - freq_start
+        freq_step = freq_range / (num_of_points -1)
+        freq_power = self.get_power()
 
-        @return int: error code (0:OK, -1:error)
-        """
-        self._connection.write(':LIST:MAN 1')
-        self._connection.write('*WAI')
-        return 0
+        mode = "sweep"
+
+        return freq_start, freq_stop, freq_step, freq_power, mode
+
 
     def sweep_on(self):
         """ Switches on the list mode.
 
         @return int: error code (1: ready, 0:not ready, -1:error)
         """
-        print('sweep on')
         self._connection.write(':OUTP:STAT ON')
 
         return 1
+
 
     def list_on(self):
         """ Switches on the list mode.
@@ -290,6 +327,7 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         self._connection.write(':OUTP:STAT ON')
 
         return 1
+
 
     def set_ext_trigger(self, pol=TriggerEdge.RISING):
         """ Set the external trigger for this device with proper polarization.
