@@ -558,7 +558,7 @@ class KDC101Motor:
         return self._convert_from_stage_unit(float(str(motor_limits.LengthMinimum))),\
                self._convert_from_stage_unit(float(str(motor_limits.LengthMaximum)))
 
-    def move_to(self, absolute_position, timeout = 0):
+    def move_abs(self, absolute_position, timeout = 10000):
         """
         Move to absolute position.
 
@@ -571,7 +571,7 @@ class KDC101Motor:
         """
         self._device.MoveTo(System.Decimal(self._convert_to_stage_unit(absolute_position)), timeout)
 
-    def move_by(self, relative_position, timeout = 0):
+    def move_rel(self, relative_position, timeout = 0):
         """
         Move relative to current position.
 
@@ -601,7 +601,7 @@ class KDC101Motor:
 
     @position.setter
     def position(self, absolute_position):
-        self.move_to(absolute_position)
+        self.move_abs(absolute_position)
 
     def move_home(self, timeout=0):
         """
@@ -929,7 +929,7 @@ class KinesisStage(Base, MotorInterface):
                         constraints[label_axis]['pos_max']
                     ))
                 else:
-                    self._save_pos({label_axis: curr_pos + move})
+                    #self._save_pos({label_axis: curr_pos + move})
                     self._axis_dict[label_axis].move_rel(move)
 
     def move_abs(self, param_dict):
@@ -958,7 +958,7 @@ class KinesisStage(Base, MotorInterface):
                         ''.format(label_axis, desired_pos, constr['pos_min'], constr['pos_max'])
                     )
                 else:
-                    self._save_pos({label_axis: desired_pos})
+                    #self._save_pos({label_axis: desired_pos})
                     self._axis_dict[label_axis].move_abs(desired_pos)
 
     def abort(self):
