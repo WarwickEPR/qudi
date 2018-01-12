@@ -819,6 +819,7 @@ class APTStage(Base, MotorInterface):
         # create the magnet dump folder
         # TODO: Magnet stuff needs to move to magnet interfuses. It cannot be in the motor stage class.
         self._magnet_dump_folder = self._get_magnet_dump()
+        self._current_position = {'x': -10, 'y': -10, 'z': -10}
 
         # Path to the Thorlabs APTmotor DLL
         if platform.architecture()[0] == '64bit':
@@ -1075,6 +1076,9 @@ class APTStage(Base, MotorInterface):
             if param_dict.get(label_axis) is not None:
                 desired_pos = param_dict[label_axis]
 
+                if desired_pos == self._current_position[label_axis]:
+                    continue
+
                 constr = constraints[label_axis]
                 if not(constr['pos_min'] <= desired_pos <= constr['pos_max']):
 
@@ -1086,6 +1090,7 @@ class APTStage(Base, MotorInterface):
                     )
                 else:
                     self._save_pos({label_axis: desired_pos})
+                    self._current_position[label_axis] = desired_pos
                     self._axis_dict[label_axis].move_abs(desired_pos)
 
     def abort(self):
