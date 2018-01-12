@@ -1073,7 +1073,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
         @return int: error code (0:OK, -1:error)
         """
 
-        if self.getState() == 'locked':
+        if self.module_state() == 'locked':
             self.log.error('Another scan_line is already running, close this one first.')
             return -1
 
