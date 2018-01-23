@@ -127,7 +127,7 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
 
         if self._fast_counter_status < 2:
             binwidth = 1 / self._sample_frequency
-            number_of_bins = int(np.rint(record_length_s / binwidth))
+            number_of_bins = int(np.rint(record_length_s / binwidth)) - 20
             timetrace_length = number_of_bins * binwidth
 
             self._binwidth = binwidth
@@ -222,6 +222,7 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
         self._scanner_analog_daq_task = analogTask
 
         self._fast_counter_data = np.zeros((self._number_of_bins), dtype=np.float64)
+        self._circular_sample_offset = 0
 
         daq.DAQmxStartTask(self._scanner_analog_daq_task)
         daq.DAQmxStartTask(self._counter_analog_daq_task)
@@ -310,11 +311,8 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
         analogTask = self._scanner_analog_daq_task
         samples = self._number_of_bins
         data = np.zeros((int(np.rint(self._buffer_length / self._binwidth)),), dtype=np.float64)
-        self.log.warn('Data size: {0}'.format(data.shape))
-        self.log.warn('TotalDataShape: {0}'.format(self._fast_counter_data.shape))
 
         numSamplesRead = daq.c_int32()
-
         daq.DAQmxReadAnalogF64(analogTask,
                                -1,
                                0.2,  # read timeout
@@ -324,12 +322,22 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
                                daq.byref(numSamplesRead),
                                None)
 
-        self.log.warn('Number of samples read: {0}'.format(numSamplesRead.value))
-        self.log.warn('Number of complete things read: {0}'.format(int(np.rint(numSamplesRead.value / samples))))
-        for k in range(0, int(np.rint(numSamplesRead.value / samples))):
-            self._fast_counter_data[:] += data[(k*samples):((k+1)*samples)]
+        offset = self._circular_sample_offset
 
-        self.log.warn('Data: {0}'.format(self._fast_counter_data[0:10]))
+        if offset != 0:
+            self._fast_counter_data[-offset:] += data[0:offset]
+
+        complete_arrays = int(np.floor((numSamplesRead.value - offset)/self._number_of_bins))
+
+        for k in range(0,complete_arrays):
+            self._fast_counter_data[:] += data[offset+(k*samples):offset+((k+1)*samples)]
+
+        offset = numSamplesRead.value - complete_arrays * self._number_of_bins - offset
+
+        if offset != 0:
+            self._fast_counter_data[:offset] += data[-offset:]
+
+        self._circular_sample_offset = self._number_of_bins - offset
         return np.abs(self._fast_counter_data)
 
     # ================== End FastCounterInterface Commands ====================
