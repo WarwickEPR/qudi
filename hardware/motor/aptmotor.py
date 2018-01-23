@@ -819,7 +819,7 @@ class APTStage(Base, MotorInterface):
         # create the magnet dump folder
         # TODO: Magnet stuff needs to move to magnet interfuses. It cannot be in the motor stage class.
         self._magnet_dump_folder = self._get_magnet_dump()
-        self._current_position = {'x': -10, 'y': -10, 'z': -10}
+        self._current_position = {'x': -10, 'y': -10, 'z': -10, 'waveplate': 0}
 
         # Path to the Thorlabs APTmotor DLL
         if platform.architecture()[0] == '64bit':

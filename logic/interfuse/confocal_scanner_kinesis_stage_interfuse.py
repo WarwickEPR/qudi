@@ -55,7 +55,7 @@ class KinesisStageScannerInterfuse(Base, ConfocalScannerInterface):
         self._dwell_cnt_bins = 5
 
         # The dwell time (seconds) to wait before sampling counter logic counts for the scan pixel
-        self._dwell_delay = 0.5
+        self._dwell_delay = 0.1
 
     def on_activate(self):
         """ Initialisation performed during activation of the module.
