@@ -44,6 +44,10 @@ class MicrowaveSGS(Base, MicrowaveInterface):
     _address = ConfigOption('address', missing='error')
     _timeout = ConfigOption('timeout', 10, missing='warn')
 
+    _mode = 'cw'
+    _sweep_parameters = None
+    _sweep_index = None
+
     # Indicate how fast frequencies within a list or sweep mode can be changed:
     _FREQ_SWITCH_SPEED = 0.003  # Frequency switching speed in s (acc. to specs)
 
@@ -67,8 +71,7 @@ class MicrowaveSGS(Base, MicrowaveInterface):
 
     def on_deactivate(self):
         """ Cleanup performed during deactivation of the module. """
-        #self._gpib_connection.close()
-        #self.rm.close()
+        self._connection.close()
         return
 
     def _command_wait(self, command_str):
@@ -79,7 +82,7 @@ class MicrowaveSGS(Base, MicrowaveInterface):
         @param command_str: The command to be written
         """
         self._connection.write(command_str)
-        # # self._connection.write('*WAI')
+        # self._connection.write('*WAI')
         while int(float(self._connection.query('*OPC?'))) != 1:
             time.sleep(0.2)
         return
@@ -136,9 +139,11 @@ class MicrowaveSGS(Base, MicrowaveInterface):
         @return str, bool: mode ['cw', 'list', 'sweep'], is_running [True, False]
         """
         is_running = bool(int(float(self._connection.query('OUTP:STAT?'))))
-        mode = self._connection.query(':FREQ:MODE?').strip('\n').lower()
-        if mode == 'swe':
-            mode = 'sweep'
+
+        # the SGS100A is capable only of CW mode, but we can "fake" a sweep mode using the software
+        # trigger option. thus, asking the hardware for the current mode is incorrect - we must keep
+        # keep track of it ourselves.
+        mode = self._mode
         return mode, is_running
 
     def get_power(self):
@@ -147,7 +152,6 @@ class MicrowaveSGS(Base, MicrowaveInterface):
 
         @return float: the power set at the device in dBm
         """
-        # This case works for cw AND sweep mode
         return float(self._connection.query(':POW?'))
 
     def get_frequency(self):
@@ -161,13 +165,9 @@ class MicrowaveSGS(Base, MicrowaveInterface):
         """
         mode, is_running = self.get_status()
         if 'cw' in mode:
-            return_val = float(self._connection.query(':FREQ?'))
+            return float(self._connection.query(':FREQ?'))
         elif 'sweep' in mode:
-            start = float(self._connection.query(':FREQ:STAR?'))
-            stop = float(self._connection.query(':FREQ:STOP?'))
-            step = float(self._connection.query(':SWE:STEP?'))
-            return_val = [start+step, stop, step]
-        return return_val
+            return self._sweep_parameters
 
     def cw_on(self):
         """
@@ -194,12 +194,13 @@ class MicrowaveSGS(Base, MicrowaveInterface):
             dummy, is_running = self.get_status()
         return 0
 
-    def set_cw(self, frequency=None, power=None):
+    def set_cw(self, frequency=None, power=None, set_mode=True):
         """
         Configures the device for cw-mode and optionally sets frequency and/or power
 
         @param float frequency: frequency to set in Hz
         @param float power: power to set in dBm
+        @param bool set_mode: whether or not to update the internal mode to 'cw' (as hardware is always running cw)
 
         @return tuple(float, float, str): with the relation
             current frequency in Hz,
@@ -210,10 +211,6 @@ class MicrowaveSGS(Base, MicrowaveInterface):
         if is_running:
             self.off()
 
-        # Activate CW mode
-        if mode != 'cw':
-            self._command_wait(':FREQ:MODE CW')
-
         # Set CW frequency
         if frequency is not None:
             self._command_wait(':FREQ {0:f}'.format(frequency))
@@ -222,8 +219,11 @@ class MicrowaveSGS(Base, MicrowaveInterface):
         if power is not None:
             self._command_wait(':POW {0:f}'.format(power))
 
-        # Return actually set values
-        mode, dummy = self.get_status()
+        if set_mode is True:
+            self._mode = 'cw'
+
+        # Return set values
+        mode, _ = self.get_status()
         actual_freq = self.get_frequency()
         actual_power = self.get_power()
         return actual_freq, actual_power, mode
@@ -251,8 +251,7 @@ class MicrowaveSGS(Base, MicrowaveInterface):
             current mode
         """
         self.log.error('List mode not available for this microwave hardware!')
-        mode, dummy = self.get_status()
-        return self.get_frequency(), self.get_power(), mode
+        return -1
 
     def reset_listpos(self):
         """
@@ -275,11 +274,8 @@ class MicrowaveSGS(Base, MicrowaveInterface):
             else:
                 self.off()
 
-        if current_mode != 'sweep':
-            self._command_wait(':FREQ:MODE SWEEP')
-
         self._connection.write(':OUTP:STAT ON')
-        dummy, is_running = self.get_status()
+        _, is_running = self.get_status()
         while not is_running:
             time.sleep(0.2)
             dummy, is_running = self.get_status()
@@ -300,29 +296,32 @@ class MicrowaveSGS(Base, MicrowaveInterface):
         if is_running:
             self.off()
 
-        # if mode != 'sweep':
-        #     self._command_wait(':FREQ:MODE SWEEP')
-        #
-        # if (start is not None) and (stop is not None) and (step is not None):
-        #     self._connection.write(':SWE:MODE STEP')
-        #     self._connection.write(':SWE:SPAC LIN')
-        #     # self._connection.write('*WAI')
-        #     self._connection.write(':FREQ:START {0:f}'.format(start - step))
-        #     self._connection.write(':FREQ:STOP {0:f}'.format(stop))
-        #     self._connection.write(':SWE:STEP:LIN {0:f}'.format(step))
-        #     # self._connection.write('*WAI')
-        #
-        # if power is not None:
-        #     self._connection.write(':POW {0:f}'.format(power))
-        #     # self._connection.write('*WAI')
-        #
-        # self._command_wait('TRIG:FSW:SOUR EXT')
-        #
-        # actual_power = self.get_power()
-        # freq_list = self.get_frequency()
-        # mode, dummy = self.get_status()
-        # return freq_list[0], freq_list[1], freq_list[2], actual_power, mode
-        return start, stop, step, power, 'sweep'
+        if start is not None:
+            self._sweep_parameters = [start, stop, step]
+            number_of_points = (stop - start) / step + 1
+            self._sweep_index = [0 number_of_points]
+
+        if power is not None:
+            self.set_cw(power=power)
+
+        self.set_cw(frequency=start)
+
+        self._mode = 'sweep'
+
+        actual_power = self.get_power()
+        freq_list = self.get_frequency()
+        mode, _ = self.get_status()
+        return freq_list[0], freq_list[1], freq_list[2], actual_power, mode
+
+    def _compute_frequency_from_sweep_index(self, index):
+        fstart, _, fstep = self._sweep_parameters
+        return fstart + fstep*index
+
+    def _activate_sweep_point(self, index):
+        frequency = self._compute_frequency_from_sweep_index(index)
+        _, limit_index = self._sweep_index
+        self._sweep_index = [index, limit_index]
+        self.set_cw(frequency=frequency, set_mode=False)
 
     def reset_sweeppos(self):
         """
@@ -330,7 +329,8 @@ class MicrowaveSGS(Base, MicrowaveInterface):
 
         @return int: error code (0:OK, -1:error)
         """
-        self._command_wait(':ABOR:SWE')
+        if self._sweep_parameters is not None:
+            self._activate_sweep_point(0)
         return 0
 
     def set_ext_trigger(self, pol=TriggerEdge.RISING):
@@ -340,26 +340,8 @@ class MicrowaveSGS(Base, MicrowaveInterface):
 
         @return object: current trigger polarity [TriggerEdge.RISING, TriggerEdge.FALLING]
         """
-        mode, is_running = self.get_status()
-        if is_running:
-            self.off()
-
-        if pol == TriggerEdge.RISING:
-            edge = 'POS'
-        elif pol == TriggerEdge.FALLING:
-            edge = 'NEG'
-        else:
-            self.log.warning('No valid trigger polarity passed to microwave hardware module.')
-            edge = None
-
-        if edge is not None:
-            self._command_wait(':PULM:TRIG:EXT:SLOP {0}'.format(edge))
-
-        polarity = self._connection.query(':PULM:TRIG:EXT:SLOP?')
-        if 'NEG' in polarity:
-            return TriggerEdge.FALLING
-        else:
-            return TriggerEdge.RISING
+        self.log.warning('SGS100A hardware does not support hardware triggering')
+        return pol
 
     def set_trigger_pol(self, pol):
         return self.set_ext_trigger(self ,pol)
@@ -372,11 +354,12 @@ class MicrowaveSGS(Base, MicrowaveInterface):
         Ensure that the Frequency was set AFTER the function returns, or give
         the function at least a save waiting time.
         """
+        current_index, limit_index = self._sweep_index
+        if current_index + 1 == limit_index:
+            new_index = 0
+        else:
+            new_index = current_index + 1
+        self._activate_sweep_point(new_index)
 
-        # WARNING:
-        # The manual trigger functionality was not tested for this device!
-        # Might not work well! Please check that!
-
-        self._connection.write('*TRG')
         time.sleep(self._FREQ_SWITCH_SPEED)  # that is the switching speed
         return 0
