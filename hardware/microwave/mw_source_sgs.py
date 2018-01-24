@@ -299,7 +299,7 @@ class MicrowaveSGS(Base, MicrowaveInterface):
         if start is not None:
             self._sweep_parameters = [start, stop, step]
             number_of_points = (stop - start) / step + 1
-            self._sweep_index = [0 number_of_points]
+            self._sweep_index = [0, number_of_points]
 
         if power is not None:
             self.set_cw(power=power)
