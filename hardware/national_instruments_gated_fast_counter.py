@@ -351,8 +351,6 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
         if offset != 0:
             self._fast_counter_data[-offset:] += data[0:offset]
 
-        self.log.warn('Bins: {0}, Gates: {1}. Shape of back buffer: {2}. Num samples read: {3}. Samples: {4}'.format(samples, gates, self._fast_counter_data.shape, numSamplesRead.value, samples))
-        self.log.warn('First index: {0}, Second index: {1}, offset: {2}'.format(offset+1*samples, offset+(1+1)*samples,offset))
         complete_arrays = int(np.floor((numSamplesRead.value - offset)/samples))
         self._number_of_shots += complete_arrays + (1 if offset != 0 else 0)
 
