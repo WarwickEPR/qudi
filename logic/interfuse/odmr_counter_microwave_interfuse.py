@@ -49,7 +49,7 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
 
     def on_activate(self):
         """ Initialisation performed during activation of the module."""
-        self._mw_device = self.get_connector('microwave')
+        self._mw_device = self.get_connector('microwave') # microwave device
         self._sc_device = self.get_connector('slowcounter') # slow counter device
         pass
 
@@ -69,8 +69,10 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
         @return int: error code (0:OK, -1:error)
         """
         return self._sc_device.set_up_clock(clock_frequency=clock_frequency,
-                                                   clock_channel=clock_channel)
+                                            clock_channel=clock_channel)
 
+        # return self._sc_device.set_up_odmr_clock(clock_frequency=clock_frequency,
+        #                                          clock_channel=clock_channel)
 
     def set_up_odmr(self, counter_channel=None, photon_source=None,
                     clock_channel=None, odmr_trigger_channel=None):
@@ -88,6 +90,10 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
         @return int: error code (0:OK, -1:error)
         """
 
+        # return self._sc_device.set_up_odmr(counter_channel=counter_channel,
+        #                                    photon_source=photon_source,
+        #                                    clock_channel=clock_channel)
+
         return self._sc_device.set_up_counter(counter_channels=counter_channel,
                                                 sources=photon_source,
                                                 clock_channel=clock_channel,
@@ -101,6 +107,7 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
 
         @return int: error code (0:OK, -1:error)
         """
+        self._sc_device.set_odmr_length(length)
         self._odmr_length = length
         return 0
 
@@ -112,12 +119,12 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
 
         @return float[]: the photon counts per second
         """
-
-        counts = np.zeros(length)
-        # self.trigger()
+        test_values = self._sc_device.get_counter(samples=1)
+        number_of_channels,_ = test_values.shape
+        counts = np.zeros((number_of_channels,length))
         for i in range(length):
             self.trigger()
-            counts[i] = self._sc_device.get_counter(samples=1)[0]
+            counts[:,i] = self._sc_device.get_counter(samples=1)[:,0]
         self.trigger()
         return counts
 
@@ -133,8 +140,10 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
 
         @return int: error code (0:OK, -1:error)
         """
-        return self._sc_device.close_clock()
+        return self._sc_device.close_clock() #close_odmr_clock()
 
+    def get_odmr_channels(self):
+        return self._sc_device.get_odmr_channels()
 
     ### ----------- Microwave interface commands -----------
 

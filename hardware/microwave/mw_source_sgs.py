@@ -300,11 +300,10 @@ class MicrowaveSGS(Base, MicrowaveInterface):
             self._sweep_parameters = [start, stop, step]
             number_of_points = (stop - start) / step + 1
             self._sweep_index = [0, number_of_points]
+            self.set_cw(frequency=start)
 
         if power is not None:
             self.set_cw(power=power)
-
-        self.set_cw(frequency=start)
 
         self._mode = 'sweep'
 
