@@ -221,8 +221,9 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
         self._counter_analog_daq_task = counterTask
         self._scanner_analog_daq_task = analogTask
 
-        self._fast_counter_data = np.zeros((self._number_of_bins), dtype=np.float64)
+        self._fast_counter_data = np.zeros((self._number_of_bins), dtype=np.uint64)
         self._circular_sample_offset = 0
+        self._number_of_shots = 0
 
         daq.DAQmxStartTask(self._scanner_analog_daq_task)
         daq.DAQmxStartTask(self._counter_analog_daq_task)
@@ -310,15 +311,17 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
         """
         analogTask = self._scanner_analog_daq_task
         samples = self._number_of_bins
-        data = np.zeros((int(np.rint(self._buffer_length / self._binwidth)),), dtype=np.float64)
+        buffer_size = int(np.rint(self._buffer_length / self._binwidth))
+        data = np.zeros((buffer_size,), dtype=np.uint16)
 
         numSamplesRead = daq.c_int32()
-        daq.DAQmxReadAnalogF64(analogTask,
-                               -1,
-                               0.2,  # read timeout
+
+        daq.DAQmxReadBinaryU16(analogTask,
+                               -1,      # read all available samples
+                               0.2,     # read timeout
                                daq.DAQmx_Val_GroupByScanNumber,
                                data,
-                               int(np.rint(self._buffer_length / self._binwidth)),
+                               buffer_size,
                                daq.byref(numSamplesRead),
                                None)
 
@@ -328,6 +331,7 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
             self._fast_counter_data[-offset:] += data[0:offset]
 
         complete_arrays = int(np.floor((numSamplesRead.value - offset)/self._number_of_bins))
+        self._number_of_shots += complete_arrays + (1 if offset != 0 else 0)
 
         for k in range(0,complete_arrays):
             self._fast_counter_data[:] += data[offset+(k*samples):offset+((k+1)*samples)]
@@ -338,6 +342,6 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
             self._fast_counter_data[:offset] += data[-offset:]
 
         self._circular_sample_offset = self._number_of_bins - offset
-        return np.abs(self._fast_counter_data)
+        return self._fast_counter_data / self._number_of_shots
 
     # ================== End FastCounterInterface Commands ====================
