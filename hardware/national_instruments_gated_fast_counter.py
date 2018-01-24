@@ -21,7 +21,6 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 """
 
 import numpy as np
-
 import PyDAQmx as daq
 from core.module import Base, ConfigOption
 from interface.fast_counter_interface import FastCounterInterface
@@ -30,13 +29,12 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
     _modtype = 'NICardFastCounter'
     _modclass = 'hardware'
 
-    # slow counter
-    _clock_channel = ConfigOption('clock_channel', missing='error')
 
     # fast counter
+    _clock_channel = ConfigOption('clock_channel', missing='error')
     _sample_frequency = ConfigOption('sample_frequency', 2e6, missing='warn')
     _input_channel = ConfigOption('input_channel', missing='error')
-    _trigger_channel = ConfigOption('trigger_channel', missing='error')
+    _trigger_channel = ConfigOption('trigger_channel', missing='warn')
     _trigger_edge = ConfigOption('trigger_edge', missing='error')
     _minimum_voltage = ConfigOption('minimum_voltage', -5, missing='warn')
     _maximum_voltage = ConfigOption('maximum_voltage', 5, missing='warn')
@@ -49,6 +47,13 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
         self._counter_analog_daq_task = None
         self._scanner_analog_daq_task = None
         self._fast_counter_status = 1
+
+        if 'ctr' in self._clock_channel.lower():
+            self.log.info('Using internal clock for analog sampling of NI fast counter')
+            self._using_external_clock = False
+        else:
+            self.log.info('Using external clock for analog sampling of NI fast counter')
+            self._using_external_clock = True
 
     def on_deactivate(self):
         """ Shut down the NI card.
@@ -156,22 +161,23 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
 
     def start_measure(self):
         """ Start the fast counter. """
-        if self._counter_analog_daq_task is not None:
-            self.log.error('Another clock is already running, close this one first.')
+        if self._scanner_analog_daq_task is not None:
+            self.log.error('Another measurement is already running, stop this one first.')
             return -1
 
         physicalChannel = self._input_channel
         minV = self._minimum_voltage
         maxV = self._maximum_voltage
         samples = self._number_of_bins
-        counterChannel = self._clock_channel
-        triggerSource = self._trigger_channel
+
+        if not self._using_external_clock:
+            counterChannel = self._clock_channel + 'InternalOutput'
+        else:
+            counterChannel = self._clock_channel
 
         analogTask = daq.TaskHandle()
-        counterTask = daq.TaskHandle()
 
         daq.DAQmxCreateTask("analogFastInTask", daq.byref(analogTask))
-        daq.DAQmxCreateTask("counterOutTask", daq.byref(counterTask))
 
         # Setup a voltage channel to sample the analog input
         daq.DAQmxCreateAIVoltageChan(analogTask,
@@ -185,7 +191,7 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
 
         # Set the source of the task timing as an internal clock at the desired rate
         daq.DAQmxCfgSampClkTiming(analogTask,
-                                  counterChannel + 'InternalOutput',
+                                  counterChannel,
                                   self._sample_frequency,
                                   daq.DAQmx_Val_Rising,
                                   daq.DAQmx_Val_ContSamps,
@@ -195,41 +201,50 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
         daq.DAQmxCfgInputBuffer(analogTask,
                                 int(np.rint(self._buffer_length / self._binwidth)))
 
-        # Generate pulses on the clock channel at the correct frequency
-        daq.DAQmxCreateCOPulseChanFreq(counterTask,
-                                       counterChannel,
-                                       "coChannel",
-                                       daq.DAQmx_Val_Hz,
-                                       daq.DAQmx_Val_Low,
-                                       0,
-                                       self._sample_frequency,
-                                       0.5)
+        # If using an internal clock rather than an external clock, we need to generate a sample frequency using one of
+        # the internal counters.
+        if not self._using_external_clock:
+            triggerSource = self._trigger_channel
+            counterTask = daq.TaskHandle()
+            daq.DAQmxCreateTask("counterOutTask", daq.byref(counterTask))
 
-        # Use implicit timing to record only a finite number of analog samples
-        daq.DAQmxCfgImplicitTiming(counterTask,
-                                   daq.DAQmx_Val_FiniteSamps,
-                                   samples)
+            # Generate pulses on the clock channel at the correct frequency
+            daq.DAQmxCreateCOPulseChanFreq(counterTask,
+                                           self._clock_channel,
+                                           "coChannel",
+                                           daq.DAQmx_Val_Hz,
+                                           daq.DAQmx_Val_Low,
+                                           0,
+                                           self._sample_frequency,
+                                           0.5)
 
-        # Setup the trigger edge
-        if self._trigger_edge == 'rising':
-            edge = daq.DAQmx_Val_Rising
-        else:
-            edge = daq.DAQmx_Val_Falling
-        daq.DAQmxCfgDigEdgeStartTrig(counterTask, triggerSource, edge)
+            # Use implicit timing to record only a finite number of analog samples
+            daq.DAQmxCfgImplicitTiming(counterTask,
+                                       daq.DAQmx_Val_FiniteSamps,
+                                       samples)
 
-        # Ensure trigger re-arms after each shot
-        daq.DAQmxSetStartTrigRetriggerable(counterTask, True)
+            # Setup the trigger edge
+            if self._trigger_edge == 'rising':
+                edge = daq.DAQmx_Val_Rising
+            else:
+                edge = daq.DAQmx_Val_Falling
+            daq.DAQmxCfgDigEdgeStartTrig(counterTask, triggerSource, edge)
 
-        self._counter_analog_daq_task = counterTask
+            # Ensure trigger re-arms after each shot
+            daq.DAQmxSetStartTrigRetriggerable(counterTask, True)
+
+            self._counter_analog_daq_task = counterTask
         self._scanner_analog_daq_task = analogTask
 
+        # easier to deal with the buffer as if it's a single linear array and recast it to the correct shape later
         self._fast_counter_data = np.zeros((self._number_of_gates * self._number_of_bins), dtype=np.uint64)
         self._circular_sample_offset = 0
         self._number_of_shots = 0
 
         daq.DAQmxStartTask(self._scanner_analog_daq_task)
-        daq.DAQmxStartTask(self._counter_analog_daq_task)
 
+        if self._counter_analog_daq_task is not None:
+            daq.DAQmxStartTask(self._counter_analog_daq_task)
 
     def stop_measure(self):
         """ Stop the fast counter. """
@@ -260,7 +275,8 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
         counterTask = self._counter_analog_daq_task
 
         daq.DAQmxStopTask(analogTask)
-        daq.DAQmxStopTask(counterTask)
+        if counterTask is not None:
+            daq.DAQmxStopTask(counterTask)
 
         self._fast_counter_status = 3
         return self._fast_counter_status
@@ -276,7 +292,8 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
             return self._fast_counter_status
 
         daq.DAQmxStartTask(self._scanner_analog_daq_task)
-        daq.DAQmxStartTask(self._counter_analog_daq_task)
+        if self._counter_analog_daq_task is not None:
+            daq.DAQmxStartTask(self._counter_analog_daq_task)
 
         self._fast_counter_status = 1
         return self._fast_counter_status
@@ -317,9 +334,6 @@ class NationalInstrumentsXSeriesFastCounter(Base, FastCounterInterface):
         samples = gates * bins
         buffer_size = int(np.rint(self._buffer_length / self._binwidth))
         data = np.zeros((buffer_size,), dtype=np.uint16)
-
-        # easier to deal with the buffer as if it's a single linear array and recast it to the correct shape later
-        #temporary_linear_buffer = self._fast_counter_data.reshape((self._number_of_bins * self._number_of_gates))
 
         numSamplesRead = daq.c_int32()
 
