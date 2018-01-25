@@ -651,7 +651,7 @@ class PulsedMeasurementLogic(GenericLogic):
         if self.use_ext_microwave:
             self.microwave_freq, \
             self.microwave_power, \
-            dummy = self._mycrowave_source_device.set_cw(freq=frequency, power=power)
+            dummy = self._mycrowave_source_device.set_cw(frequency=frequency, power=power)
         self.sigExtMicrowaveSettingsUpdated.emit(self.microwave_freq, self.microwave_power,
                                                  self.use_ext_microwave)
         return
