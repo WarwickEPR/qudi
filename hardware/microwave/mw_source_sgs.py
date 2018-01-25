@@ -49,7 +49,7 @@ class MicrowaveSGS(Base, MicrowaveInterface):
     _sweep_index = None
 
     # Indicate how fast frequencies within a list or sweep mode can be changed:
-    _FREQ_SWITCH_SPEED = 0.003  # Frequency switching speed in s (acc. to specs)
+    _FREQ_SWITCH_SPEED = 0.001  # Frequency switching speed in s (acc. to specs)
 
     def on_activate(self):
         """ Initialisation performed during activation of the module. """
@@ -208,8 +208,6 @@ class MicrowaveSGS(Base, MicrowaveInterface):
             current mode
         """
         mode, is_running = self.get_status()
-        if is_running:
-            self.off()
 
         # Set CW frequency
         if frequency is not None:

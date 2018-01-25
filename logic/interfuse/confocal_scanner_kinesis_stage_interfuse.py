@@ -55,7 +55,7 @@ class KinesisStageScannerInterfuse(Base, ConfocalScannerInterface):
         self._dwell_cnt_bins = 5
 
         # The dwell time (seconds) to wait before sampling counter logic counts for the scan pixel
-        self._dwell_delay = 0.1
+        self._dwell_delay = 0.15
 
     def on_activate(self):
         """ Initialisation performed during activation of the module.
@@ -227,8 +227,6 @@ class KinesisStageScannerInterfuse(Base, ConfocalScannerInterface):
         num_channels = len(self.get_scanner_count_channels())
         count_data = np.zeros([num_channels, self._line_length])
         # TODO: is it necessary for line_length to be a class variable?
-
-        #self.log.warning('Line of {0} digits: {1}'.format(self._line_length, line_path))
 
         for i in range(self._line_length):
             coords = line_path[:, i]
