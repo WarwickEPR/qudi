@@ -211,7 +211,8 @@ class MicrowaveSGS(Base, MicrowaveInterface):
 
         # Set CW frequency
         if frequency is not None:
-            self._command_wait(':FREQ {0:f}'.format(frequency))
+            self._connection.write(':FREQ {0:f}'.format(frequency))
+            #self._command_wait(':FREQ {0:f}'.format(frequency))
 
         # Set CW power
         if power is not None:
@@ -358,5 +359,5 @@ class MicrowaveSGS(Base, MicrowaveInterface):
             new_index = current_index + 1
         self._activate_sweep_point(new_index)
 
-        time.sleep(self._FREQ_SWITCH_SPEED)  # that is the switching speed
+        #time.sleep(self._FREQ_SWITCH_SPEED)  # that is the switching speed
         return 0
