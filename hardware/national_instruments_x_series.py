@@ -771,7 +771,8 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
 
     def get_scanner_count_channels(self):
         """ Return list of counter channels """
-        ch = self._scanner_counter_channels[:]
+        ch = []
+        ch.extend(self._scanner_counter_channels[:])
         ch.extend(self._scanner_ai_channels)
         return ch
 
@@ -1849,8 +1850,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
 
     def get_odmr_channels(self):
         ch = []
-        if len(self._scanner_counter_channels) > 0:
-            ch.extend(self._scanner_counter_channels[0])
+        ch.extend(self._scanner_counter_channels)
         ch.extend(self._scanner_ai_channels)
         return ch
 
