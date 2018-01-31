@@ -238,19 +238,13 @@ class CounterGui(GUIBase):
         """ The function that grabs the data and sends it to the plot.
         """
 
-<<<<<<< HEAD
         if self._counting_logic.module_state() == 'locked':
-            self._mw.count_value_Label.setText(
-                '{0:,.0f}'.format(self._counting_logic.countdata_smoothed[0, -1]))
-=======
-        if self._counting_logic.getState() == 'locked':
             if 0 < self._counting_logic.countdata_smoothed[(self._display_trace-1), -1] < 1:
                 self._mw.count_value_Label.setText(
                     '{0:,.6f}'.format(self._counting_logic.countdata_smoothed[(self._display_trace-1), -1]))
             else:
                 self._mw.count_value_Label.setText(
                     '{0:,.0f}'.format(self._counting_logic.countdata_smoothed[(self._display_trace-1), -1]))
->>>>>>> upstream/nidaq_analog_etc
 
             x_vals = (
                 np.arange(0, self._counting_logic.get_count_length())
