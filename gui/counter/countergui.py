@@ -239,12 +239,8 @@ class CounterGui(GUIBase):
         """
 
         if self._counting_logic.module_state() == 'locked':
-            if 0 < self._counting_logic.countdata_smoothed[(self._display_trace-1), -1] < 1:
-                self._mw.count_value_Label.setText(
-                    '{0:,.6f}'.format(self._counting_logic.countdata_smoothed[(self._display_trace-1), -1]))
-            else:
-                self._mw.count_value_Label.setText(
-                    '{0:,.0f}'.format(self._counting_logic.countdata_smoothed[(self._display_trace-1), -1]))
+            self._mw.count_value_Label.setText(
+                '{0:,.6f}'.format(self._counting_logic.countdata_smoothed[(self._display_trace-1), -1]))
 
             x_vals = (
                 np.arange(0, self._counting_logic.get_count_length())
