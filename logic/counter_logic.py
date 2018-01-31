@@ -468,18 +468,14 @@ class CounterLogic(GenericLogic):
 
                 # read the current counter value
                 self.rawdata = self._counting_device.get_counter(samples=self._counting_samples)
-                if self.rawdata[0, 0] < 0:
-                    self.log.error('The counting went wrong, killing the counter.')
-                    self.stopRequested = True
+                if self._counting_mode == CountingMode['CONTINUOUS']:
+                    self._process_data_continous()
+                elif self._counting_mode == CountingMode['GATED']:
+                    self._process_data_gated()
+                elif self._counting_mode == CountingMode['FINITE_GATED']:
+                    self._process_data_finite_gated()
                 else:
-                    if self._counting_mode == CountingMode['CONTINUOUS']:
-                        self._process_data_continous()
-                    elif self._counting_mode == CountingMode['GATED']:
-                        self._process_data_gated()
-                    elif self._counting_mode == CountingMode['FINITE_GATED']:
-                        self._process_data_finite_gated()
-                    else:
-                        self.log.error('No valid counting mode set! Can not process counter data.')
+                    self.log.error('No valid counting mode set! Can not process counter data.')
 
             # call this again from event loop
             self.sigCounterUpdated.emit()
