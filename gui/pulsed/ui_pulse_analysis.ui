@@ -37,6 +37,9 @@
           <property name="suffix">
            <string>Hz</string>
           </property>
+          <property name="decimals">
+           <number>6</number>
+          </property>
           <property name="maximum">
            <double>2100000044.000000000000000</double>
           </property>
