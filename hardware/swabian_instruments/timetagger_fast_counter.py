@@ -23,7 +23,6 @@ from interface.fast_counter_interface import FastCounterInterface
 import numpy as np
 import TimeTagger as tt
 from core.module import Base, ConfigOption
-import os
 
 
 class TimeTaggerFastCounter(Base, FastCounterInterface):
