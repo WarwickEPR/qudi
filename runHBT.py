@@ -10,7 +10,7 @@ tagger = timetaggerSlow._tagger
 
 ## create the measurement and stop it ready for later
 # time is in picoseconds
-timeBin = 500
+timeBin = 1000
 noBins = 2000
 # zero point happens in the middle of the plot
 maxTime = ((noBins*timeBin)/2)/1e3
@@ -42,7 +42,7 @@ def animate(i):
     ax.autoscale()
     return line,
 
-anim = animation.FuncAnimation(fig, animate, init_func=init, interval=25)
+anim = animation.FuncAnimation(fig, animate, init_func=init, interval=1000)
 
 plt.show()
 
