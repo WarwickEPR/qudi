@@ -216,6 +216,11 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
             self.log.error('Failed to start analog output.')
             raise Exception('Failed to start NI Card module due to analog output failure.')
 
+        # Once the analog output is available, set the AOM channel if in use
+        if self._a_other:
+            self.set_voltage(self._a_voltage)
+
+
     def _positional_channels(self):
         if self._a_other:
             return self._scanner_ao_channels[0:-1]
@@ -1116,12 +1121,12 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
             self._current_position[2] = np.float(z)
 
         if a is not None:
-            if not(self._scanner_position_ranges[3][0] <= a <= self._scanner_position_ranges[3][1]):
+            if self._a_other:
+                self.log.error("Tried to set position on AO channel 'a' whilst 'a' is a voltage output")
+                return -1
+            elif not(self._scanner_position_ranges[3][0] <= a <= self._scanner_position_ranges[3][1]):
                 self.log.error('You want to set a out of range: {0:f}.'.format(a))
                 return -1
-            if self._a_other:
-                if len(self._current_position) == 4:
-                    self._current_position = self._current_position[0:2]
             else:
                 self._current_position[3] = np.float(a)
 
@@ -1216,7 +1221,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
 
         @return float[]: current position in (x, y, z, a).
         """
-        return self._current_position
+        return self._current_position.tolist()
 
     def _set_up_line(self, length=100):
         """ Sets up the analog output for scanning a line.
@@ -1484,7 +1489,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
                 all_data[len(self._scanner_counter_channels):] = self._analog_data[:, :-1]
 
             # update the scanner position instance variable
-            self._current_position = list(line_path[:, -1])
+            self._current_position = np.array(line_path[:, -1])
         except:
             self.log.exception('Error while scanning line.')
             return np.array([[-1.]])
