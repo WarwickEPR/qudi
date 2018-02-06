@@ -27,11 +27,14 @@ def on_refocusing(tag):
     if pulsed_running() and not pulsed_paused():
         pulsedmasterlogic.log.info("Refocusing, pausing")
         pulsedmasterlogic.pause_measurement()
+        nicard.set_voltage(5.0)
 
 def on_refocused(tag,pos):
     if pulsed_running() and pulsed_paused():
         pulsedmasterlogic.log.info("Refocused, unpausing")
+        nicard.set_voltage(7.0)
         pulsedmasterlogic.continue_measurement()
+
 
 optimizerlogic.sigRefocusStarted.connect(on_refocusing)
 optimizerlogic.sigRefocusFinished.connect(on_refocused)
