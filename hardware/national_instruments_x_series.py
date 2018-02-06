@@ -157,7 +157,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
     _pixel_clock_channel = ConfigOption('pixel_clock_channel', None)
     _scanner_ao_channels = ConfigOption('scanner_ao_channels', missing='error')
     _a_other = ConfigOption('a_other', False, missing='info')
-    _a_voltage = ConfigOption('a_other', 4.0, missing='info')
+    _a_voltage = ConfigOption('a_voltage', 4.0, missing='info')
     _scanner_ai_channels = ConfigOption('scanner_ai_channels', [], missing='info')
     _scanner_counter_channels = ConfigOption('scanner_counter_channels', [], missing='warn')
     _scanner_voltage_ranges = ConfigOption('scanner_voltage_ranges', missing='error')
