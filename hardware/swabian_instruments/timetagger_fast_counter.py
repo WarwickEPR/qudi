@@ -136,7 +136,7 @@ class TimeTaggerFastCounter(Base, FastCounterInterface):
             click_channel=self._channel_apd,
             start_channel=self._channel_detect,
             next_channel=self._channel_detect,
-            sync_channel=tt.CHANNEL_UNUSED,
+            sync_channel=self._channel_sequence,
             binwidth=int(np.round(self._bin_width * 1000)),
             n_bins=int(self._record_length),
             n_histograms=number_of_gates)
