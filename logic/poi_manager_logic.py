@@ -205,6 +205,7 @@ class PoiManagerLogic(GenericLogic):
 
         self.roi_name = ''
         self.poi_list = dict()
+        self.poi_lookup = dict()
         self._current_poi_key = None
         self.go_to_crosshair_after_refocus = False  # default value
 
@@ -229,11 +230,13 @@ class PoiManagerLogic(GenericLogic):
         crosshair = PoI(pos=[0, 0, 0], name='crosshair')
         crosshair._key = 'crosshair'
         self.poi_list[crosshair._key] = crosshair
+        self.poi_lookup['crosshair'] = 'crosshair'
 
         # initally add sample to the pois
         sample = PoI(pos=[0, 0, 0], name='sample')
         sample._key = 'sample'
         self.poi_list[sample._key] = sample
+        self.poi_lookup['sample'] = 'sample'
 
         # listen for the refocus to finish
         self._optimizer_logic.sigRefocusFinished.connect(self._refocus_done)
@@ -263,7 +266,7 @@ class PoiManagerLogic(GenericLogic):
         """ Debug function for testing. """
         pass
 
-    def add_poi(self, position=None, key=None, emit_change=True):
+    def add_poi(self, position=None, key=None, emit_change=True, set_active=True):
         """ Creates a new poi and adds it to the list.
 
         @return int: key of this new poi
@@ -291,6 +294,7 @@ class PoiManagerLogic(GenericLogic):
 
         new_poi = PoI(pos=position, key=key)
         self.poi_list[new_poi.get_key()] = new_poi
+        self.poi_lookup[new_poi.get_name()] = new_poi.get_key()
 
         # The POI coordinates are set relative to the last known sample position
         most_recent_sample_pos = self.poi_list['sample'].get_position_history()[-1, :][1:4]
@@ -299,7 +303,9 @@ class PoiManagerLogic(GenericLogic):
 
         # Since POI was created at current scanner position, it automatically
         # becomes the active POI.
-        self.set_active_poi(poikey=new_poi.get_key())
+
+        if set_active:
+            self.set_active_poi(poikey=new_poi.get_key())  # to stop loading and ROI taking an age
 
         if emit_change:
             self.signal_poi_updated.emit()
@@ -376,6 +382,7 @@ class PoiManagerLogic(GenericLogic):
             if poikey is 'crosshair' or poikey is 'sample':
                 self.log.warning('You cannot delete the crosshair or sample.')
                 return -1
+            del self.poi_lookup[self.poi_list[poikey].get_name()]
             del self.poi_list[poikey]
 
             # If the active poi was deleted, there is no way to automatically choose
@@ -536,7 +543,10 @@ class PoiManagerLogic(GenericLogic):
 
         if poikey is not None and name is not None and poikey in self.poi_list.keys():
 
+            old_name = self.poi_list[poikey].get_name()
             success = self.poi_list[poikey].set_name(name=name)
+            self.poi_lookup[name] = poikey
+            del self.poi_lookup[old_name]
 
             # if this is the active POI then we need to update poi tag in savelogic
             if self.poi_list[poikey] == self.active_poi:
@@ -548,7 +558,7 @@ class PoiManagerLogic(GenericLogic):
             return success
 
         else:
-            self.log.error('AAAThe given POI ({0}) does not exist.'.format(
+            self.log.error('The given POI ({0}) does not exist.'.format(
                 poikey))
             return -1
 
@@ -770,7 +780,7 @@ class PoiManagerLogic(GenericLogic):
                 saved_poi_coords = [
                     float(line.split()[2]), float(line.split()[3]), float(line.split()[4])]
 
-                this_poi_key = self.add_poi(position=saved_poi_coords, key=saved_poi_key, emit_change=False)
+                this_poi_key = self.add_poi(position=saved_poi_coords, key=saved_poi_key, emit_change=False, set_active=False)
                 self.rename_poi(poikey=this_poi_key, name=saved_poi_name, emit_change=False)
 
         roifile.close()
@@ -947,13 +957,14 @@ class PoiManagerLogic(GenericLogic):
         maxima = (data == data_max)
         data_min = filters.minimum_filter(data, 3 * neighborhood_pix)
         diff = ((data_max - data_min) > min_threshold)
-        maxima[diff is False] = 0
+        maxima[np.invert(diff)] = 0
 
         labeled, num_objects = ndimage.label(maxima)
         xy = np.array(ndimage.center_of_mass(data, labeled, range(1, num_objects + 1)))
+        self.log.debug("Autofind xy: {}".format(xy))
 
         for count, pix_pos in enumerate(xy):
-            poi_pos = self.roi_map_data[pix_pos[0], pix_pos[1], :][0:3]
+            poi_pos = self.roi_map_data[int(pix_pos[0]), int(pix_pos[1]), :][0:3]
             this_poi_key = self.add_poi(position=poi_pos, emit_change=False)
             self.rename_poi(poikey=this_poi_key, name='spot' + str(count), emit_change=False)
 
