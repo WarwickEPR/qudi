@@ -10,6 +10,7 @@ import csv
 import TimeTagger as tt
 
 tagger = timetaggerSlow._tagger
+ctr = tt.Countrate(tagger,[0,1])
 
 # https://www.jdreaver.com/posts/2014-07-03-waiting-for-signals-pyside-pyqt.html
 @contextlib.contextmanager
@@ -34,7 +35,7 @@ def scanv(v):
     return d
 
 def power_est(v):
-    return (0.0166 * v - 0.0522) * 40
+    return (0.0166 * v - 0.0522) * 60
 
 def fit_psat_aom(v,d):
     model, param = fitlogic.make_hyperbolicsaturation_model()
@@ -73,8 +74,9 @@ def refocus():
         time.sleep(0.2)
 
 
+
 def run_hbt_with_refocus(p,t):
-    timeBin = 500
+    timeBin = 1000
     noBins = 2000
     # zero point happens in the middle of the plot
     maxTime = ((noBins * timeBin) / 2) / 1e3
@@ -105,16 +107,13 @@ def run_hbt_with_refocus(p,t):
     coin.clear()
 
 def run_hbt(poi,t):
-    timeBin = 500
+    timeBin = 1000
     noBins = 2000
     # zero point happens in the middle of the plot
     maxTime = ((noBins * timeBin) / 2) / 1e3
     minTime = -maxTime
     # make the row for the time bins
     timeRow = np.linspace(minTime, maxTime, (noBins + 1))
-
-    go_to_poi(poi)
-
 
     # start the correlation (iterate start stop just to clear last if not a fresh reload)
     coin = tt.Correlation(tagger, 0, 1, binwidth=timeBin, n_bins=noBins)
@@ -135,6 +134,33 @@ psat_data = {}
 psat_fit = {}
 psat_v = {}
 
+
+def go_to_poi_carefully(p, fallback):
+    optimizerlogic.start_refocus(initial_pos=poimanagerlogic.get_poi_position(poikey=p))
+    poimanagerlogic.log.warning("Looking for poi between x {} and y {}".format(optimizerlogic.x_range*1e6, optimizerlogic.y_range*1e6))
+    wait_for_refocus()
+    counts = countrate()
+    print("Countrate: {}".format(counts))
+    if counts < 15000:
+        optimizerlogic.start_refocus()
+        wait_for_refocus()
+        counts = countrate()
+
+        if counts < 15000:
+            # dodgy refocus, skip to next
+            # log and move on
+            print("Failed to refocus {}".format(p))
+            poimanagerlogic.log.warning("Failed to focus on {}".format(p))
+            go_to_poi(fallback)
+            poimanagerlogic.log.warning("Returning to {}".format(fallback))
+            return False
+
+    # Update position
+    pos = (optimizerlogic.optim_pos_x, optimizerlogic.optim_pos_y, optimizerlogic.optim_pos_z, 0)
+    poimanagerlogic._current_poi_key = p
+    poimanagerlogic._refocus_done('poimanager', pos)
+    poimanagerlogic.log.warn("Updated position")
+    return True
 
 def go_to_poi(p):
     poimanagerlogic.optimise_poi(p)
@@ -166,45 +192,51 @@ def refine_poi_list():
             newpos = poimanagerlogic._confocal_logic.get_position()[:3]
             poimanagerlogic.move_coords(poi,newpos)
 
-def iterate_over_poi_hbt(poi,v):
+def iterate_over_poi_hbt(poi,v,fallback):
     with open(r"C:\Users\Confocal\Desktop\positions-long.txt", 'w', 1) as positions_file:
         positions = csv.writer(positions_file)
 
         for p in poi:
-            print('Going to {}'.format(p))
-            go_to_poi(p)
-            positions.writerow([ p,
-                                 optimizerlogic.optim_pos_x,
-                                 optimizerlogic.optim_sigma_x,
-                                 optimizerlogic.optim_pos_y,
-                                 optimizerlogic.optim_sigma_y,
-                                 optimizerlogic.optim_pos_z,
-                                 optimizerlogic.optim_sigma_z
-                                 ])
-            d = scanv(v)
-            powers = power_est(v)
-            psat_data[p] = d
-            fit = fit_psat_aom(v-3,d)
-            psat_fit[p] = fit
-            vsat = fit.best_values['P_sat'] + 3.0
-            psat_v[p] = vsat
-            summary = "# Isat {} counts at\n# {} V\n# {} mW\n# fit {}\n\n".format(fit.best_values['I_sat'],vsat,power_est(vsat),fit.best_values)
-            print('fitted Isat {} at {}V {}mW'.format(fit.best_values['I_sat'],vsat,power_est(vsat)))
+            poimanagerlogic.log.info('Going to {}'.format(p))
+            nicard.set_voltage(5.0)
+            if go_to_poi_carefully(p,fallback):
+                positions.writerow([ p,
+                                     optimizerlogic.optim_pos_x,
+                                     optimizerlogic.optim_sigma_x,
+                                     optimizerlogic.optim_pos_y,
+                                     optimizerlogic.optim_sigma_y,
+                                     optimizerlogic.optim_pos_z,
+                                     optimizerlogic.optim_sigma_z,
+                                     countrate()
+                                     ])
+                d = scanv(v)
+                powers = power_est(v)
+                psat_data[p] = d
+                fit = fit_psat_aom(v-3,d)
+                psat_fit[p] = fit
+                vsat = fit.best_values['P_sat'] + 3.0
+                psat_v[p] = vsat
+                summary = "# Isat {} counts at\n# {} V\n# {} mW\n# fit {}\n\n".format(fit.best_values['I_sat'],vsat,power_est(vsat),fit.best_values)
+                print('fitted Isat {} at {}V {}mW'.format(fit.best_values['I_sat'],vsat,power_est(vsat)))
 
-            with open(r"C:\Users\Confocal\Desktop\psat-{}.csv".format(p), 'w', newline='') as csvfile:
-                csvfile.write(summary)
-                pwriter = csv.writer(csvfile)
-                pwriter.writerows([v, powers, d, fit.best_fit])
+                with open(r"C:\Users\Confocal\Desktop\psat-{}.csv".format(p), 'w', newline='') as csvfile:
+                    csvfile.write(summary)
+                    pwriter = csv.writer(csvfile)
+                    pwriter.writerows([v, powers, d, fit.best_fit])
 
-            print('Done Psat {}'.format(p))
+                print('Done Psat {}'.format(p))
 
-            if vsat > 7.0:
-                V = 7.0
+                if vsat > 7.0:
+                    V = 7.0
+                elif vsat < 4.0:
+                    V = 4.0
+                else:
+                    V = vsat
+                nicard.set_voltage(V)
+                run_hbt(p,120)
+                print('Done HBT {}'.format(p))
             else:
-                V = vsat
-            nicard.set_voltage(V)
-            run_hbt(p,300)
-            print('Done HBT {}'.format(p))
+                print('Failed to focus on {}', p)
 
 def iterate_over_poi_psat_only(poi,v):
     with open(r"C:\Users\Confocal\Desktop\positions.txt", 'w',0) as positions_file:
@@ -239,6 +271,10 @@ def iterate_over_poi_psat_only(poi,v):
 def timestamp():
     return datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M-%S')
 
+def countrate():
+   [a,b] = ctr.getData()
+   return a+b
+
 def psat_and_set(v):
     psatd = scanv(v)
     powers = power_est(v)
@@ -259,6 +295,11 @@ def psat_and_set(v):
 
         if vsat > 7.0:
             V = 7.0
+        elif vsat < 4.0:
+            V = 4.0
         else:
             V = vsat
         nicard.set_voltage(V)
+
+
+# set a timer in the manner of tracker
