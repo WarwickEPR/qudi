@@ -184,7 +184,7 @@ def iterate_over_poi_hbt(poi,v):
             d = scanv(v)
             powers = power_est(v)
             psat_data[p] = d
-            fit = fit_psat_aom(v-3,d)
+            fit = fit_psat_aom(v-3, d)
             psat_fit[p] = fit
             vsat = fit.best_values['P_sat'] + 3.0
             psat_v[p] = vsat
@@ -203,7 +203,7 @@ def iterate_over_poi_hbt(poi,v):
             else:
                 V = vsat
             nicard.set_voltage(V)
-            run_hbt(p,300)
+            run_hbt(p, 300)
             print('Done HBT {}'.format(p))
 
 def iterate_over_poi_psat_only(poi,v):

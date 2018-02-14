@@ -21,14 +21,13 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
 
-import logging
-
-from collections import OrderedDict
 from core.module import Connector
 from core.util.mutex import Mutex
 from logic.generic_logic import GenericLogic
 
-class WorkStackLogic(GenericLogic):
+from qtpy import QtCore
+
+class WorkstackLogic(GenericLogic):
 
     """
     This module provides support with running sequences of actions
@@ -47,6 +46,7 @@ class WorkStackLogic(GenericLogic):
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
+        super().__init__(config=config, **kwargs)
 
         # timer and its handling for the periodic refocus
         self.timer = QtCore.QTimer()
@@ -63,6 +63,7 @@ class WorkStackLogic(GenericLogic):
         self.running = False
         self.target_index = 0
         self.multipleTargets = False
+        self.ctx = dict()
 
         # locking for thread safety
         self.threadlock = Mutex()
@@ -79,26 +80,33 @@ class WorkStackLogic(GenericLogic):
         self._optimizer_logic.sigRefocusFinished.connect(self.refocused)
         self._confocal_logic.signal_stop_scanning.connect(self.finished_image)
         self._confocal_logic.signal_xy_data_saved.connect(self.finished_saving)
-        self._save_logic.sig
 
     def on_deactivate(self):
+        # connections should ideally disconnect
+        self._optimizer_logic.sigRefocusFinished.disconnect(self.refocused)
+        self._confocal_logic.signal_stop_scanning.disconnect(self.finished_image)
+        self._confocal_logic.signal_xy_data_saved.disconnect(self.finished_saving)
         return
 
     def timer_fired(self):
         self.run_next_action()
 
     def refocused(self):
+        self.log.info("Finished refocusing")
         self.run_next_action()
 
     def finished_saving(self):
+        self.log.info("Finished saving")
+
         self.run_next_action()
 
     def finished_image(self):
+        self.log.info("Finished image")
         self.run_next_action()
 
     def start_work(self):
-        if multipleTargets:
-            if length(targets) > 0:
+        if self.multipleTargets:
+            if len(self.targets) > 0:
                 self.target_index = 0
             else:
                 self.log.warn('Workstack - nothing to do')
@@ -114,54 +122,63 @@ class WorkStackLogic(GenericLogic):
     def stop_work(self):
         self.running = False
 
-    def _run(action):
-        if type(action) == str:
+    def reset_stack(self):
+        self.sp = 0
+        self.stack = list(self.actions)
+
+    @staticmethod
+    def _run(action, args):
+        if isinstance(action, str):
             return exec(action)
         else:
-            return action()
+            return action(*args)
 
     def do_action(self):
         if self.running:
-          action = self.stack[sp]
-          if action == 'wait':
-            pass   # wait until a signal moves things on
-          elif type(action) == type([]):
-            action = action[0]
-            args = action[1:]
-            if action == 'if':
-                if length(args != 3):
-                   self.log.error('Bad "if" condition, expected ["if",cond,[alist],[blist]]')
-                   self.stop_work()
-                else:
-                   [cond,a,b] = args
-                   if self._run(cond):
-                       self.stack.insert(sp,a)
-                   else:
-                       self.stack.insert(sp,b)
-                       self.next_action() 
-          else:
-            self._run(self.stack[self.sp])
-            self.next_action()
+            action = self.stack[self.sp]
+            if action == 'wait':
+                pass   # wait until a signal moves things on
+            elif action == 'start again':
+                self.reset_stack()
+            elif action == 'skip':
+                self.log.info("Skipping to next")
+                self.run_on_next_target()
+            elif isinstance(action, tuple):
+                (desc, action, args) = self.stack[self.sp]
+                self.log.info("Doing: {}".format(desc))
+                self._run(action, args)
+                self.run_next_action()
+            else:
+                self._run(action, ())
+                self.run_next_action()
 
-    def next_action(self):
-        if self.sp >= length(self.stack):
-            if multipleTargets:
-                if target_id >= length(self.targets):
-                    # done!
+    def advance_sp(self):
+        if self.sp >= len(self.stack):
+            if self.multipleTargets:
+                if self.target_id >= len(self.targets):
+                    # done!]
+                    self.log.info("Finished")
                     self.stop_work()
                 else:
-                    target_id += 1
-                    self.stack = list(self.actions)
+                    self.target_id += 1
+                    self.log.info("Moving on to {}".format(self.current_target()))
+                    self.reset_stack()
             else:
-                self.stack = list(self.actions)
+                self.log.info("Finished")
+                self.stop_work()
         else:
             self.sp += 1
 
     def run_next_action(self):
-        self.next_action()
-        self.do_action()
+        if self.running:
+            self.advance_sp()
+            self.do_action()
 
-    def start_timer(self, duration=60, update=10, repeat=False):
+    #####################
+    # actions
+    #####################
+
+    def start_timer(self, duration=60, repeat=False):
         """ Starts a timer.
 
         @param float duration: (optional) the time until expires
@@ -171,20 +188,14 @@ class WorkStackLogic(GenericLogic):
         @return int: error code (0:OK)
         """
 
-        self.log.info('WorkStack timer started {}s'.format(during))
+        self.log.info('WorkStack timer started {}s'.format(duration))
         self.timer.setSingleShot(not repeat)
-        self.timer.start(duration)
+        self.timer.start(int(duration*1000))
         return 0
 
-    def run_on_next(self):
-        if self.multipleTargets and self.target_index <= length(self.targets):
-            self.target_index += 1
-        else:
-            self.log.info("Finished workstack")
-            self.stop_work()
-    
-    def insert_action(self,action):
-        self.stack.insert(self.sp,action)
+    # insert an action at the current sp (i.e. that'll happen next
+    def insert_action(self, action):
+        self.stack.insert(self.sp, action)
 
     def insert_wait(self):
         self.stack.insert('wait')
@@ -194,52 +205,18 @@ class WorkStackLogic(GenericLogic):
         self._optimizer_logic.optimise_poi(poi)
         self.insert_wait()
 
-    # TODO: Don't update the sample position
-    # if the site isn't "bright" after focusing, move on
-    def goto_poi_if_bright(self):
-        poi = self.current_target()
-        self._optimizer_logic.move_to_poi(poi)
-        self.insert_wait()
-        # insert another action to check countrate
-        countrate = 0
-
-    def psat_save_set(self):
-        nicard.set_up_scanner_clock()
-        nicard.set_up_scanner()
-        o = nicard.scan_voltage(v)
-        nicard.close_scanner()
-        nicard.close_scanner_clock()
-        d = np.append(o, [])
-
-        powers = power_est(v)
-        fit = fit_psat_aom(v-3,d)
-        vsat = fit.best_values['P_sat'] + 3.0
-        summary = "# Isat {} counts at\n# {} V\n# {} mW\n# fit {}\n\n".format(fit.best_values['I_sat'],vsat,power_est(vsat),fit.best_values)
-        print('fitted Isat {} at {}V {}mW'.format(fit.best_values['I_sat'],vsat,power_est(vsat)))
-
-        with open(r"C:\Users\Confocal\Desktop\psat-{}.csv".format(p), 'w', newline='') as csvfile:
-            csvfile.write(summary)
-            pwriter = csv.writer(csvfile)
-            pwriter.writerows([v, powers, d, fit.best_fit])
-
-            print('Done Psat {}'.format(p))
-
-            if vsat > 7.0:
-                V = 7.0
-            else:
-                V = vsat
-            nicard.set_voltage(V)
-
-
-        return d
-
-    def power_est(v):
-        return (0.0166 * v - 0.0522) * 40
-
-
+    def say_hello(self):
+        self.log.info("Hello world!")
 
     def load_just_focus(self):
-        self.actions = [ self.goto_poi, self.run_on_next ]
+        self.actions = [self.goto_poi, self.run_on_next]
 
     def load_focus_psat(self):
-        self.actions = [ self.goto_poi, self.psat_save_set, self.run_on_next ]
+        self.actions = [self.goto_poi, self.psat_save_set, self.run_on_next]
+
+    def load_demo_loop(self):
+        self.actions = [('Log message', self.log.info, ["Wait for it..."]),
+                        ('Start timer', self.start_timer, (10,)),
+                        'wait',
+                        self.say_hello,
+                        'start again']
