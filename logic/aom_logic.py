@@ -37,6 +37,7 @@ class AomLogic(GenericLogic):
     voltagescanner = Connector(interface='VoltageScannerInterface')
     laser = Connector(interface='SimpleLaserInterface')
     savelogic = Connector(interface='SaveLogic')
+    fitlogic = Connector(interface='FitLogic')
 
     psat_updated = QtCore.Signal()
     psat_fit_updated = QtCore.Signal()
@@ -66,18 +67,16 @@ class AomLogic(GenericLogic):
         self._voltagescanner = self.get_connector('voltagescanner')
         self._laser = self.get_connector('laser')
         self._save_logic = self.get_connector('savelogic')
-
-        self._scanning_device = Connector(interface='voltagescanner')
-        self._save_logic = Connector(interface='savelogic')
+        self._fitlogic = self.get_connector('fitlogic')
         config = self.getConfiguration()
 
         # configure calibration
-        self.cal_voltage = config['voltage']
-        self.cal_efficiency = config['efficiency']
-        self.maximum_efficiency = max(self.cal_efficiency)
+        self._cal_voltage = config['voltage']
+        self._cal_efficiency = config['efficiency']
+        self.maximum_efficiency = max(self._cal_efficiency)
 
         self.psat_updated.connect(self.fit_data)
-        self.laser.sigPower.connect(self.update_aom)
+        # self.laser.sigPower.connect(self.update_aom)
 
         self.set_psat_points()
 
@@ -99,17 +98,17 @@ class AomLogic(GenericLogic):
         return self.psat_fit_data_y != []
 
     def efficiency_for_voltage(self, v):
-        return np.interp([v], self._cal_voltage, self._cal_efficiency)
+        return np.interp(v, self._cal_voltage, self._cal_efficiency)
 
     def voltage_for_efficiency(self, e):
-        return np.interp([e], self._cal_efficiency, self._cal_voltage, 0.0, np.inf)
+        return np.interp(e, self._cal_efficiency, self._cal_voltage, 0.0, np.inf)
 
     def voltages_for_powers(self, powers):
         laser_power = self._laser.get_power_setpoint()
-        e = [p / laser_power for p in powers ]
-        return np.interp(e, self._cal_voltage, self._cal_efficiency, 0.0, np.inf)
+        e = [p / laser_power for p in powers]
+        return np.interp(e, self._cal_efficiency, self._cal_voltage, 0.0, np.inf)
 
-    def set_for_power(self, p):
+    def set_power(self, p):
         laser_power = self._laser.get_power_setpoint()
         efficiency = p/laser_power
         if efficiency > self.maximum_efficiency:
@@ -129,6 +128,7 @@ class AomLogic(GenericLogic):
             laser_power = self._laser.get_power_setpoint()
             efficiency = self.power/laser_power
             v = self.voltage_for_efficiency(efficiency)
+            self.log.info("Setting AOM voltage {}V efficiency {}".format(v, efficiency))
             self._voltagescanner.set_voltage(v)
             self.aom_updated.emit()
 
@@ -139,12 +139,12 @@ class AomLogic(GenericLogic):
         return laser_power * efficiency
 
     def current_maximum_power(self):
-        laser_power = self.laser.get_power_setpoint()
+        laser_power = self._laser.get_power_setpoint()
         return laser_power * self.maximum_efficiency
 
     def set_psat_points(self, minimum=0.0, maximum=None, points=20):
         if maximum is None:
-            maximum = self.current_maximum_power()
+            maximum = self.current_maximum_power()*.95
         if maximum > self.current_maximum_power():
             self.log.warn("Maximum power is not available without more laser power")
 
@@ -154,6 +154,7 @@ class AomLogic(GenericLogic):
         if max(self.powers) > self.current_maximum_power():
             self.log.warn("Full range not available for current laser power")
         v = self.voltages_for_powers(self.powers)
+        self.log.info("Scanning AOM efficiency with voltages {}".format(v))
         self._voltagescanner.set_up_scanner_clock(clock_frequency=self._clock_frequency)
         self._voltagescanner.set_up_scanner()
         o = self._voltagescanner.scan_voltage(v)
@@ -166,21 +167,21 @@ class AomLogic(GenericLogic):
 
         self.psat_updated.emit()
 
-        return self.powers, self.psat_voltages, self.psat_data
+        return self.powers, v, self.psat_data
 
     def fit_data(self):
         model, param = self._fitlogic.make_hyperbolicsaturation_model()
         param['I_sat'].min = 0
         param['I_sat'].max = 1e7
         param['I_sat'].value = max(self.psat_data) * .7
-        param['P_sat'].max = 100.0
+        param['P_sat'].max = 0.3
         param['P_sat'].min = 0.0
-        param['P_sat'].value = 1.0
+        param['P_sat'].value = 0.001
         param['slope'].min = 0.0
         param['slope'].value = 1e3
         param['offset'].min = 0.0
-        fit = self._fitlogic.make_hyperbolicsaturation_fit(x_axis=self.psat_powers, data=self.psat_data,
-                                                          estimator=self.fitlogic.estimate_hyperbolicsaturation,
+        fit = self._fitlogic.make_hyperbolicsaturation_fit(x_axis=self.powers, data=self.psat_data,
+                                                          estimator=self._fitlogic.estimate_hyperbolicsaturation,
                                                           add_params=param)
         self.fit = fit
         self.fitted_Psat = fit.best_values['P_sat']

@@ -77,7 +77,7 @@ class AomGui(GUIBase):
 
         # Setup dock widgets
         self._mw.centralwidget.hide()
-        self._mw.trace_selection_DockWidget.hide()
+        self._mw.psat_out_DockWidget.hide()
         self._mw.setDockNestingEnabled(True)
 
         self.psat_image = pg.PlotDataItem(self._aom_logic.psat_plot_x,
@@ -108,8 +108,8 @@ class AomGui(GUIBase):
 
         ##################
         # Handling signals from the logic
-        self._aom_logic.sigPsatUpdated.connect(self.update_data)
-        self._aom_logic.sigPsatFitUpdated.connect(self.update_fit, QtCore.Qt.QueuedConnection)
+        self._aom_logic.psat_updated.connect(self.update_data)
+        self._aom_logic.psat_fit_updated.connect(self.update_fit, QtCore.Qt.QueuedConnection)
 
         return 0
 
@@ -127,8 +127,8 @@ class AomGui(GUIBase):
         # disconnect signals
         self._mw.run_psat_Action.triggered.disconnect()
         self._mw.save_psat_Action.triggered.disconnect()
-        self._aom_logic.sigPsatUpdated.disconnect()
-
+        self._aom_logic.psat_updated.disconnect()
+        self._aom_logic.psat_fit_updated.disconnect()
         self._mw.close()
         return
 
