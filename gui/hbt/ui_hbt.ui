@@ -11,12 +11,12 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>qudi: Slow Counter</string>
+   <string>qudi: HBT</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_2">
     <item>
-     <widget class="PlotWidget" name="psat_plot_PlotWidget"/>
+     <widget class="PlotWidget" name="hbt_plot_PlotWidget"/>
     </item>
    </layout>
   </widget>

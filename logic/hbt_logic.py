@@ -23,6 +23,7 @@ import numpy as np
 from logic.generic_logic import GenericLogic
 from core.module import Connector, ConfigOption
 import TimeTagger as tt
+from qtpy import QtCore
 
 class HbtLogic(GenericLogic):
     """
@@ -35,15 +36,26 @@ class HbtLogic(GenericLogic):
     _channel_apd_1 = ConfigOption('timetagger_channel_apd_1', missing='error')
     _bin_width = ConfigOption('bin_width', 500, missing='info')
     _n_bins = ConfigOption('bins', 2000, missing='info')
+    savelogic = Connector(interface='SaveLogic')
+
+    hbt_updated = QtCore.Signal()
+    hbt_fit_updated = QtCore.Signal()
+    sigStart = QtCore.Signal()
+    sigStop = QtCore.Signal()
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
-        self.data = []
+        self.bin_times = []
+        self.fit_times = []
+        self.fit_g2 = []
+        self.g2_data = []
+        self.g2_data_normalised = []
+        self.hbt_available = False
 
     def on_activate(self):
         """ Connect and configure the access to the FPGA.
         """
-        self._save_logic = Connector(interface='savelogic')
+        self._save_logic = self.get_connector('savelogic')
         self._tagger = tt.createTimeTagger()
         self._number_of_gates = int(100)
         self.coin = tt.Correlation(self._tagger, self._channel_apd_0, self._channel_apd_1,
@@ -51,13 +63,39 @@ class HbtLogic(GenericLogic):
         # start the correlation (iterate start stop just to clear last if not a fresh reload)
         self.coin.stop()
         self.coin.clear()
+        self.bin_times = self.coin.getIndex()
+        self.g2_data = np.zeros_like(self.bin_times)
+        self.g2_data_normalised = np.zeros_like(self.bin_times)
+        self.fit_times = self.bin_times
+        self.fit_g2 = np.zeros_like(self.fit_times)
+
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.update)
+
+        self.sigStart.connect(self._start_hbt)
+        self.sigStop.connect(self._stop_hbt)
 
     def start_hbt(self):
+        self.sigStart.emit()
+
+    def stop_hbt(self):
+        self.sigStop.emit()
+
+    def _start_hbt(self):
         self.coin.clear()
         self.coin.start()
+        self.timer.start(500)  # 0.5s
 
     def update(self):
-        self.data = self.coin.getData()
+        self.bin_times = self.coin.getIndex()
+        self.g2_data = self.coin.getData()
+        self.hbt_available = True
+        lvl = np.mean(self.g2_data[0:100])
+        if lvl > 0:
+            self.g2_data_normalised = self.g2_data / lvl
+        else:
+            self.g2_data_normalised = np.zeros_like(self.g2_data)
+        self.hbt_updated.emit()
 
     def pause_hbt(self):
         self.coin.stop()
@@ -65,8 +103,9 @@ class HbtLogic(GenericLogic):
     def continue_hbt(self):
         self.coin.start()
 
-    def stop_hbt(self):
+    def _stop_hbt(self):
         self.coin.stop()
+        self.timer.stop()
 
     def fit_data(self):
         pass
@@ -93,10 +132,11 @@ class HbtLogic(GenericLogic):
 
         # We will fill the data OrderedDict to send to savelogic
         data = OrderedDict()
-        data['Time (ns)'] = np.array(self.data)
-        data['g2(t)'] = np.array(self.data)
+        data['Time (ns)'] = np.array(self.bin_times)
+        data['g2(t)'] = np.array(self.g2_data)
+        data['g2(t) normalised'] = np.array(self.g2_data_normalised)
 
-        self._save_logic.save_data(data, filepath=filepath, filelabel='g2data', fmt=['%.6e', '%.6e'])
+        self._save_logic.save_data(data, filepath=filepath, filelabel='g2data', fmt=['%.6e', '%.6e', '%.6e'])
         self.log.debug('HBT data saved to:\n{0}'.format(filepath))
 
         return 0
