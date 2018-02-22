@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-This file contains the Qudi counter gui.
+This file contains the Qudi aom & psat gui.
 
 Qudi is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -70,18 +70,11 @@ class AomGui(GUIBase):
 
         self._aom_logic = self.get_connector('aomlogic')
 
-        #####################
-        # Configuring the dock widgets
         # Use the inherited class 'CounterMainWindow' to create the GUI window
         self._mw = AomMainWindow()
 
-        # Setup dock widgets
-        self._mw.centralwidget.hide()
-        self._mw.psat_out_DockWidget.hide()
-        self._mw.setDockNestingEnabled(True)
-
-        self.psat_image = pg.PlotDataItem(self._aom_logic.psat_plot_x,
-                                          self._aom_logic.psat_plot_y,
+        self.psat_image = pg.PlotDataItem(self._aom_logic.powers,
+                                          self._aom_logic.psat_data,
                                           pen=pg.mkPen(palette.c1, style=QtCore.Qt.DotLine),
                                           symbol='o',
                                           symbolPen=palette.c1,
@@ -94,11 +87,14 @@ class AomGui(GUIBase):
 
         # Add the display item to the xy and xz ViewWidget, which was defined in the UI file.
         self._mw.psat_plot_PlotWidget.addItem(self.psat_image)
-        self._mw.psat_plot_PlotWidget.setLabel(axis='left', text='Fluoresence', units='kc/s')
-        self._mw.psat_plot_PlotWidget.setLabel(axis='bottom', text='Power', units='mW')
+        self._mw.psat_plot_PlotWidget.addItem(self.psat_fit_image)
+        self._mw.psat_plot_PlotWidget.setLabel(axis='left', text='Fluoresence', units='c/s')
+        self._mw.psat_plot_PlotWidget.setLabel(axis='bottom', text='Power', units='W')
         self._mw.psat_plot_PlotWidget.showGrid(x=True, y=True, alpha=0.8)
-
-        self._mw.setPower.setMaximum(self._aom_logic.current_maximum_power())
+        self._mw.setPower.setValue(self.get_power())
+        self._mw.setPower.valueChanged.connect(self.set_power)
+        self._mw.setPower.setMaximum(self._aom_logic.current_maximum_power()*1000)
+        self._mw.set_to_psat.clicked.connect(self.set_power_to_psat)
         self._aom_logic.power_available.connect(self.update_power_available)
 
         #####################
@@ -109,7 +105,8 @@ class AomGui(GUIBase):
         ##################
         # Handling signals from the logic
         self._aom_logic.psat_updated.connect(self.update_data)
-        self._aom_logic.psat_fit_updated.connect(self.update_fit, QtCore.Qt.QueuedConnection)
+        self._aom_logic.psat_fit_updated.connect(self.update_fit)
+        self._aom_logic.aom_updated.connect(self.update_aom)
 
         return 0
 
@@ -128,43 +125,55 @@ class AomGui(GUIBase):
         self._mw.run_psat_Action.triggered.disconnect()
         self._mw.save_psat_Action.triggered.disconnect()
         self._aom_logic.psat_updated.disconnect()
-        self._aom_logic.psat_fit_updated.disconnect()
         self._mw.close()
         return
+
+    def update_aom(self):
+        self._mw.setPower.blockSignals(True)
+        self._mw.setPower.setValue(self.get_power())
+        self._mw.setPower.blockSignals(False)
+
+    def set_power_to_psat(self):
+        self._aom_logic.set_power(self._aom_logic.fitted_Psat)
 
     def update_data(self):
         """ The function that grabs the data and sends it to the plot.
         """
 
-        if self._aom_logic.module_state() == 'locked':
-            """ Refresh the plot widgets with new data. """
-            # Update psat plot
-            self.psat_image.setData(self._aom_logic.powers, self._aom_logic.psat_data)
+        """ Refresh the plot widgets with new data. """
+        # Update psat plot
+        self.psat_image.setData(self._aom_logic.powers, self._aom_logic.psat_data)
 
         return 0
 
+    def set_power(self,power):
+        self._aom_logic.set_power(power/1000)
+
+    def get_power(self):
+        return self._aom_logic.get_power()*1000
+
     def update_fit(self):
-        if self._aom_logic.module_state() == 'locked':
-            """ Refresh the plot widgets with new data. """
-            if self._aom_logic.psat_fit_available():
-                # Update psat plot
-                self.psat_fit_image.setData(self._aom_logic.psat_fit_data_x, self._aom_logic.psat_fit_data_y)
-                self._mw.Isat_display.setText("{}".format(self._aom_logic.fitted_Isat))
-                self._mw.Psat_display.setText("{}".format(self._aom_logic.fitted_Psat))
+        """ Refresh the plot widgets with new data. """
+        if self._aom_logic.psat_fit_available():
+            # Update psat plot
+            self.psat_fit_image.setData(self._aom_logic.psat_fit_x, self._aom_logic.psat_fit_y)
+            self._mw.Isat_display.setText("{:.2f}".format(self._aom_logic.fitted_Isat/1000))
+            self._mw.Psat_display.setText("{:.2f}".format(self._aom_logic.fitted_Psat*1000))
+            self._mw.bg_display.setText("{:.2f}".format(self._aom_logic.fitted_offset/1000))
+
 
     def run_psat_clicked(self):
         """ Handling the Start button
         """
-        if self._aom_logic.module_state() == 'locked':
-            self._aom_logic.run_psat()
+        self.log.info("Running psat")
+        self._aom_logic.run_psat()
         return self._aom_logic.module_state()
 
     def save_clicked(self):
         """ Handling the save button to save the data into a file.
         """
-        if self._aom_logic.module_state() == 'locked':
-            if self._aom_logic.psat_available():
-                self._aom_logic.save_psat()
+        if self._aom_logic.psat_available():
+            self._aom_logic.save_psat()
         return self._aom_logic.module_state()
 
     def update_max_power(self, count_length):

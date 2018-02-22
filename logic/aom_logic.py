@@ -47,7 +47,7 @@ class AomLogic(GenericLogic):
     max_power_update = QtCore.Signal()
 
     # status vars
-    _clock_frequency = StatusVar('clock_frequency', 100)
+    _clock_frequency = StatusVar('clock_frequency', 30)
     _calibration_voltage = ConfigOption('voltage', missing='error')
     _calibration_efficiency = ConfigOption('efficiency', missing='error')
 
@@ -56,7 +56,13 @@ class AomLogic(GenericLogic):
 
         self.powers = []
         self.psat_data = []
-        self.psat_fit_data = []
+        self.psat_fit_x = []
+        self.psat_fit_y = []
+        self.fitted_Isat = 0.0
+        self.fitted_Psat = 0.0
+        self.fitted_offset = 0.0
+        self.psat_fitted = False
+        self.psat_collected = False
 
         #locking for thread safety
         self.threadlock = Mutex()
@@ -75,27 +81,34 @@ class AomLogic(GenericLogic):
         self._cal_efficiency = config['efficiency']
         self.maximum_efficiency = max(self._cal_efficiency)
 
+        self.set_psat_points()
+        self.clear()
+
         self.psat_updated.connect(self.fit_data)
         # self.laser.sigPower.connect(self.update_aom)
 
-        self.set_psat_points()
 
     def on_deactivate(self):
         self.psat_updated.disconnect(self.fit_data)
 
     def clear(self):
-        self.psat_data = []
-        self.psat_fit_data = []
+        self.set_psat_points()
+        self.psat_data = np.zeros_like(self.powers)
+        self.psat_fit_x = np.linspace(0, max(self.powers), 60)
+        self.psat_fit_y = np.zeros_like(self.psat_fit_x)
         self.fitted_Isat = 0.0
         self.fitted_Psat = 0.0
+        self.fitted_offset = 0.0
+        self.psat_fitted = False
+        self.psat_colllected = False
         self.psat_updated.emit()
         self.psat_fit_updated.emit()
 
     def psat_available(self):
-        return self.psat_data != []
+        return self.psat_available
 
     def psat_fit_available(self):
-        return self.psat_fit_data_y != []
+        return self.psat_fit_available
 
     def efficiency_for_voltage(self, v):
         return np.interp(v, self._cal_voltage, self._cal_efficiency)
@@ -104,12 +117,12 @@ class AomLogic(GenericLogic):
         return np.interp(e, self._cal_efficiency, self._cal_voltage, 0.0, np.inf)
 
     def voltages_for_powers(self, powers):
-        laser_power = self._laser.get_power_setpoint()
+        laser_power = self._get_laser_power()
         e = [p / laser_power for p in powers]
         return np.interp(e, self._cal_efficiency, self._cal_voltage, 0.0, np.inf)
 
     def set_power(self, p):
-        laser_power = self._laser.get_power_setpoint()
+        laser_power = self._get_laser_power()
         efficiency = p/laser_power
         if efficiency > self.maximum_efficiency:
             self.log.warning("Too much power requested, turn the laser up!")
@@ -125,21 +138,24 @@ class AomLogic(GenericLogic):
         if self.power > self.current_maximum_power():
             self.power_unavailable.emit()
         else:
-            laser_power = self._laser.get_power_setpoint()
+            laser_power = self._get_laser_power()
             efficiency = self.power/laser_power
             v = self.voltage_for_efficiency(efficiency)
             self.log.info("Setting AOM voltage {}V efficiency {}".format(v, efficiency))
             self._voltagescanner.set_voltage(v)
             self.aom_updated.emit()
 
+    def _get_laser_power(self):
+        return self._laser.laser_power_setpoint
+
     def get_power(self):
-        laser_power = self._laser.get_power_setpoint()
+        laser_power = self._get_laser_power()
         v = self._voltagescanner.get_voltage()
         efficiency = self.efficiency_for_voltage(v)
         return laser_power * efficiency
 
     def current_maximum_power(self):
-        laser_power = self._laser.get_power_setpoint()
+        laser_power = self._get_laser_power()
         return laser_power * self.maximum_efficiency
 
     def set_psat_points(self, minimum=0.0, maximum=None, points=20):
@@ -161,9 +177,12 @@ class AomLogic(GenericLogic):
         self._voltagescanner.close_scanner()
         self._voltagescanner.close_scanner_clock()
         d = np.append(o, [])
+        self.clear()
 
         self.psat_data = d
         self.psat_voltages = v
+
+        self.psat_collected = True
 
         self.psat_updated.emit()
 
@@ -181,11 +200,14 @@ class AomLogic(GenericLogic):
         param['slope'].value = 1e3
         param['offset'].min = 0.0
         fit = self._fitlogic.make_hyperbolicsaturation_fit(x_axis=self.powers, data=self.psat_data,
-                                                          estimator=self._fitlogic.estimate_hyperbolicsaturation,
-                                                          add_params=param)
+                                                           estimator=self._fitlogic.estimate_hyperbolicsaturation,
+                                                           add_params=param)
         self.fit = fit
         self.fitted_Psat = fit.best_values['P_sat']
         self.fitted_Isat = fit.best_values['I_sat']
+        self.fitted_offset = fit.best_values['offset']
+        self.psat_fitted = True
+        self.psat_fit_y = model.eval(x=self.psat_fit_x, params=fit.params)
 
         self.psat_fit_updated.emit()
 
