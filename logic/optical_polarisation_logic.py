@@ -20,6 +20,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 import time
 import numpy as np
 import TimeTagger as tt
+import matplotlib.pyplot as plt
 
 from qtpy import QtCore
 from core.module import Connector, ConfigOption, StatusVar
@@ -178,6 +179,7 @@ class OpticalPolLogic(GenericLogic):
         self.measurement_motor = motor
 
         # setup pol_data to be on the order of the measurement
+        #plt.close('all')
         self._cell_id = 0
         data_points = int((end_angle-start_angle)/resolution + 1)
         self.pol_data = np.zeros((data_points, 2))
@@ -260,7 +262,6 @@ class OpticalPolLogic(GenericLogic):
         else:
             pass
 
-
     def _stop_movement_timer(self):
         self.movement_timer.stop()
 
@@ -317,7 +318,15 @@ class OpticalPolLogic(GenericLogic):
         data['Angle'] = angle
         data['Count rate (/s)'] = counts
 
-        self._save_logic.save_data(data, filepath=filepath, filelabel='Pol', fmt=['%.6f', '%.6f'])
+        # set up figure?
+        plt.style.use(self._save_logic.mpl_qd_style)
+        fig, ax1 = plt.subplots()
+        ax1.plot(angle, counts)
+        ax1.set_xlabel('Angle (deg)')
+        ax1.set_ylabel('Counts (cps)')
+        fig.tight_layout()
+
+        self._save_logic.save_data(data, filepath=filepath, filelabel='Pol', fmt=['%.6f', '%.6f'], plotfig=fig)
         self.log.info('Excitation Polarisation saved to:\n{0}'.format(filepath))
 
         return 0

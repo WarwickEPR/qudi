@@ -147,6 +147,9 @@ class AgilisMotor():
         #     print('Motor: {0} is ready'.format(self.label))
         #     return state
 
+    def get_steps(self, steps):
+        print('Motor: {0}, Steps Taken: {1}'.format(self.label, steps))
+
 class AgilisController(Base, MotorInterface):
     """
     This module implements comms to the Newport Agilis controller (AG-UC8)
@@ -214,10 +217,8 @@ class AgilisController(Base, MotorInterface):
             self.set_velocity({axis_label})
             self.get_pos({axis_label})
 
-
     def on_deactivate(self):
         """ Deactivate this
-
         Since there is no way of maintaining knowledge of the current position the current position
         is written to the _statusVariables under the axis label. This provides some pseudo-closed-loop
         control as the controller will know where the motor finished when activated/deactivated
@@ -232,7 +233,7 @@ class AgilisController(Base, MotorInterface):
         """ Connect to Agilis Controller
         """
         try:
-            self.rm = visa.ResourceManager()   
+            self.rm = visa.ResourceManager()
             rate = 921600
             self.inst = self.rm.open_resource(
                 interface,
@@ -246,7 +247,7 @@ class AgilisController(Base, MotorInterface):
                 timeout=5000,
                 send_end=True)
             # give controller 2 seconds maximum to reply
-            #self.inst.timeout = 4000
+            # self.inst.timeout = 4000
             self.inst.write('MR')
             if self.check_for_errors() != 0:
                 self.log.error('Could not set remote mode')
@@ -647,7 +648,7 @@ class AgilisController(Base, MotorInterface):
 
             self._zero(motor)
 
-            self.log.info('Motor {0} has been set to home'.format(motor.label))
+            self.log.info('Motor {0} has been reset to zero degrees'.format(motor.label))
             return self.get_pos()
 
     def _zero(self, motor):
@@ -657,12 +658,92 @@ class AgilisController(Base, MotorInterface):
         # Tell the controller we want this to be the zero position
         self.inst.write('{0}ZP'.format(motor._axis))
 
-    def get_steps(self, motor):
+    def get_steps(self, param_list=None):
         """ Returns the number of steps by the sum of forward - backward """
-        # connect to the right channel
+
+        steps = {}
+
+        if param_list is not None:
+            motor = self._axis_dict[param_list]
+            # Ensure we're on the right channel
+            self._set_channel(motor)
+
+            steps[param_list] = int((self.inst.query('{0}TP'.format(motor._axis))).split('TP')[1])
+
+            motor.get_steps(steps[param_list])
+            #return steps[param_list]
+
+        else:
+            for axis_label in self._axis_dict:
+                motor = self._axis_dict[axis_label]
+                # Ensure we're on the right channel
+                self._set_channel(motor)
+
+                steps[param_list] = int((self.inst.query('{0}TP'.format(motor._axis))).split('TP')[1])
+
+                motor.get_steps(steps[param_list])
+                #return steps[param_list]
+
+    def set_steps(self, motor, steps):
         self._set_channel(motor)
 
-        # Tell the controller we want this to be the zero position
-        return int((self.inst.query('{0}TP'.format(motor._axis))).split('TP')[1])
+        # Tell the motor to move x amount of steps
+        self.inst.write('{0}PR{1}'.format(motor._axis, steps))
+
+        # Check this is sensible and doesn't throw an error
+        rc = self.check_for_errors()
+        if rc != 0:
+            self.log.warn("Agilis controller error {} {}".format(rc, self.error_string(rc)))
+            return 1
+        else:
+            return 0
 
     # TODO: add in jogging commands
+    def jogging_move(self, param_dict):
+        """ Starts a jog motion at a defined speed.
+        Defined steps are steps with the set step amplitude.
+        Max amp steps are equivalent to step amp = 50
+        ASCII Command; xxJAnn
+        where xx is the axis number in the channel
+        nn is the direction and speed
+
+        Set nn to:
+            -4:     negative direction 666 steps/s
+            -3:     negative direction 1700 steps/s
+            -2:     negative direction 100 steps/s
+            -1:     negative direction 5 steps/s
+             0:     No move, go to READY state
+             1:     positive direction 5 steps/s
+             2:     positive direction 100 steps/s
+             3:     positive direction 1700 steps/s
+             4:     positive direction 666 steps/s
+        """
+
+        error_count = 0
+        for axis_label in param_dict:
+            # Define the motor
+            motor = self._axis_dict[axis_label]
+
+            # Do the motion
+            error_count += self._jog(motor, param_dict[axis_label])
+        return error_count == 0
+
+
+    def _jog(self, motor, speed):
+        # Connect to the right motor
+        self._set_channel(motor)
+
+        # Reset the step counter
+        #if speed != 0:
+        self._zero(motor)
+
+        # do jog ...
+        self.inst.write('{0}JA{1}'.format(motor._axis, speed))
+
+        # Check this is sensible and doesn't throw an error
+        rc = self.check_for_errors()
+        if rc != 0:
+            self.log.warn("Agilis controller error {} {}".format(rc, self.error_string(rc)))
+            return 1
+        else:
+            return 0
