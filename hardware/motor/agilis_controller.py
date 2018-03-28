@@ -32,7 +32,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 from core.module import Base, ConfigOption
 import visa
 from interface.motor_interface import MotorInterface
-
+import re
 
 class AgilisMotor():
     """ This is the Interface class to define the controls for the simple
@@ -179,6 +179,14 @@ class AgilisController(Base, MotorInterface):
     _com_interface = ConfigOption('com_interface', 'COM4', missing='warn')
     _axis_label_list = ConfigOption('axis_labels', missing='warn')
 
+    _error_codes = {0: "No error",
+                    -1: "Unknown command",
+                    -2: "Axis out of range",
+                    -3: "Wrong format for parameter",
+                    -4: "Parameter out of range",
+                    -5: "Not allowed in local mode",
+                    -6: "Not allowed in current state"}
+
     def on_activate(self):
         """ Activate this ensuring the position is pulled from the last deactivation
         """
@@ -229,11 +237,20 @@ class AgilisController(Base, MotorInterface):
             self.inst = self.rm.open_resource(
                 interface,
                 baud_rate=rate,
+                data_bits=8,
+                parity=visa.constants.Parity.none,
+                stop_bits=visa.constants.StopBits.one,
                 write_termination='\r\n',
                 read_termination='\r\n',
+                query_delay=0.1,
+                timeout=5000,
                 send_end=True)
             # give controller 2 seconds maximum to reply
-            self.inst.timeout = 2000
+            #self.inst.timeout = 4000
+            self.inst.write('MR')
+            if self.check_for_errors() != 0:
+                self.log.error('Could not set remote mode')
+
         except visa.VisaIOError:
             self.log.exception('Communication Failure:')
             return False
@@ -243,6 +260,7 @@ class AgilisController(Base, MotorInterface):
     def _disconnect_agilis(self):
         """ Close connection
         """
+        self.inst.write('ML')
         self.inst.close()
         self.rm.close()
 
@@ -350,12 +368,24 @@ class AgilisController(Base, MotorInterface):
 
         @return int: error code (0:OK, -1:error)
         """
+        error_count = 0
         for axis_label in param_dict:
             # Define the motor
             motor = self._axis_dict[axis_label]
 
             # Do the motion
-            self._move_relative(motor, param_dict[axis_label])
+            error_count += self._move_relative(motor, param_dict[axis_label])
+        return error_count == 0
+
+    def _move(self, motor):
+        # do motion
+        self.inst.write('{0}PR{1}'.format(motor._axis, motor.convert_to_step(self.target)))
+        rc = self.check_for_errors()
+        if rc != 0:
+            self.log.warn("Agilis controller error {} {}".format(rc, self.error_string(rc)))
+            return 1
+        else:
+            return 0
 
     def _move_relative(self, motor, relative_distance):
         # connect to the right channel
@@ -372,19 +402,19 @@ class AgilisController(Base, MotorInterface):
 
         # Make sure we don't pass a zero degree movement
         if relative_distance == 0:
-            pass
+            return 0
         else:
-            # do motion
-            self.inst.write('{0}PR{1}'.format(motor._axis, motor.convert_to_step(self.target)))
-            # self.get_status(motor.label)
+            return self._move(motor)
 
     def move_abs(self, param_dict):
+        error_count = 0
         for axis_label in param_dict:
             # Define the motor
             motor = self._axis_dict[axis_label]
 
             # Do the motion
-            self._move_absolute(motor, param_dict[axis_label])
+            error_count += self._move_absolute(motor, param_dict[axis_label])
+        return error_count == 0
 
     def _move_absolute(self, motor, absolute_distance):
         # connect to the right channel
@@ -403,11 +433,7 @@ class AgilisController(Base, MotorInterface):
         # update the current position with the difference
         motor.set_move_abs(self.target)
 
-        # do motion
-        self.inst.write('{0}PR{1}'.format(motor._axis, motor.convert_to_step(self.target)))
-        # self.get_status(motor.label)
-
-        return 0
+        return self._move(motor)
 
     def abort(self, param_list=None):
         """
@@ -485,6 +511,22 @@ class AgilisController(Base, MotorInterface):
 
         return pos
 
+    def _get_status(self, x):
+        motor = self._axis_dict[x]
+        # Ensure we're on the right channel
+        self._set_channel(motor)
+
+        # Query for the current state
+        response = self.inst.query('{0}TS'.format(motor._axis))
+        m = re.match('.*TS(\d+)',response)
+        if m is None:
+            self.log.warn("Unexpected response to get status {}".format(response))
+            return -1
+        else:
+            status = int(m.group(1))
+            motor.get_status(status)
+            return status
+
     def get_status(self, param_list=None):
         """ Get the status of the position
         ASCII Command; xxTS
@@ -496,30 +538,27 @@ class AgilisController(Base, MotorInterface):
             2 for Jogging
             3 for Moving to Limit (not applicable for PR100 mounts)
         """
-        current_state = {}
-
         if param_list is not None:
-            motor = self._axis_dict[param_list]
-            # Ensure we're on the right channel
-            self._set_channel(motor)
-
-            # Query for the current state
-            current_state[param_list] = int(self.inst.query('{0}TS'.format(motor._axis)).split('TS')[1])
-
-            # Check the motor for the status response
-            return motor.get_status(current_state[param_list])
-
+            return self._get_status(param_list)
         else:
             for axis_label in self._axis_dict:
-                motor = self._axis_dict[axis_label]
-                # Ensure we're on the right channel
-                self._set_channel(motor)
+                self._get_status(axis_label)
 
-                # Query for the current state
-                current_state[axis_label] = int(self.inst.query('{0}TS'.format(motor._axis)).split('TS')[1])
+    def check_for_errors(self):
+        error = self.inst.query('TE')
+        m = re.match('TE(\-?\d+)', error)
+        if m is None:
+            self.log.error("Agilis error code not as expected! {}".format(error))
+            return -99
+        else:
+            rc = m.group(1)
+            return int(rc)
 
-                # Check the motor for the status response
-                motor.get_status(current_state[axis_label])
+    def error_string(self, c):
+        try:
+            return self._error_codes[c]
+        except:
+            return "Unexpected error code"
 
     def calibrate(self, param_list=None):
         """ Calibrates the stage.

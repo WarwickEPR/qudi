@@ -57,11 +57,10 @@ class OpticalPolLogic(GenericLogic):
     # Saving of the data
     pol_saved = QtCore.Signal()
 
-    moving = False
-    scanning = False
+    was_moving = False
 
-    sigMoveAbs = QtCore.Signal(dict)
-    sigMoveRel = QtCore.Signal(dict)
+    #sigMoveAbs = QtCore.Signal(dict)
+    #sigMoveRel = QtCore.Signal(dict)
     sigAbort = QtCore.Signal()
 
     # Signals for making the move_abs, move_rel and abort independent:
@@ -117,8 +116,8 @@ class OpticalPolLogic(GenericLogic):
         # EXPERIMENTAL (from logic/magnet_logic.py):
         # connect now directly signals to the interface methods, so that
         # the logic object will be not blocks and can react on changes or abort
-        self.sigMoveAbs.connect(self._motor_stage.move_abs)
-        self.sigMoveRel.connect(self._motor_stage.move_rel)
+        #self.sigMoveAbs.connect(self._motor_stage.move_abs)
+        #self.sigMoveRel.connect(self._motor_stage.move_rel)
         self.sigAbort.connect(self._motor_stage.abort)
 
         # -------------------
@@ -166,7 +165,6 @@ class OpticalPolLogic(GenericLogic):
         self.home_timer.stop()
         self.movement_timer.stop()
 
-
         return 0
 
     # function to start the measurement
@@ -187,57 +185,75 @@ class OpticalPolLogic(GenericLogic):
         self.motor_position = self.get_pos([motor])
 
         # if not at the starting angle, go there
-        if self.motor_position != self._excitation_angles[0]:
+        self.log.info("Motor pos: {} Target: {}".format(self.motor_position, self.target_position))
+        if self.motor_position != self.target_position:
             # move to zero (or home) by doing sending -self.motor_position
-            self.move_abs({motor: self._excitation_angles[0]})
-            self.log.info('Moving {0} to the start position'.format(motor))
+            if self.move_abs({motor: self.target_position}):
+                self.log.info('Moving {0} to the start position'.format(motor))
+                self.sigHomeStart.emit()
+            else:
+                self.log.warn("Failed to move to start position")
         # we're at the starting angle already
-        elif self.motor_position == self._excitation_angles[0]:
+        elif self.motor_position == self.target_position:
             self.log.info('{0} is already at the starting position!'.format(motor))
+            self.sigNextPoint.emit()
         # Impossible to read the position
         else:
             self.log.warning('unable to read motor position')
 
-        self.sigHomeStart.emit()
-
     def _start_homing_timer(self):
-        self.home_timer.start(400)
+        self.home_timer.start(1000)
 
     def check_motor_homed(self):
         motor = self.measurement_motor
         motor_moving = self.get_status(motor)
 
         if motor_moving != 0:
-            pass
-        else:
+            self.was_moving = True
+        elif self.was_moving:
             self.log.info('Motor finished homing')
-            #self.sigHomeStop.emit()
+            self.was_moving = False
             self._stop_homing_timer()
+            self.motor_position = self.get_pos([motor])
             self.sigNextPoint.emit()
+        else:
+            pass
 
     def _stop_homing_timer(self):
         self.home_timer.stop()
 
     def move_to_next_position(self):
         motor = self.measurement_motor
-        self.move_abs({motor: self.target_position})
-
-        self.log.info('Moving to position {0}'.format(self.target_position))
-        self.sigMovementStart.emit()
+        self.log.debug("Moving to next point")
+        self.log.debug("Motor pos: {} Target: {}".format(self.motor_position, self.target_position))
+        if self.motor_position != self.target_position:
+            if self.move_abs({motor: self.target_position}):
+                self.log.info('Moving to position {0}'.format(self.target_position))
+                self.sigMovementStart.emit()
+            else:
+                self.log.warn('Failed to move to position {0}'.format(self.target_position))
+        else:
+            self.log.info("Already at position {0}".format(self.target_position))
+            self.start_measurement()
 
     def _start_movement_timer(self):
-        self.movement_timer.start(400)
+        self.movement_timer.start(1000)
 
     def check_motor_stopped(self):
         motor = self.measurement_motor
         motor_moving = self.get_status(motor)
 
         if motor_moving != 0:
-            pass
-        else:
+            self.was_moving = True
+        elif self.was_moving:
             self.log.info('Motor finished moving')
+            self.was_moving = False
+            self.motor_position = self.get_pos([motor])
             self.sigMovementStop.emit()
             self.start_measurement()
+        else:
+            pass
+
 
     def _stop_movement_timer(self):
         self.movement_timer.stop()
@@ -248,7 +264,7 @@ class OpticalPolLogic(GenericLogic):
         self.sigMeasurementStart.emit()
 
     def _start_measurement_timer(self):
-        self.measurement_timer.start(1000*self._measurement_length)
+        self.measurement_timer.start(1000*self._measurement_length+100)
 
     def measurement_complete(self):
         self.sigMeasurementStop.emit()
@@ -337,9 +353,7 @@ class OpticalPolLogic(GenericLogic):
                                 form:
                                     param_dict = { 'x' : 23 }
         """
-        self.sigMoveRel.emit(param_dict)
-
-        return param_dict
+        return self._motor_stage.move_rel(param_dict)
 
     def move_abs(self, param_dict):
         """ Moves stage to absolute position (absolute movement)
@@ -357,9 +371,7 @@ class OpticalPolLogic(GenericLogic):
                                     param_dict = { 'x' : 23 }
         """
 
-        self.sigMoveAbs.emit(param_dict)
-
-        return param_dict
+        return self._motor_stage.move_abs(param_dict)
 
     def get_pos(self, param_list=None):
         """ Gets current position of the stage.
