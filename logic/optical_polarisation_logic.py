@@ -104,12 +104,13 @@ class OpticalPolLogic(GenericLogic):
         """ Connect to the controller """
 
         # -------------------
-        # Sort out the motor stuff
+        # Sort out the connectors
         # -------------------
         # give a connection to the motor stage
         self._motor_stage = self.get_connector('motorstage')
         # pull out the names of the connected motors
         self._motor_list = self.get_axes()
+        self._save_logic = self.get_connector('savelogic')
 
         # TODO: ?get motor capabilities to put into dictionary so they can be updated?
 
@@ -168,13 +169,18 @@ class OpticalPolLogic(GenericLogic):
         return 0
 
     # function to start the measurement
-    def run_excitation_pol(self, motor, start_angle, end_angle, resolution):
+    def run_pol(self, motor, start_angle, end_angle, resolution):
         # be careful that the goto_home isn't called if the start angle is not zero
         self._excitation_angles = [start_angle, end_angle]
         self._angle_resolution = resolution
 
         self.target_position = start_angle
         self.measurement_motor = motor
+
+        # setup pol_data to be on the order of the measurement
+        self._cell_id = 0
+        data_points = int((end_angle-start_angle)/resolution + 1)
+        self.pol_data = np.zeros((data_points, 2))
 
         self.goto_home(motor)
 
@@ -270,21 +276,32 @@ class OpticalPolLogic(GenericLogic):
         self.sigMeasurementStop.emit()
         self.log.info('Measurement step complete')
         data = self.counter.getData()*self._count_frequency
-        self.log.info(data[0:10])
+        self.log.info('Average counts: {0}'.format(np.mean(data)))
+
+        # feed into array so that we can save it file later?
+        self.store_counts(np.mean(data))
 
         if self.stop_requested:
             self.log.info('Measurement stopped at your request')
-            #save data
+            self.save_pol()
+            self.pol_collected = True
             return
 
         if self.target_position < self._excitation_angles[1]:
             self.target_position += self._angle_resolution
             self.sigNextPoint.emit()
         else:
-            self.log.info('Measurement complete - save the data')
+            self.log.info('Measurement complete')
+            self.save_pol()
+            self.pol_collected = True
 
     def _stop_measurement_timer(self):
         self.measurement_timer.stop()
+
+    def store_counts(self, counts):
+        self.pol_data[self._cell_id][0] = self.target_position
+        self.pol_data[self._cell_id][1] = counts
+        self._cell_id += 1
 
     def save_pol(self):
         # File path and name
@@ -294,20 +311,18 @@ class OpticalPolLogic(GenericLogic):
         data = OrderedDict()
 
         # Lists for each column of the output file
-        angle = self.pol_data[:, 1]
-        counts = self.pol_data[:, 2]
+        angle = [row[0] for row in self.pol_data]
+        counts = [row[1] for row in self.pol_data]
 
-        data['Angle'] = np.array(angle)
-        data['Count rate (/s)'] = np.array(counts)
+        data['Angle'] = angle
+        data['Count rate (/s)'] = counts
 
-        self._save_logic.save_data(data, filepath=filepath, filelabel='Exc_Pol', fmt=['%.6e', '%.6e', '%.6e'])
-        self.log.debug('Excitation Polarisation saved to:\n{0}'.format(filepath))
-
-        self.pol_saved.emit()
+        self._save_logic.save_data(data, filepath=filepath, filelabel='Pol', fmt=['%.6f', '%.6f'])
+        self.log.info('Excitation Polarisation saved to:\n{0}'.format(filepath))
 
         return 0
 
-    def stop_excitation_pol(self):
+    def stop_pol(self):
         self.stop_requested = True
         self.sigAbort.emit()
 
