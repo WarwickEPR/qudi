@@ -46,6 +46,9 @@ class OpticalPolLogic(GenericLogic):
     fitlogic = Connector(interface='FitLogic')
     counter = Connector(interface='SlowCounterInterface')
 
+    # connector for the optimiser to run autofocus periodically
+    optimizer1 = Connector(interface='OptimizerLogic')
+
     # -------------------
     # Keep track of stuff
     # -------------------
@@ -59,14 +62,9 @@ class OpticalPolLogic(GenericLogic):
     pol_saved = QtCore.Signal()
 
     was_moving = False
+    measurement_running = False
 
-    #sigMoveAbs = QtCore.Signal(dict)
-    #sigMoveRel = QtCore.Signal(dict)
     sigAbort = QtCore.Signal()
-
-    # Signals for making the move_abs, move_rel and abort independent:
-    sigHomeStart = QtCore.Signal()
-    sigHomeStop = QtCore.Signal()
     sigMovementStart = QtCore.Signal()
     sigMovementStop = QtCore.Signal()
     sigMeasurementStart = QtCore.Signal()
@@ -90,6 +88,8 @@ class OpticalPolLogic(GenericLogic):
 
         # start fresh
         self._excitation_angles = []
+        self._cell_id = 0
+        self._store_meas_length = self._measurement_length
         self.pol_data = []
         self.raw_pol_data = []
         self.pol_fit = []
@@ -98,6 +98,10 @@ class OpticalPolLogic(GenericLogic):
         self.pol_fitted = False
         self.pol_collected = False
         self.stop_requested = False
+
+        self._refocus_counter = 1
+        # do a refocus every x measurements (default)
+        self.refocus_period = 5
 
         # locking for thread safety
         self.threadlock = Mutex()
@@ -111,6 +115,7 @@ class OpticalPolLogic(GenericLogic):
         # give a connection to the motor stage
         self._motor_stage = self.get_connector('motorstage')
         self._save_logic = self.get_connector('savelogic')
+        self._optimizer_logic = self.get_connector('optimizer1')
 
         # TODO: ?get motor capabilities to put into dictionary so they can be updated?
         # pull out the names of the connected motors
@@ -131,6 +136,7 @@ class OpticalPolLogic(GenericLogic):
         # -------------------
         self.movement_timer = QtCore.QTimer()
         self.movement_timer.timeout.connect(self.check_motor_stopped)
+        self.timer_value = 1000
 
         self.measurement_timer = QtCore.QTimer()
         self.measurement_timer.timeout.connect(self.measurement_complete)
@@ -145,6 +151,9 @@ class OpticalPolLogic(GenericLogic):
         self.sigMeasurementStop.connect(self._stop_measurement_timer)
 
         self.sigNextPoint.connect(self.move_to_next_position, QtCore.Qt.QueuedConnection)
+
+        # listen for the refocus to finish
+        self._optimizer_logic.sigRefocusFinished.connect(self.refocused, QtCore.Qt.QueuedConnection)
 
         # EXPERIMENTAL (from logic/magnet_logic.py):
         # connect now directly signals to the interface methods, so that
@@ -165,6 +174,8 @@ class OpticalPolLogic(GenericLogic):
 
         self.sigNextPoint.disconnect()
 
+        self._optimizer_logic.sigRefocusFinished.disconnect(self.refocused)
+
         self.sigAbort.disconnect()
 
         # -------------------
@@ -175,7 +186,49 @@ class OpticalPolLogic(GenericLogic):
 
         return 0
 
-    # function to start the measurement
+    def refocused(self):
+        if self.measurement_running:
+            self.log.info("Finished refocusing")
+            # continue the measurement
+            self.start_measurement()
+        else:
+            pass
+
+    def start_continuous(self, motor, angle):
+        # set the state of the measurement
+        self.measurement_running = True
+        self._continuous = True
+
+        # Claim the motor to do the movement
+        self.measurement_motor = motor
+
+        # change measurement length to a long time? Here assume around 1deg/s
+        self._measurement_length = angle
+
+        # start counter
+        self.setup_counter()
+
+        # move motor
+        self.move_rel({motor: angle})
+        self.sigMovementStart.emit()
+
+    def stop_continuous(self):
+        self.log.info('Measurement complete')
+        self.raw_pol_data = self.counter.getData()*self._count_frequency
+
+        # stop and clear the counter ready for next time
+        self.counter.stop()
+        self.counter.clear()
+        # FIXME: is there a better way to handle changing the measurement length?
+        # reset the measurement length in case we want stepped again
+        self._measurement_length = self._store_meas_length
+
+        self.save_pol()
+        self.pol_collected = True
+        self.measurement_running = False
+        self._continuous = False
+
+    # function to start a stepped measurement
     def run_pol(self, motor, start_angle, end_angle, resolution):
         """
         Runs a optical polarisation sweep based on a set of parameters
@@ -186,6 +239,13 @@ class OpticalPolLogic(GenericLogic):
         The duration of the measurement at each location is governed by
         the length setup in the config
         """
+        # Set the state of the measurement
+        self.measurement_running = True
+        self._continuous = False
+
+        # change the refocus period to be every 90 deg (for now)
+        self.refocus_period = int(90/resolution)
+
         # Set up measurement points
         self._excitation_angles = [start_angle, end_angle]
         self._angle_resolution = resolution
@@ -198,6 +258,7 @@ class OpticalPolLogic(GenericLogic):
         self.measurement_motor = motor
 
         # setup pol_data to be on the order of the measurement
+        self._refocus_counter = 1
         self._cell_id = 0
         data_points = int((end_angle-start_angle)/resolution + 1)
         # for 2 column, ie, angle and average counts
@@ -223,7 +284,7 @@ class OpticalPolLogic(GenericLogic):
             self.start_measurement()
 
     def _start_movement_timer(self):
-        self.movement_timer.start(1000)
+        self.movement_timer.start(self.timer_value)
 
     def check_motor_stopped(self):
         motor = self.measurement_motor
@@ -231,12 +292,19 @@ class OpticalPolLogic(GenericLogic):
 
         if motor_moving != 0:
             self.was_moving = True
+
         elif self.was_moving:
             self.log.info('Motor finished moving')
             self.was_moving = False
             self.motor_position = self.get_pos([motor])
             self.sigMovementStop.emit()
-            self.start_measurement()
+
+            # Pass the continuous test to select the next step
+            if self._continuous:
+                self.stop_continuous()
+            else:
+                self.start_measurement()
+
         else:
             pass
 
@@ -244,9 +312,16 @@ class OpticalPolLogic(GenericLogic):
         self.movement_timer.stop()
 
     def start_measurement(self):
-        self.log.info('Starting measurement')
-        self.setup_counter()
-        self.sigMeasurementStart.emit()
+        check_for_refocus = int((self._refocus_counter * self.refocus_period) - 1)
+
+        if self._cell_id == check_for_refocus:
+            self._refocus_counter += 1
+            # do refocus
+            self._optimizer_logic.start_refocus()
+        else:
+            self.log.info('Starting measurement')
+            self.setup_counter()
+            self.sigMeasurementStart.emit()
 
     def _start_measurement_timer(self):
         self.measurement_timer.start(1000*self._measurement_length+100)
@@ -263,6 +338,7 @@ class OpticalPolLogic(GenericLogic):
             self.log.info('Measurement stopped at your request')
             self.save_pol()
             self.pol_collected = True
+            self.measurement_running = False
             return
 
         if self.target_position < self._excitation_angles[1]:
@@ -272,6 +348,7 @@ class OpticalPolLogic(GenericLogic):
             self.log.info('Measurement complete')
             self.save_pol()
             self.pol_collected = True
+            self.measurement_running = False
 
     def _stop_measurement_timer(self):
         self.measurement_timer.stop()
@@ -287,29 +364,37 @@ class OpticalPolLogic(GenericLogic):
         filepath = self._save_logic.get_path_for_module(module_name='Polarization')
 
         # We will fill the data OrderedDict to send to savelogic
-        rawdata = OrderedDict()
-        data = OrderedDict()
+        if self._continuous:
+            rawdata = OrderedDict()
+            # rawdata['Raw Counts (/s)'] = np.trim_zeros(self.raw_pol_data)
+            rawdata['Raw Counts (/s)'] = self.raw_pol_data
+            self._save_logic.save_data(rawdata, filepath=filepath, filelabel='Raw_Pol_continuous', fmt='%f')
+            self.log.info('Excitation Polarisation saved to:\n{0}'.format(filepath))
 
-        # Lists for each column of the output file
-        angle = [row[0] for row in self.pol_data]
-        counts = [row[1] for row in self.pol_data]
+        else:
+            rawdata = OrderedDict()
+            data = OrderedDict()
 
-        data['Angle'] = angle
-        data['Count rate (/s)'] = counts
-        # each row will be each angle step
-        rawdata['Raw Counts (/s)'] = self.raw_pol_data
+            # Lists for each column of the output file
+            angle = [row[0] for row in self.pol_data]
+            counts = [row[1] for row in self.pol_data]
 
-        # set up figure?
-        plt.style.use(self._save_logic.mpl_qd_style)
-        fig, ax1 = plt.subplots()
-        ax1.plot(angle, counts)
-        ax1.set_xlabel('Angle (deg)')
-        ax1.set_ylabel('Counts (cps)')
-        fig.tight_layout()
+            data['Angle'] = angle
+            data['Count rate (/s)'] = counts
+            # each row will be each angle step
+            rawdata['Raw Counts (/s)'] = self.raw_pol_data
 
-        self._save_logic.save_data(rawdata, filepath=filepath, filelabel='Raw_Pol', fmt='%f')
-        self._save_logic.save_data(data, filepath=filepath, filelabel='Pol', fmt=['%.6f', '%.6f'], plotfig=fig)
-        self.log.info('Excitation Polarisation saved to:\n{0}'.format(filepath))
+            # set up figure?
+            plt.style.use(self._save_logic.mpl_qd_style)
+            fig, ax1 = plt.subplots()
+            ax1.plot(angle, counts)
+            ax1.set_xlabel('Angle (deg)')
+            ax1.set_ylabel('Counts (cps)')
+            fig.tight_layout()
+
+            self._save_logic.save_data(rawdata, filepath=filepath, filelabel='Raw_Pol', fmt='%f')
+            self._save_logic.save_data(data, filepath=filepath, filelabel='Pol', fmt=['%.6f', '%.6f'], plotfig=fig)
+            self.log.info('Excitation Polarisation saved to:\n{0}'.format(filepath))
 
         return 0
 

@@ -244,7 +244,7 @@ class AgilisController(Base, MotorInterface):
                 write_termination='\r\n',
                 read_termination='\r\n',
                 query_delay=0.1,
-                timeout=5000,
+                timeout=360000,
                 send_end=True)
             # give controller 2 seconds maximum to reply
             # self.inst.timeout = 4000
