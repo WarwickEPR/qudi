@@ -28,7 +28,7 @@ along with Qudi. If not, see <http://www.gnu.org/licenses/>.
 Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
-
+import time
 from core.module import Base, ConfigOption
 import visa
 from interface.motor_interface import MotorInterface
@@ -244,12 +244,16 @@ class AgilisController(Base, MotorInterface):
                 write_termination='\r\n',
                 read_termination='\r\n',
                 query_delay=0.1,
-                timeout=360000,
                 send_end=True)
             # give controller 2 seconds maximum to reply
-            # self.inst.timeout = 4000
+            self.inst.timeout = 2000
             self.inst.write('MR')
+
+            # Add in a small delay to help the controller not timeout!
+            time.sleep(0.1)
             if self.check_for_errors() != 0:
+                # forcing to write remote again after timeout helps
+                self.inst.write('MR')
                 self.log.error('Could not set remote mode')
 
         except visa.VisaIOError:
@@ -261,9 +265,9 @@ class AgilisController(Base, MotorInterface):
     def _disconnect_agilis(self):
         """ Close connection
         """
-        self.inst.write('ML')
+        #self.inst.write('ML')
         self.inst.close()
-        self.rm.close()
+        #self.rm.close()
 
     def get_constraints(self):
         """ Retrieve the hardware constrains from the motor device.
@@ -354,7 +358,11 @@ class AgilisController(Base, MotorInterface):
         if motor._channel > 4:
            return Exception('Channel number is not possible')
         else:
-            self.inst.write('CC{0}'.format(motor._channel))
+            use_channel = motor._channel
+            self.inst.write('CC{0}'.format(use_channel))
+
+            # Add in a small delay to help the controller not timeout!
+            time.sleep(0.1)
 
     def move_rel(self,  param_dict):
         """ Moves stage in given direction (relative movement)
@@ -380,7 +388,14 @@ class AgilisController(Base, MotorInterface):
 
     def _move(self, motor):
         # do motion
-        self.inst.write('{0}PR{1}'.format(motor._axis, motor.convert_to_step(self.target)))
+        use_axis = motor._axis
+        move = motor.convert_to_step(self.target)
+
+        self.inst.write('{0}PR{1}'.format(use_axis, move))
+
+        # Add in a small delay to help the controller not timeout!
+        time.sleep(0.1)
+
         rc = self.check_for_errors()
         if rc != 0:
             self.log.warn("Agilis controller error {} {}".format(rc, self.error_string(rc)))
@@ -494,7 +509,11 @@ class AgilisController(Base, MotorInterface):
         """
         # Connect to the right channel
         self._set_channel(motor)
-        self.inst.write('{0}ST'.format(motor._axis))
+        use_axis = motor._axis
+        self.inst.write('{0}ST'.format(use_axis))
+
+        # Add in a small delay to help the controller not timeout!
+        time.sleep(0.1)
 
     def get_pos(self, param_list=None):
         if param_list is not None:
@@ -629,8 +648,16 @@ class AgilisController(Base, MotorInterface):
 
         for axis_label in param_dict:
             motor = self._axis_dict[axis_label]
-            self.inst.write('{0}SU{1}'.format(motor._axis, default_amp))
-            self.inst.write('{0}SU{1}'.format(motor._axis, -default_amp))
+            use_axis = motor._axis
+            self.inst.write('{0}SU{1}'.format(use_axis, default_amp))
+
+            # Add in a small delay to help the controller not timeout!
+            time.sleep(0.1)
+
+            self.inst.write('{0}SU{1}'.format(use_axis, -default_amp))
+
+            # Add in a small delay to help the controller not timeout!
+            time.sleep(0.1)
 
     def set_home(self,  param_dict):
         """ Once the motor is in the right position which reads zero
@@ -654,9 +681,13 @@ class AgilisController(Base, MotorInterface):
     def _zero(self, motor):
         # connect to the right channel
         self._set_channel(motor)
+        use_axis = motor._axis
 
         # Tell the controller we want this to be the zero position
-        self.inst.write('{0}ZP'.format(motor._axis))
+        self.inst.write('{0}ZP'.format(use_axis))
+
+        # Add in a small delay to help the controller not timeout!
+        time.sleep(0.1)
 
     def get_steps(self, param_list=None):
         """ Returns the number of steps by the sum of forward - backward """
@@ -686,9 +717,13 @@ class AgilisController(Base, MotorInterface):
 
     def set_steps(self, motor, steps):
         self._set_channel(motor)
+        use_axis = motor._axis
 
         # Tell the motor to move x amount of steps
-        self.inst.write('{0}PR{1}'.format(motor._axis, steps))
+        self.inst.write('{0}PR{1}'.format(use_axis, steps))
+
+        # Add in a small delay to help the controller not timeout!
+        time.sleep(0.1)
 
         # Check this is sensible and doesn't throw an error
         rc = self.check_for_errors()
@@ -732,13 +767,17 @@ class AgilisController(Base, MotorInterface):
     def _jog(self, motor, speed):
         # Connect to the right motor
         self._set_channel(motor)
+        use_axis = motor._axis
 
         # Reset the step counter
         #if speed != 0:
         self._zero(motor)
 
         # do jog ...
-        self.inst.write('{0}JA{1}'.format(motor._axis, speed))
+        self.inst.write('{0}JA{1}'.format(use_axis, speed))
+
+        # Add in a small delay to help the controller not timeout!
+        time.sleep(0.1)
 
         # Check this is sensible and doesn't throw an error
         rc = self.check_for_errors()

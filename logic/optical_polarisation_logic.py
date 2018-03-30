@@ -17,13 +17,12 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
 
-import time
 import numpy as np
 import TimeTagger as tt
 import matplotlib.pyplot as plt
 
 from qtpy import QtCore
-from core.module import Connector, ConfigOption, StatusVar
+from core.module import Connector, ConfigOption
 from core.util.mutex import Mutex
 from logic.generic_logic import GenericLogic
 from collections import OrderedDict
@@ -48,6 +47,7 @@ class OpticalPolLogic(GenericLogic):
 
     # connector for the optimiser to run autofocus periodically
     optimizer1 = Connector(interface='OptimizerLogic')
+    scannerlogic = Connector(interface='ConfocalLogic')
 
     # -------------------
     # Keep track of stuff
@@ -116,6 +116,7 @@ class OpticalPolLogic(GenericLogic):
         self._motor_stage = self.get_connector('motorstage')
         self._save_logic = self.get_connector('savelogic')
         self._optimizer_logic = self.get_connector('optimizer1')
+        self._confocal_logic = self.get_connector('scannerlogic')
 
         # TODO: ?get motor capabilities to put into dictionary so they can be updated?
         # pull out the names of the connected motors
@@ -186,9 +187,10 @@ class OpticalPolLogic(GenericLogic):
 
         return 0
 
-    def refocused(self):
+    def refocused(self, caller, p):
         if self.measurement_running:
             self.log.info("Finished refocusing")
+            self._confocal_logic.set_position('PolTarget', *p)
             # continue the measurement
             self.start_measurement()
         else:
