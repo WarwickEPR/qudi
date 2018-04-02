@@ -245,8 +245,9 @@ class OpticalPolLogic(GenericLogic):
         self.measurement_running = True
         self._continuous = False
 
-        # change the refocus period to be every 90 deg (for now)
-        self.refocus_period = int(90/resolution)
+        # change the refocus period to be every 70 deg (for now)
+        # non multiple of 90 just incase we start like a sine or cosine
+        self.refocus_period = int(70/resolution)
 
         # Set up measurement points
         self._excitation_angles = [start_angle, end_angle]
@@ -368,8 +369,8 @@ class OpticalPolLogic(GenericLogic):
         # We will fill the data OrderedDict to send to savelogic
         if self._continuous:
             rawdata = OrderedDict()
-            # rawdata['Raw Counts (/s)'] = np.trim_zeros(self.raw_pol_data)
             rawdata['Raw Counts (/s)'] = self.raw_pol_data
+            #rawdata['Raw Counts (/s)'] = np.fliplr(self.raw_pol_data) # reverse the order as TT puts newest first
             self._save_logic.save_data(rawdata, filepath=filepath, filelabel='Raw_Pol_continuous', fmt='%f')
             self.log.info('Excitation Polarisation saved to:\n{0}'.format(filepath))
 
