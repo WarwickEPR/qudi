@@ -368,10 +368,19 @@ class OpticalPolLogic(GenericLogic):
 
         # We will fill the data OrderedDict to send to savelogic
         if self._continuous:
+            parameters = OrderedDict()
+            parameters['Operation Mode'] = 'Continuous'
+            # Change swept angle if self._measurement_length no longer equals 1deg/s
+            parameters['Swept Angle (deg)'] = self._measurement_length
+
             rawdata = OrderedDict()
             rawdata['Raw Counts (/s)'] = self.raw_pol_data
             #rawdata['Raw Counts (/s)'] = np.fliplr(self.raw_pol_data) # reverse the order as TT puts newest first
-            self._save_logic.save_data(rawdata, filepath=filepath, filelabel='Raw_Pol_continuous', fmt='%f')
+            self._save_logic.save_data(rawdata,
+                                       filepath=filepath,
+                                       parameters=parameters,
+                                       filelabel='Raw_Pol_continuous',
+                                       fmt='%f')
             self.log.info('Excitation Polarisation saved to:\n{0}'.format(filepath))
 
         else:
@@ -387,6 +396,9 @@ class OpticalPolLogic(GenericLogic):
             # each row will be each angle step
             rawdata['Raw Counts (/s)'] = self.raw_pol_data
 
+            parameters = OrderedDict()
+            parameters['Angles measured'] = self.pol_data[:][0]
+
             # set up figure?
             plt.style.use(self._save_logic.mpl_qd_style)
             fig, ax1 = plt.subplots()
@@ -395,8 +407,16 @@ class OpticalPolLogic(GenericLogic):
             ax1.set_ylabel('Counts (cps)')
             fig.tight_layout()
 
-            self._save_logic.save_data(rawdata, filepath=filepath, filelabel='Raw_Pol', fmt='%f')
-            self._save_logic.save_data(data, filepath=filepath, filelabel='Pol', fmt=['%.6f', '%.6f'], plotfig=fig)
+            self._save_logic.save_data(rawdata,
+                                       filepath=filepath,
+                                       parameters=parameters,
+                                       filelabel='Raw_Pol',
+                                       fmt='%f')
+            self._save_logic.save_data(data,
+                                       filepath=filepath,
+                                       filelabel='Pol',
+                                       fmt=['%.6f', '%.6f'],
+                                       plotfig=fig)
             self.log.info('Excitation Polarisation saved to:\n{0}'.format(filepath))
 
         return 0

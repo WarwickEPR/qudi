@@ -20,7 +20,6 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 import numpy as np
 import TimeTagger as tt
-import matplotlib.pyplot as plt
 
 from qtpy import QtCore
 from core.module import Connector, ConfigOption
@@ -31,7 +30,7 @@ from collections import OrderedDict
 
 class SwitchingLogic(GenericLogic):
     """
-    This is the logic for making a "quick" optical polarisation measurement
+    This is the logic for making a measurement of count rates for different laser powers
     """
 
     _modclass = 'switchinglogic'
@@ -77,7 +76,7 @@ class SwitchingLogic(GenericLogic):
     _channel_apd_1 = ConfigOption('timetagger_channel_apd_1', None, missing='warn')
 
     _count_frequency = ConfigOption('count_frequency', missing='error')
-    _laser_powers = ConfigOption('laser_powers', missing='error')
+    _laser_powers_config = ConfigOption('laser_powers', missing='error')
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -86,7 +85,7 @@ class SwitchingLogic(GenericLogic):
         self._cell_id = 0
 
         # define number of powers to look at
-        self._num_of_powers = len(self._laser_powers)
+        self._num_of_powers = len(self._laser_powers_config)
 
         self._refocus_counter = 1
         # do a refocus every x measurements (default)
@@ -157,28 +156,34 @@ class SwitchingLogic(GenericLogic):
 
         self.sigNextPoint.disconnect()
 
-        self._optimizer_logic.sigRefocusFinished.disconnect(self.refocused)
+        #self._optimizer_logic.sigRefocusFinished.disconnect(self.refocused)
 
         self.sigAbort.disconnect()
 
         # -------------------
         # Stop timers
         # -------------------
+        self.check_timer.stop()
         self.measurement_timer.stop()
-        self.movement_timer.stop()
 
         return 0
 
+    # TODO: Implement refocusing routing
+    # Should think about this; if defect switches easily at higher powers
+    # Then it may make sense to return to a lower power before optimising
     def refocused(self, caller, p):
         if self.measurement_running:
             self.log.info("Finished refocusing")
-            self._confocal_logic.set_position('PolTarget', *p)
+            self._confocal_logic.set_position('Target', *p)
             # continue the measurement
-            self.start_measurement()
+            self.do_switching()
         else:
             pass
 
     def start_switching(self, timer=120):
+        # pull in the config values on each new run
+        self._laser_powers = self._laser_powers_config
+
         # redefine laser powers from mW to W
         self._laser_powers = [i / 1000 for i in self._laser_powers]
 
@@ -201,6 +206,8 @@ class SwitchingLogic(GenericLogic):
         self.do_switching()
 
     def do_switching(self):
+        # TODO: Implement autofocus routine here
+
         # set up the array for the next set of checking powers
         self.laser_settle = []
 
@@ -286,6 +293,7 @@ class SwitchingLogic(GenericLogic):
 
         self.log.info('Measurement complete')
         self.log.info('Returning back to original power: {0} mW'.format(self.store_laser_power * 1000))
+        self.store_last_power = self.target_power
         self._laser.set_power(self.store_laser_power)
 
         # stop and clear the counter ready for next time
@@ -301,9 +309,17 @@ class SwitchingLogic(GenericLogic):
         # File path and name
         filepath = self._save_logic.get_path_for_module(module_name='Switching Rates')
 
+        parameters = OrderedDict()
+        parameters['Laser Powers Defined (W)'] = self._laser_powers
+        parameters['Last Measured Power (W)'] = self.store_last_power
+
         rawdata = OrderedDict()
         rawdata['Raw Counts (/s)'] = self.switching_data
-        self._save_logic.save_data(rawdata, filepath=filepath, filelabel='Switching_rates', fmt='%f')
+        self._save_logic.save_data(rawdata,
+                                   filepath=filepath,
+                                   parameters=parameters,
+                                   filelabel='Switching_rates',
+                                   fmt='%f')
         self.log.info('Switching rate data saved to:\n{0}'.format(filepath))
         return 0
 
