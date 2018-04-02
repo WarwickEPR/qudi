@@ -27,6 +27,8 @@ import datetime
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import re
+import csv
 from io import BytesIO
 
 from logic.generic_logic import GenericLogic
@@ -934,6 +936,156 @@ class ConfocalLogic(GenericLogic):
         self.log.debug('Confocal Image saved.')
         self.signal_xy_data_saved.emit()
         return
+
+    def load_xy_file(self):
+        """ Attempt to add in a load from file function so that old data
+        can be viewed with the ability to move the stage to the location of
+        features in that map.
+
+        This should load up the .dat file containing the 2D array (_Dev1Ctr3.dat)
+        such that self.xy_image() is the new 2D array. The confocal gui will need
+        to update with the scan resolution from the .dat file along with start/end XY
+        and the depth.
+
+        From the save function
+        parameters['X image min (m)'] = self.image_x_range[0]
+        parameters['X image max (m)'] = self.image_x_range[1]
+
+        parameters['Y image min'] = self.image_y_range[0]
+        parameters['Y image max'] = self.image_y_range[1]
+
+        parameters['XY resolution (samples per range)'] = self.xy_resolution
+        parameters['XY Image at z position (m)'] = self._current_z
+
+        """
+        file = 'Z:/Sample Data/Confocal/2018/04/20180402/Confocal/20180402-1523-52_confocal_xy_image_Dev1Ctr3.dat'
+
+        ##############################
+        # Open up the .dat of desire
+        ##############################
+
+        with open(file) as csvfile:
+            dReader = csv.reader(csvfile, delimiter='\t')
+            headers = []
+            data = []  # returns a list - should convert to array at the end
+            for row in dReader:
+
+                # Pull the headers which start with a hash
+                a = [i for i in row if i.startswith('#')]
+
+                if not a:
+                    pass
+                else:
+                    # produces a list where each one is a string
+                    headers.append(a[0])
+
+                # search each row if it starts with a number then it's data
+                for x in row:
+                    raw = re.search('^\s*[0-9]', x)
+                    if not raw:
+                        pass
+                    else:
+                        """
+                        data gives list where there is number followed by \t followed by number
+                        so delimiter set to '\t' to deal with this
+                        Ultimiately this will return a list at the size of the data which needs to
+                        be reshaped to plug back to the scannerlogic.xy_image
+                        """
+                        data.append(float(raw.string))
+
+        ##############################
+        # pattern matching headers
+        ##############################
+
+        match_strings = []  # id
+        match_strings.append('#X image min')  # 0
+        match_strings.append('#X image max')  # 1
+        match_strings.append('#Y image min')  # 2
+        match_strings.append('#Y image max')  # 3
+        match_strings.append('#XY Image at z position')  # 5
+        match_strings.append('#XY resolution')  # 6
+
+        # set up regex matching, do one string at a time
+        self._tmp_values = []
+        for k in match_strings:
+            # search in header for each entry in match_strings. Put the result in a list
+            for j in headers:
+                result = re.search(k, j)
+                if not result:
+                    pass
+                else:
+                    # leave values in original format, we should deal with m to um when processing the rest
+                    self._tmp_values.append(float(result.string.split(':')[1]))
+
+        ##############################
+        # Reshape data
+        ##############################
+        # Get the number of data points
+        data_length = len(data)
+        # put data into the array
+        data = np.array(data)
+        # reshape the array to finally get back to how the data would have looked before saving
+        # in a rectangle map, the columns correspond to the resolution (defined as resolution in x) so y is the remainder
+        # x.reshape((rows,cols))
+        y_num = int(data_length // self._tmp_values[5])
+        data = data.reshape((y_num, int(self._tmp_values[5])))
+
+        ##############################
+        # Put back data into variables
+        ##############################
+        # min x
+        self.image_x_range[0] = self._tmp_values[0] # image
+        #self.x_range[0] = self._tmp_values[0] # handles
+        # max x
+        self.image_x_range[1] = self._tmp_values[1]
+        #self.x_range[1] = self._tmp_values[1]
+        # min y
+        self.image_y_range[0] = self._tmp_values[2]
+        #self.y_range[0] = self._tmp_values[2]
+        # max y
+        self.image_y_range[1] = self._tmp_values[3]
+        #self.y_range[1] = self._tmp_values[3]
+        # image z position
+        self._current_z = self._tmp_values[4]
+        self.set_position("load",z=self._current_z)
+        # XY resolution
+        self.xy_resolution = self._tmp_values[5]
+        # XY Data
+        # self.xy_image is a tensor
+        # xy_image[:,:,0] = x values
+        # xy_image[:, :, 1] = y values
+        # xy_image[:,:,2] = z values
+        # xy_image[:,:,3] = counts
+        # break self.xy_image by making zeros
+        self.xy_image = np.zeros((int(y_num), int(self.xy_resolution), 4))
+
+        # repopulate
+        x_populate = np.linspace(self.image_x_range[0], self.image_x_range[1], int(self.xy_resolution))
+        x_populate = np.tile(x_populate, (int(y_num), 1))
+        self.xy_image[:,:,0] = x_populate
+
+        y_populate = np.linspace(self.image_y_range[0], self.image_y_range[1], int(y_num))
+        y_populate = np.vstack(y_populate)
+        y_populate =  np.tile(y_populate, (1, int(self.xy_resolution)))
+        self.xy_image[:,:,1] = y_populate
+
+        # repeat z for size of array
+        z_populate = np.tile(self._current_z, (int(y_num), int(self.xy_resolution)))
+        self.xy_image[:,:,2] = z_populate
+
+        self.xy_image[:,:,3] = data
+
+        # signal that the image has been updated
+        self.signal_xy_image_updated.emit()
+        self._change_position('history')
+        self.signal_change_position.emit('history')
+        self.signal_history_event.emit()
+
+        ##############################
+        # Initialize image with this
+        ##############################
+        #self.initialize_image()
+        self.sigImageXYInitialized.emit()
 
     def save_depth_data(self, colorscale_range=None, percentile_range=None):
         """ Save the current confocal depth data to file.
