@@ -845,7 +845,7 @@ class ConfocalLogic(GenericLogic):
             self.stop_scanning()
             self.signal_scan_lines_next.emit()
 
-    def save_xy_data(self, colorscale_range=None, percentile_range=None):
+    def save_xy_data(self, custom_fp=None, colorscale_range=None, percentile_range=None):
         """ Save the current confocal xy data to file.
 
         Two files are created.  The first is the imagedata, which has a text-matrix of count values
@@ -859,7 +859,12 @@ class ConfocalLogic(GenericLogic):
 
         @param: list percentile_range (optional) The percentile range [min, max] of the color scale
         """
-        filepath = self._save_logic.get_path_for_module('Confocal')
+        # tweak the filepath if confocal_logic is being used to automate map scanning
+        if custom_fp is not None:
+            filepath = self._save_logic.get_path_for_module(custom_fp)
+        else:
+            filepath = self._save_logic.get_path_for_module('Confocal')
+
         timestamp = datetime.datetime.now()
         # Prepare the metadata parameters (common to both saved files):
         parameters = OrderedDict()
@@ -934,6 +939,9 @@ class ConfocalLogic(GenericLogic):
                                    delimiter='\t')
 
         self.log.debug('Confocal Image saved.')
+        # allow access to the timestamp for use in other logic modules which would like
+        # to save what the name of the file was that got saved
+        self._timestamp = timestamp
         self.signal_xy_data_saved.emit()
         return
 
