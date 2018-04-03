@@ -937,7 +937,7 @@ class ConfocalLogic(GenericLogic):
         self.signal_xy_data_saved.emit()
         return
 
-    def load_xy_file(self):
+    def load_xy_file(self, file):
         """ Attempt to add in a load from file function so that old data
         can be viewed with the ability to move the stage to the location of
         features in that map.
@@ -958,7 +958,6 @@ class ConfocalLogic(GenericLogic):
         parameters['XY Image at z position (m)'] = self._current_z
 
         """
-        file = 'Z:/Sample Data/Confocal/2018/04/20180402/Confocal/20180402-1523-52_confocal_xy_image_Dev1Ctr3.dat'
 
         ##############################
         # Open up the .dat of desire
@@ -1014,8 +1013,9 @@ class ConfocalLogic(GenericLogic):
                 if not result:
                     pass
                 else:
-                    # leave values in original format, we should deal with m to um when processing the rest
-                    self._tmp_values.append(float(result.string.split(':')[1]))
+                    # leave values in original format (but represent as a decimal always)
+                    b = float(result.string.split(':')[1])
+                    self._tmp_values.append(b)
 
         ##############################
         # Reshape data
@@ -1033,59 +1033,42 @@ class ConfocalLogic(GenericLogic):
         ##############################
         # Put back data into variables
         ##############################
-        # min x
-        self.image_x_range[0] = self._tmp_values[0] # image
-        #self.x_range[0] = self._tmp_values[0] # handles
-        # max x
-        self.image_x_range[1] = self._tmp_values[1]
-        #self.x_range[1] = self._tmp_values[1]
-        # min y
-        self.image_y_range[0] = self._tmp_values[2]
-        #self.y_range[0] = self._tmp_values[2]
-        # max y
-        self.image_y_range[1] = self._tmp_values[3]
-        #self.y_range[1] = self._tmp_values[3]
+        # Copy back x
+        # FIXME: This doesn't update the x handles in the confocal gui for some reason
+        # Unclear why this doesn't update the x handles as y works perfectly fine
+        self.image_x_range = np.copy(self._tmp_values[0:2])
+        # Copy back y
+        self.image_y_range = np.copy(self._tmp_values[2:4])
         # image z position
         self._current_z = self._tmp_values[4]
-        self.set_position("load",z=self._current_z)
-        # XY resolution
-        self.xy_resolution = self._tmp_values[5]
-        # XY Data
-        # self.xy_image is a tensor
-        # xy_image[:,:,0] = x values
-        # xy_image[:, :, 1] = y values
-        # xy_image[:,:,2] = z values
-        # xy_image[:,:,3] = counts
-        # break self.xy_image by making zeros
-        self.xy_image = np.zeros((int(y_num), int(self.xy_resolution), 4))
+        self.set_position("load", z=self._current_z)
+        # XY resolution (make sure to give back an int)
+        self.xy_resolution = int(self._tmp_values[5])
+
+        # Initialize image
+        self.initialize_image()
 
         # repopulate
         x_populate = np.linspace(self.image_x_range[0], self.image_x_range[1], int(self.xy_resolution))
         x_populate = np.tile(x_populate, (int(y_num), 1))
-        self.xy_image[:,:,0] = x_populate
+        self.xy_image[:, :, 0] = np.copy(x_populate)
 
         y_populate = np.linspace(self.image_y_range[0], self.image_y_range[1], int(y_num))
         y_populate = np.vstack(y_populate)
-        y_populate =  np.tile(y_populate, (1, int(self.xy_resolution)))
-        self.xy_image[:,:,1] = y_populate
+        y_populate = np.tile(y_populate, (1, int(self.xy_resolution)))
+        self.xy_image[:, :, 1] = np.copy(y_populate)
 
         # repeat z for size of array
         z_populate = np.tile(self._current_z, (int(y_num), int(self.xy_resolution)))
-        self.xy_image[:,:,2] = z_populate
+        self.xy_image[:, :, 2] = np.copy(z_populate)
 
-        self.xy_image[:,:,3] = data
+        self.xy_image[:, :, 3] = np.copy(data)
 
         # signal that the image has been updated
         self.signal_xy_image_updated.emit()
         self._change_position('history')
         self.signal_change_position.emit('history')
         self.signal_history_event.emit()
-
-        ##############################
-        # Initialize image with this
-        ##############################
-        #self.initialize_image()
-        self.sigImageXYInitialized.emit()
 
     def save_depth_data(self, colorscale_range=None, percentile_range=None):
         """ Save the current confocal depth data to file.
