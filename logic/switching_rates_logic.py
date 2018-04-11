@@ -139,7 +139,10 @@ class SwitchingLogic(GenericLogic):
         self.sigAbort.connect(self.stop_switching, QtCore.Qt.QueuedConnection)
 
         # listen for the refocus to finish
-        # self._optimizer_logic.sigRefocusFinished.connect(self.refocused, QtCore.Qt.QueuedConnection)
+        self._optimizer_logic.sigRefocusFinished.connect(self.refocused, QtCore.Qt.QueuedConnection)
+
+        # For silencing the logic when a refocus is called
+        self._silence = True
 
 
     def on_deactivate(self):
@@ -156,7 +159,7 @@ class SwitchingLogic(GenericLogic):
 
         self.sigNextPoint.disconnect()
 
-        #self._optimizer_logic.sigRefocusFinished.disconnect(self.refocused)
+        self._optimizer_logic.sigRefocusFinished.disconnect(self.refocused)
 
         self.sigAbort.disconnect()
 
@@ -172,15 +175,19 @@ class SwitchingLogic(GenericLogic):
     # Should think about this; if defect switches easily at higher powers
     # Then it may make sense to return to a lower power before optimising
     def refocused(self, caller, p):
-        if self.measurement_running:
-            self.log.info("Finished refocusing")
-            self._confocal_logic.set_position('Target', *p)
+        self.log.info("Finished refocusing")
+        self._confocal_logic.set_position('PolTarget', *p)
+        if self._silence:
+            pass
+        else:
             # continue the measurement
             self.do_switching()
-        else:
-            pass
 
-    def start_switching(self, timer=120):
+    def start_switching(self, refocus=False, timer=120):
+        # start fresh
+        self._cell_id = 0
+        self._silence = False
+
         # pull in the config values on each new run
         self._laser_powers = self._laser_powers_config
 
@@ -189,6 +196,18 @@ class SwitchingLogic(GenericLogic):
 
         # reset the abort
         self.stop_requested = False
+
+        # -------------------
+        # Set up how to handle refocus
+        # -------------------
+        # TODO: define this not in the function?
+        self._refocus_counter = 1
+        # do a refocus every x measurements (default)
+        self._refocus_period = 2
+
+        # allow us to choose whether we want to include a refocus
+        self.refocus = refocus
+        self.QueueRefocus = False
 
         # Save the laser power as the experiment started to return at the end
         self.store_laser_power = self._laser.get_power()
@@ -207,19 +226,34 @@ class SwitchingLogic(GenericLogic):
 
     def do_switching(self):
         # TODO: Implement autofocus routine here
+        check_for_refocus = int((self._refocus_counter * self.refocus_period) - 1)
 
-        # set up the array for the next set of checking powers
-        self.laser_settle = []
+        if self._cell_id == check_for_refocus:
+            self._refocus_counter += 1
 
-        # Send the laser to the power needed
-        self._laser.set_power(self.target_power)
-        self.log.info('Sending laser to {0} mW'.format(self.target_power*1000))
+            # send the laser back to a safe power
+            self._laser.set_power(self.store_laser_power)
 
-        # Start up the timer
-        self.sigCheckPower.emit()
+            # should move the call to refocus to when the laser is at the set power
+            self.QueueRefocus = True
+            self.log.info('Will refocus on this one, the laser will go back to {0} mW'.format(self.store_laser_power*1000))
+            self.sigCheckPower.emit()
+            # do refocus
+            # self._optimizer_logic.start_refocus()
 
-        # Run the loop for checking we're there
-        self.check_laser_power()
+        else:
+            # set up the array for the next set of checking powers
+            self.laser_settle = []
+
+            # Send the laser to the power needed
+            self._laser.set_power(self.target_power)
+            self.log.info('Sending laser to {0} mW'.format(self.target_power*1000))
+
+            # Start up the timer
+            self.sigCheckPower.emit()
+
+            # Run the loop for checking we're there
+            self.check_laser_power()
 
     def _start_power_timer(self):
         self.check_timer.start(self.timer_value)
@@ -238,12 +272,23 @@ class SwitchingLogic(GenericLogic):
         check_last_five = all(x==last_five[0] for x in last_five)
 
         if check_last_five:
-            if current_power == self.target_power:
-                self.log.info('Reached the target power: {0} mW'.format(self.target_power*1000))
-                # Stop checking the power
-                self.sigPowerDone.emit()
-                # Start the recording of counts
-                self.record_time()
+            # interrupt based on whether we're going to refocus
+            if self.QueueRefocus:
+                if current_power == self.store_laser_power:
+                    # Stop checking the power
+                    self.sigPowerDone.emit()
+                    
+                    self.QueueRefocus = False
+                    self.log.info('Going to do a refocus')
+                    self._optimizer_logic.start_refocus()
+            else:
+                if current_power == self.target_power:
+                    self.log.info('Reached the target power: {0} mW'.format(self.target_power*1000))
+                    # Stop checking the power
+                    self.sigPowerDone.emit()
+                    # Start the recording of counts
+                    self.log.info('No need to refocus, so lets record')
+                    self.record_time()
 
     def _stop_power_timer(self):
         self.check_timer.stop()
@@ -285,6 +330,7 @@ class SwitchingLogic(GenericLogic):
         self.measurement_timer.stop()
 
     def stop_switching(self):
+
         if self.stop_requested:
             self.log.warning('Someone stopped the measurement')
             self.counter.stop()

@@ -258,11 +258,11 @@ class ImageStackLogic(GenericLogic):
         if self._is_odd:
             # First pass of this loop looks at whether we should refocus or not
             check_for_refocus = int((self._refocus_counter * self._refocus_period) - 1)
-            self.log.debug('Checking for the refocus point')
+            # self.log.debug('Checking for the refocus point')
 
             if self._cell_id == check_for_refocus:
                 self._refocus_counter += 1
-                self.log.debug('Should do a focus')
+                # self.log.debug('Should do a focus')
                 # do refocus
                 if self._use_surface:
                     # send the stage to the approximate location in z for the surface
@@ -273,7 +273,7 @@ class ImageStackLogic(GenericLogic):
                     self.log.info('No refocus happened, currently coded only for surface references')
             # Do the measurement
             else:
-                self.log.debug('No need to focus, just go to position')
+                # self.log.debug('No need to focus, just go to position')
                 # move the motor to the choice position
                 self.move_to_vertical()
         else:
@@ -287,11 +287,11 @@ class ImageStackLogic(GenericLogic):
             """
             if self._make_pol:
                 # move to the opposite polarisation
-                self.log.debug('Going to move the HWP to the opposite orientation')
+                # self.log.debug('Going to move the HWP to the opposite orientation')
                 self.move_to_horizontal()
             else:
                 # we're not doing polarisation, so just bump everything by 1 for the next round
-                self.log.debug('The polarisation is not set to true, so we loop back')
+                # self.log.debug('The polarisation is not set to true, so we loop back')
                 self.increase_counters()
                 # Go back to start of run_stack
                 self.sigContinueStack.emit()
@@ -303,10 +303,10 @@ class ImageStackLogic(GenericLogic):
                 this_z = self._surface - ((self.z_array[self._cell_id])/1e6)
                 self._stack_info[self._cell_id][0] = this_z
                 self._confocal_logic.set_position('tmp', z=this_z)
-                self.log.debug('Currently on an ODD measurement, I went to z = {0} and now will take an XY image'.format(this_z))
+                # self.log.debug('Currently on an ODD measurement, I went to z = {0} and now will take an XY image'.format(this_z))
                 self.image_XY()
             else:
-                self.log.debug('Currently on an EVEN measurement, no need to move so lets do an XY image again')
+                # self.log.debug('Currently on an EVEN measurement, no need to move so lets do an XY image again')
                 self.image_XY()
         else:
             self.log.info('The sequence of images are now done')
@@ -417,24 +417,24 @@ class ImageStackLogic(GenericLogic):
     def move_to_vertical(self):
         # check we're not already at zero degrees
         current_position = self.get_pos([self.measurement_motor])
-        self.log.debug('The current motor position is {0} but I need to be 0'.format(current_position))
+        # self.log.debug('The current motor position is {0} but I need to be 0'.format(current_position))
 
         if current_position != 0:
             self.move_abs({self.measurement_motor: 0})
             self.sigMovementStart.emit()
         else:
-            self.log.debug('The motor didnt need to move to 0 deg so will start up the XY imaging')
+            # self.log.debug('The motor didnt need to move to 0 deg so will start up the XY imaging')
             self._take_xy()
 
     def move_to_horizontal(self):
         current_position = self.get_pos([self.measurement_motor])
-        self.log.debug('The current motor position is {0} but I need to be 45'.format(current_position))
+        # self.log.debug('The current motor position is {0} but I need to be 45'.format(current_position))
 
         if current_position != 45:
             self.move_abs({self.measurement_motor: 45})
             self.sigMovementStart.emit()
         else:
-            self.log.debug('The motor didnt need to move to 45 deg so will start up the XY imaging')
+            # self.log.debug('The motor didnt need to move to 45 deg so will start up the XY imaging')
             self._take_xy()
 
     def move_to_position(self, angle):
