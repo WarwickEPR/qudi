@@ -202,16 +202,6 @@ class SwitchingLogic(GenericLogic):
         # do a refocus every x measurements (default)
         self._refocus_period = 2
 
-        # FIXME: The autofocus seems to run whether we want it or not
-        # tried with refocus=False when the function runs but still the same
-        # allow us to choose whether we want to include a refocus
-        #if refocus == 0:
-        #    self.refocus = False
-        #    self.log.debug('I should not do a refocus in this measurement')
-        #else:
-        #    self.refocus = True
-        #    self.log.debug('I should conduct an autofocus every {0} measurement(s)'.format(self._refocus_period))
-
         self.refocus = refocus
 
         self.QueueRefocus = False
@@ -232,7 +222,6 @@ class SwitchingLogic(GenericLogic):
         self.do_switching()
 
     def do_switching(self):
-        # TODO: Implement autofocus routine here
         if self.refocus:
             check_for_refocus = int((self._refocus_counter * self.refocus_period) - 1)
             if self._cell_id == check_for_refocus:
