@@ -12,6 +12,7 @@
 *.rej
 *~
 *.#*
+*.ipynb_checkpoints
 .*.swp
 .DS_store
 # Simulated Subversion default ignores end here
