@@ -27,6 +27,8 @@ import datetime
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import re
+import csv
 from io import BytesIO
 
 from logic.generic_logic import GenericLogic
@@ -843,7 +845,7 @@ class ConfocalLogic(GenericLogic):
             self.stop_scanning()
             self.signal_scan_lines_next.emit()
 
-    def save_xy_data(self, colorscale_range=None, percentile_range=None):
+    def save_xy_data(self, custom_fp=None, colorscale_range=None, percentile_range=None):
         """ Save the current confocal xy data to file.
 
         Two files are created.  The first is the imagedata, which has a text-matrix of count values
@@ -857,7 +859,12 @@ class ConfocalLogic(GenericLogic):
 
         @param: list percentile_range (optional) The percentile range [min, max] of the color scale
         """
-        filepath = self._save_logic.get_path_for_module('Confocal')
+        # tweak the filepath if confocal_logic is being used to automate map scanning
+        if custom_fp is not None:
+            filepath = self._save_logic.get_path_for_module(custom_fp)
+        else:
+            filepath = self._save_logic.get_path_for_module('Confocal')
+
         timestamp = datetime.datetime.now()
         # Prepare the metadata parameters (common to both saved files):
         parameters = OrderedDict()
@@ -932,8 +939,144 @@ class ConfocalLogic(GenericLogic):
                                    delimiter='\t')
 
         self.log.debug('Confocal Image saved.')
+        # allow access to the timestamp for use in other logic modules which would like
+        # to save what the name of the file was that got saved
+        self._timestamp = timestamp
         self.signal_xy_data_saved.emit()
         return
+
+    def load_xy_file(self, file):
+        """ Attempt to add in a load from file function so that old data
+        can be viewed with the ability to move the stage to the location of
+        features in that map.
+
+        This should load up the .dat file containing the 2D array (_Dev1Ctr3.dat)
+        such that self.xy_image() is the new 2D array. The confocal gui will need
+        to update with the scan resolution from the .dat file along with start/end XY
+        and the depth.
+
+        From the save function
+        parameters['X image min (m)'] = self.image_x_range[0]
+        parameters['X image max (m)'] = self.image_x_range[1]
+
+        parameters['Y image min'] = self.image_y_range[0]
+        parameters['Y image max'] = self.image_y_range[1]
+
+        parameters['XY resolution (samples per range)'] = self.xy_resolution
+        parameters['XY Image at z position (m)'] = self._current_z
+
+        """
+
+        ##############################
+        # Open up the .dat of desire
+        ##############################
+
+        with open(file) as csvfile:
+            dReader = csv.reader(csvfile, delimiter='\t')
+            headers = []
+            data = []  # returns a list - should convert to array at the end
+            for row in dReader:
+
+                # Pull the headers which start with a hash
+                a = [i for i in row if i.startswith('#')]
+
+                if not a:
+                    pass
+                else:
+                    # produces a list where each one is a string
+                    headers.append(a[0])
+
+                # search each row if it starts with a number then it's data
+                for x in row:
+                    raw = re.search('^\s*[0-9]', x)
+                    if not raw:
+                        pass
+                    else:
+                        """
+                        data gives list where there is number followed by \t followed by number
+                        so delimiter set to '\t' to deal with this
+                        Ultimiately this will return a list at the size of the data which needs to
+                        be reshaped to plug back to the scannerlogic.xy_image
+                        """
+                        data.append(float(raw.string))
+
+        ##############################
+        # pattern matching headers
+        ##############################
+
+        match_strings = []  # id
+        match_strings.append('#X image min')  # 0
+        match_strings.append('#X image max')  # 1
+        match_strings.append('#Y image min')  # 2
+        match_strings.append('#Y image max')  # 3
+        match_strings.append('#XY Image at z position')  # 5
+        match_strings.append('#XY resolution')  # 6
+
+        # set up regex matching, do one string at a time
+        self._tmp_values = []
+        for k in match_strings:
+            # search in header for each entry in match_strings. Put the result in a list
+            for j in headers:
+                result = re.search(k, j)
+                if not result:
+                    pass
+                else:
+                    # leave values in original format (but represent as a decimal always)
+                    b = float(result.string.split(':')[1])
+                    self._tmp_values.append(b)
+
+        ##############################
+        # Reshape data
+        ##############################
+        # Get the number of data points
+        data_length = len(data)
+        # put data into the array
+        data = np.array(data)
+        # reshape the array to finally get back to how the data would have looked before saving
+        # in a rectangle map, the columns correspond to the resolution (defined as resolution in x) so y is the remainder
+        # x.reshape((rows,cols))
+        y_num = int(data_length // self._tmp_values[5])
+        data = data.reshape((y_num, int(self._tmp_values[5])))
+
+        ##############################
+        # Put back data into variables
+        ##############################
+        # Copy back x
+        # FIXME: This doesn't update the x handles in the confocal gui for some reason
+        # Unclear why this doesn't update the x handles as y works perfectly fine
+        self.image_x_range = np.copy(self._tmp_values[0:2])
+        # Copy back y
+        self.image_y_range = np.copy(self._tmp_values[2:4])
+        # image z position
+        self._current_z = self._tmp_values[4]
+        self.set_position("load", z=self._current_z)
+        # XY resolution (make sure to give back an int)
+        self.xy_resolution = int(self._tmp_values[5])
+
+        # Initialize image
+        self.initialize_image()
+
+        # repopulate
+        x_populate = np.linspace(self.image_x_range[0], self.image_x_range[1], int(self.xy_resolution))
+        x_populate = np.tile(x_populate, (int(y_num), 1))
+        self.xy_image[:, :, 0] = np.copy(x_populate)
+
+        y_populate = np.linspace(self.image_y_range[0], self.image_y_range[1], int(y_num))
+        y_populate = np.vstack(y_populate)
+        y_populate = np.tile(y_populate, (1, int(self.xy_resolution)))
+        self.xy_image[:, :, 1] = np.copy(y_populate)
+
+        # repeat z for size of array
+        z_populate = np.tile(self._current_z, (int(y_num), int(self.xy_resolution)))
+        self.xy_image[:, :, 2] = np.copy(z_populate)
+
+        self.xy_image[:, :, 3] = np.copy(data)
+
+        # signal that the image has been updated
+        self.signal_xy_image_updated.emit()
+        self._change_position('history')
+        self.signal_change_position.emit('history')
+        self.signal_history_event.emit()
 
     def save_depth_data(self, colorscale_range=None, percentile_range=None):
         """ Save the current confocal depth data to file.

@@ -34,6 +34,7 @@
     <property name="title">
      <string>&amp;File</string>
     </property>
+	<addaction name="actionLoad_XYImage" />
     <addaction name="actionSave_XY_Scan" />
     <addaction name="actionSave_Depth_Scan" />
     <addaction name="actionSave_configuration" />
@@ -1875,6 +1876,15 @@
     </layout>
    </widget>
   </widget>
+  <action name="actionLoad_XYImage">
+   <property name="icon">
+    <iconset>
+     <normaloff>../../artwork/icons/oxygen/22x22/document-open.png</normaloff>../../artwork/icons/oxygen/22x22/document-open.png</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Load XY Image</string>
+   </property>
+  </action>
   <action name="actionSave_XY_Scan">
    <property name="icon">
     <iconset>

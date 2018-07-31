@@ -76,6 +76,7 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
                 baud_rate=rate,
                 write_termination='\r\n',
                 read_termination='\r\n',
+                query_delay=0.01,
                 send_end=True)
             # give laser 2 seconds maximum to reply
             self.inst.timeout = 2000
