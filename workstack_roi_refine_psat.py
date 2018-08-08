@@ -6,6 +6,8 @@ poi_keys = poi_keys[1:-1]
 poi_names = [poimanagerlogic.poi_list[x]._name for x in poi_keys]
 
 
+guide = 'A'
+
 coarse_xy_range = 3e-6
 coarse_xy_resolution = 20
 coarse_z_range = 2e-6
@@ -49,9 +51,18 @@ def optimise_fine(poikey=None):
         p = poimanagerlogic.get_poi_position(poikey=poikey)
     optimizerlogic.start_refocus(initial_pos=p)
 
+def optimise_fine_n(poi):
+    poikey = lookup_poi(poi)
+    optimise_fine(poikey)
+
 def update_sample_position(poikey):
     position = scannerlogic.get_position()
     poimanagerlogic.set_new_position(poikey, position)
+
+def update_sample_position_n(poi):
+    poikey = lookup_poi(poi)
+    update_sample_position(poikey)
+
 
 def update_point_position(poikey):
     position = scannerlogic.get_position()
@@ -60,12 +71,15 @@ def update_point_position(poikey):
 
 def record_position_history():
     position = scannerlogic.get_position()
+    target = workstacklogic.current_target()
     sample = poimanagerlogic.get_poi_position('sample')
-    history = workstacklogic.fetch('phistory')
-    if history == 0.0:
-        history = []
-    history.append((time.time(), position, sample))
-    workstacklogic.store('phistory',history)
+    with open('c:/Users/Confocal/phistory.dat','a') as f:
+        f.write("{} {} {} {} {} {} {} {}\n".format(target,time.time(),position[0],position[1],position[2],sample[0],sample[1],sample[2]))
+    #history = workstacklogic.fetch('phistory')
+    #if history == 0.0:
+    #    history = []
+    #history.append((time.time(), target, position, sample))
+    #workstacklogic.store('phistory',history)
 
 def do_psat():
     aomlogic.run_psat()
@@ -200,6 +214,16 @@ def load_hahn_echo():
     pulsedmasterlogic.sample_block_ensemble('hahn_echo', True)
     workstacklogic.store("finish_time", (round(time.time())) + echo_duration)
 
+def lookup_poi(poi):
+    logging("Lookup up POI {}".format(poi))
+    poikey = poimanagerlogic.poi_lookup[poi]
+    logging("Found POI key {}".format(poikey))
+    return poikey
+
+def logging(msg):
+    workstacklogic.log.info(msg)
+
+
 def move_on(msg):
     workstacklogic.insert_actions([('Failed step {}', 'log', [msg]), ('pause', 'timer', [2]), 'wait', 'next target'])
 
@@ -302,8 +326,8 @@ test_decision = [#('Testing {}','log',['_X_']),
                  ('pause', 'timer', [2]), 'wait'
                  ]
 
-guide = poi_keys[3]
-random.shuffle(poi_keys)
+#guide = poi_keys[3]
+#random.shuffle(poi_keys)
 roi_update_wait = 10
 
 a = [('track guide {}', optimise_fine, [guide]), 'wait',
@@ -387,11 +411,13 @@ def loop_targets():
     if workstacklogic.target_index + 1 == len(workstacklogic.targets):
         workstacklogic.target_index = 0
 
+guide = 'A'
+
 check_refocus = [
-    ('track guide {}', optimise_fine, [guide]), 'wait refocus',
+    ('track guide {}', optimise_fine_n, [guide]), 'wait refocus',
     ('pause', 'timer', [5]), 'wait timer',
-    ('update sample', update_sample_position, [guide]),
-    ('attempt focus {}', optimise_fine, ['_X_']), 'wait refocus',
+    ('update sample', update_sample_position_n, [guide]),
+    ('attempt focus {}', optimise_fine_n, ['_X_']), 'wait refocus',
     ('pause', 'timer', [10]), 'wait timer',
     record_position_history,
     loop_targets

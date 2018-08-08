@@ -193,7 +193,7 @@ class AomLogic(GenericLogic):
         param['I_sat'].min = 0
         param['I_sat'].max = 1e7
         param['I_sat'].value = max(self.psat_data) * .7
-        param['P_sat'].max = 0.3
+        param['P_sat'].max = 1.0
         param['P_sat'].min = 0.0
         param['P_sat'].value = 0.001
         param['slope'].min = 0.0

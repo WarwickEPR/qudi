@@ -37,8 +37,13 @@ class PolarisationDepLogic(GenericLogic):
     savelogic = Connector(interface='SaveLogic')
     motor = Connector(interface='MotorInterface')
 
+    # signal for the homing of the motor
+    signal_homing_started = QtCore.Signal()
+    signal_homing_finished = QtCore.Signal()
+
+    # signal for the rotation during measurement
+    signal_rotation_started = QtCore.Signal()
     signal_rotation_finished = QtCore.Signal()
-    signal_start_rotation = QtCore.Signal()
 
     def on_activate(self):
         """ Initialisation performed during activation of the module.
@@ -56,33 +61,122 @@ class PolarisationDepLogic(GenericLogic):
         self.scan_speed = 10 #not yet used
 
         # Connect signals
-        self.signal_rotation_finished.connect(self.finish_scan, QtCore.Qt.QueuedConnection)
-        self.signal_start_rotation.connect(self.rotate_polarisation, QtCore.Qt.QueuedConnection)
+        self.signal_homing_started.connect(self._start_homing_timer)
+        self.signal_homing_finished.connect(self.rotate_polarisation, QtCore.Qt.QueuedConnection)
 
+        self.signal_rotation_started.connect(self._start_movement_timer)
+        self.signal_rotation_finished.connect(self.finish_scan, QtCore.Qt.QueuedConnection)
+
+        # -------------------
+        # Setup Timers
+        # -------------------
+        self.timer_value = 300
+
+        self.homing_timer = QtCore.QTimer()
+        self.homing_timer.timeout.connect(self.check_home)
+
+        self.movement_timer = QtCore.QTimer()
+        self.movement_timer.timeout.connect(self.check_motor_stopped)
+
+
+        # Start off by knowing we're not moving, obviously
+        self.was_moving = False
 
     def on_deactivate(self):
         """ Deinitialisation performed during deactivation of the module.
         """
-        return
 
-    def measure_polarisation_dependence(self):
+        # -------------------
+        # Disconnect the signals
+        # -------------------
+        self.signal_homing_started.disconnect()
+        self.signal_homing_finished.disconnect()
+        self.signal_rotation_started.disconnect()
+        self.signal_rotation_finished.disconnect()
+
+        # -------------------
+        # Stop timers
+        # -------------------
+        self.homing_timer.stop()
+        self.movement_timer.stop()
+
+        return 0
+
+    def _start_homing_timer(self):
+        self.homing_timer.start(self.timer_value)
+
+    def _stop_homing_timer(self):
+        self.homing_timer.stop()
+
+    def _start_movement_timer(self):
+        self.movement_timer.start(self.timer_value)
+
+    def _stop_movement_timer(self):
+        self.movement_timer.stop()
+
+
+    def run_polarisation(self):
         """Do a simple pol dep measurement.
         """
-
         # Set up measurement
-        self._hwpmotor.move_abs(0)
+        self._hwpmotor.move_abs({'waveplate':0})
 
-        # configure the countergui
+        # Set moving to true
+        self.was_moving = True
 
+        # check that motor is at zero
+        self.signal_homing_started.emit()
 
-        self._counter_logic.start_saving()
-        self.signal_start_rotation.emit()
+    def check_home(self):
+        """ Check that the HWP is at zero before starting the measurement """
+        get_pos = self._hwpmotor.get_pos({'waveplate'})
+        current_pos = round(get_pos['waveplate'])
+
+        if (current_pos == 0) or (current_pos == 360):
+            # Honey, we're home; do what's next
+            self._stop_homing_timer()
+            self.signal_homing_finished.emit()
+
+            # and once at home, we're not moving
+            self.was_moving = False
+        else:
+            # still moving to home
+            self.was_moving = True
+            self.signal_homing_started.emit()
 
     def rotate_polarisation(self):
-        self._hwpmotor.move_rel(self.scan_length)
-        self.log.info('rotation finished, saving data')
-        self.signal_rotation_finished.emit()
+        # Start saving here
+        self._counter_logic.start_saving()
+
+        # Tell HWP to move by the scan length
+        self._hwpmotor.move_rel({'waveplate': int(self.scan_length)})
+
+        # Set off with moving is true again
+        self.was_moving = True
+
+        # know when to stop
+        self.signal_rotation_started.emit()
+
+    def check_motor_stopped(self):
+        motor_status = self._hwpmotor.get_status({'waveplate'})
+        self.log.debug(motor_status['waveplate'][0])
+
+        if motor_status['waveplate'][0] != 0:
+            self.was_moving = True
+
+        elif self.was_moving:
+            self.log.info('Motor finished moving')
+            self.was_moving = False
+
+            # stop the timer
+            self.movement_timer.stop()
+
+            # move to the next item
+            self.signal_rotation_finished.emit()
+        else:
+            pass
 
     def finish_scan(self):
+        self.log.info('rotation finished, saving data')
         self._counter_logic.save_data()
 #        self._counter_logic.stopCount()

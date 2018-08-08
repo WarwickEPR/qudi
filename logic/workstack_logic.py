@@ -172,9 +172,8 @@ class WorkstackLogic(GenericLogic):
             else:
                 return action(*args)
         except:
-            self.log.error("Running {} failed! {}".format(desc,sys.exc_info()[0]))
+            self.log.error("Running {} failed! {}".format(desc, sys.exc_info()[0]))
             self.do_next_target()
-
 
     def do_action(self):
         if self.running:
