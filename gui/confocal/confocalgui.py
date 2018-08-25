@@ -206,10 +206,6 @@ class ConfocalGui(GUIBase):
     # signals
     sigStartOptimizer = QtCore.Signal(list, str)
 
-    # for loading an XY Image
-    #sigLoadXYImage = QtCore.Signal(str, bool)
-
-
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
 
@@ -644,8 +640,6 @@ class ConfocalGui(GUIBase):
         self._mw.action_optimizer_settings.triggered.connect(self.menu_optimizer_settings)
         self._mw.actionSave_XY_Scan.triggered.connect(self.save_xy_scan_data)
         self._mw.actionSave_Depth_Scan.triggered.connect(self.save_depth_scan_data)
-        # Connect signal for loading XY image
-        self._mw.actionLoad_XYImage.triggered.connect(self.getLoadFile)
 
         # Configure and connect the zoom actions with the desired buttons and
         # functions if
@@ -773,7 +767,6 @@ class ConfocalGui(GUIBase):
 
         @return int: error code (0:OK, -1:error)
         """
-
         self._mw.close()
         return 0
 
@@ -1808,20 +1801,6 @@ class ConfocalGui(GUIBase):
             vertical_value = view_z_max - self.roi_depth.size()[1]
 
         self.roi_depth.setPos([horizontal_value, vertical_value], update=True)
-
-    def getLoadFile(self):
-        """ Ask the user for a file where the XY image is to be loaded
-            from
-        """
-        #filename = QtWidgets.QFileDialog.getOpenFileName(
-        #    self._mw,
-        #    'Load XY Dev1Ctr3 Image',
-        #    '(*.dat)')[0]
-
-        filename, _ = QtWidgets.QFileDialog.getOpenFileName(self._mw, "QFileDialog.getOpenFileName()", "",
-                                                             "dat Files (*Dev1Ctr3.dat)")
-
-        self._scanning_logic.load_xy_file(filename)
 
     def save_xy_scan_data(self):
         """ Run the save routine from the logic to save the xy confocal data."""
