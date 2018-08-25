@@ -60,7 +60,7 @@
               <string>Pulse generator channel used for a gate signal for fast counter devices supporting this functionality.</string>
              </property>
              <property name="text">
-              <string>d_ch8</string>
+              <string>d_ch2</string>
              </property>
             </widget>
            </item>
@@ -101,7 +101,7 @@
               <string>The pulse generator channel used for the microwave output.</string>
              </property>
              <property name="text">
-              <string>d_ch3</string>
+              <string>a_ch1</string>
              </property>
             </widget>
            </item>
@@ -146,7 +146,7 @@
               <string>Hz</string>
              </property>
              <property name="decimals">
-              <number>6</number>
+              <number>3</number>
              </property>
             </widget>
            </item>
@@ -191,7 +191,7 @@
               <string>V</string>
              </property>
              <property name="decimals">
-              <number>6</number>
+              <number>3</number>
              </property>
             </widget>
            </item>
@@ -277,7 +277,7 @@
               <string>s</string>
              </property>
              <property name="decimals">
-              <number>6</number>
+              <number>3</number>
              </property>
             </widget>
            </item>
@@ -308,7 +308,7 @@
               <string>s</string>
              </property>
              <property name="decimals">
-              <number>6</number>
+              <number>3</number>
              </property>
             </widget>
            </item>
@@ -336,7 +336,7 @@
               <string>Pulse generator channel used for a synchonization trigger for fast counter devices.</string>
              </property>
              <property name="text">
-              <string>d_ch7</string>
+              <string>d_ch3</string>
              </property>
             </widget>
            </item>
@@ -367,10 +367,10 @@
               <string>s</string>
              </property>
              <property name="decimals">
-              <number>6</number>
+              <number>3</number>
              </property>
              <property name="value">
-              <double>0.000001000000000</double>
+              <double>0.000000000000000</double>
              </property>
             </widget>
            </item>
@@ -395,7 +395,7 @@
               <string>V</string>
              </property>
              <property name="decimals">
-              <number>8</number>
+              <number>3</number>
              </property>
             </widget>
            </item>
@@ -440,10 +440,10 @@
               <string>s</string>
              </property>
              <property name="decimals">
-              <number>6</number>
+              <number>3</number>
              </property>
              <property name="value">
-              <double>0.000001000000000</double>
+              <double>0.000000000000000</double>
              </property>
             </widget>
            </item>
