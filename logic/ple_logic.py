@@ -55,7 +55,7 @@ class PLELogic(GenericLogic):
     _integration_time = StatusVar('integration_time', 0.3)
 
     sigChangePosition = QtCore.Signal(float)
-    sigVoltageChanged = QtCore.Signal(float)
+    sigWavelengthChanged = QtCore.Signal(float)
     sigScanNextLine = QtCore.Signal()
     sigUpdatePlots = QtCore.Signal()
     sigScanFinished = QtCore.Signal()
@@ -152,7 +152,7 @@ class PLELogic(GenericLogic):
 
     def set_integration_time(self, integration_time):
         """ Set integration time in seconds for each point """
-        self._integration_time_bins = int(np.floor(integration_time/0.02))
+        self._integration_time_bins = int(np.floor(integration_time/self._counter.get_count_frequency()))
         self._integration_time = integration_time
 
     def set_settling_time(self, settling_time):
@@ -179,13 +179,17 @@ class PLELogic(GenericLogic):
         @return float: Current tunable laser position in units defined by the laser"""
         return self._tunable_laser.laser_wavelength_setpoint
 
-    # TODO
+    @QtCore.Slot(float)
+    def set_wavelength(self, wavelength):
+        """ Set the wavelength """
+        self._tunable_laser.set_wavelength(wavelength)
+        self.sigWavelengthChanged.emit(wavelength)
+
     def _initialise_scanner(self):
         """Initialise the clock and locks for a scan"""
         self.module_state.lock()
         return 0
 
-    # TODO
     def start_scanning(self):
         """Setting up the scanner device and starts the scanning procedure
 
@@ -211,7 +215,6 @@ class PLELogic(GenericLogic):
         self.sigScanStarted.emit()
         return 0
 
-    # TODO
     def stop_scanning(self):
         """Stops the scan
 
@@ -229,7 +232,6 @@ class PLELogic(GenericLogic):
             if self.module_state.can('unlock'):
                 self.module_state.unlock()
 
-    # TODO
     def _do_next_line(self):
         """ If stopRequested then finish the scan, otherwise perform next repeat of the scan line
         """
@@ -293,25 +295,6 @@ class PLELogic(GenericLogic):
             self.stop_scanning()
             self.sigScanNextLine.emit()
             raise e
-    #
-    # # TODO
-    # def kill_scanner(self):
-    #     """Closing the scanner device.
-    #
-    #     @return int: error code (0:OK, -1:error)
-    #     """
-    #     try:
-    #         self._scanning_device.close_scanner()
-    #         self._scanning_device.close_scanner_clock()
-    #     except Exception as e:
-    #         self.log.exception('Could not even close the scanner, giving up.')
-    #         raise e
-    #     try:
-    #         if self._scanning_device.module_state.can('unlock'):
-    #             self._scanning_device.module_state.unlock()
-    #     except:
-    #         self.log.exception('Could not unlock scanning device.')
-    #     return 0
 
     # TODO
     def save_data(self, tag=None, colorscale_range=None, percentile_range=None):

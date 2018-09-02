@@ -59,10 +59,10 @@ class PLEGui(GUIBase):
 
     sigStartScan = QtCore.Signal()
     sigStopScan = QtCore.Signal()
-    sigChangeVoltage = QtCore.Signal(float)
+    sigChangeWavelength = QtCore.Signal(float)
     sigChangeRange = QtCore.Signal(list)
     sigChangeResolution = QtCore.Signal(float)
-    sigChangeSpeed = QtCore.Signal(float)
+    sigChangeIntegrationTime = QtCore.Signal(float)
     sigChangeLines = QtCore.Signal(int)
     sigSaveMeasurement = QtCore.Signal(str, list, list)
 
@@ -163,7 +163,7 @@ class PLEGui(GUIBase):
 
         # set initial values
         self._mw.startDoubleSpinBox.setValue(self._plelogic.scan_range[0])
-#        self._mw.speedDoubleSpinBox.setValue(self._plelogic._scan_speed)
+        self._mw.speedDoubleSpinBox.setValue(self._plelogic._integration_time)
         self._mw.stopDoubleSpinBox.setValue(self._plelogic.scan_range[1])
         self._mw.constDoubleSpinBox.setValue(self._plelogic._static_position)
         self._mw.resolutionSpinBox.setValue(self._plelogic.resolution)
@@ -171,7 +171,7 @@ class PLEGui(GUIBase):
 
         # Update the inputed/displayed numbers if the cursor has left the field:
         self._mw.startDoubleSpinBox.editingFinished.connect(self.change_start_volt)
-        self._mw.speedDoubleSpinBox.editingFinished.connect(self.change_speed)
+        self._mw.speedDoubleSpinBox.editingFinished.connect(self.change_integration_time)
         self._mw.stopDoubleSpinBox.editingFinished.connect(self.change_stop_volt)
         self._mw.resolutionSpinBox.editingFinished.connect(self.change_resolution)
         self._mw.linesSpinBox.editingFinished.connect(self.change_lines)
@@ -192,9 +192,9 @@ class PLEGui(GUIBase):
 
         self.sigStartScan.connect(self._plelogic.start_scanning)
         self.sigStopScan.connect(self._plelogic.stop_scanning)
-#        self.sigChangeVoltage.connect(self._plelogic.set_voltage)
+        self.sigChangeWavelength.connect(self._plelogic.set_wavelength)
         self.sigChangeRange.connect(self._plelogic.set_scan_range)
-#        self.sigChangeSpeed.connect(self._plelogic.set_scan_speed)
+        self.sigChangeIntegrationTime.connect(self._plelogic.set_integration_time)
         self.sigChangeLines.connect(self._plelogic.set_scan_lines)
         self.sigChangeResolution.connect(self._plelogic.set_resolution)
         self.sigSaveMeasurement.connect(self._plelogic.save_data)
@@ -323,7 +323,7 @@ class PLEGui(GUIBase):
         self._mw.elapsed_lines_DisplayWidget.display(self._plelogic._scan_counter_up)
 
     def change_voltage(self):
-        self.sigChangeVoltage.emit(self._mw.constDoubleSpinBox.value())
+        self.sigChangeWavelength.emit(self._mw.constDoubleSpinBox.value())
 
     def change_start_volt(self):
         self.sigChangeRange.emit([
@@ -331,8 +331,8 @@ class PLEGui(GUIBase):
             self._mw.stopDoubleSpinBox.value()
         ])
 
-    def change_speed(self):
-        self.sigChangeSpeed.emit(self._mw.speedDoubleSpinBox.value())
+    def change_integration_time(self):
+        self.sigChangeIntegrationTime.emit(self._mw.speedDoubleSpinBox.value())
 
     def change_stop_volt(self):
         self.sigChangeRange.emit([
