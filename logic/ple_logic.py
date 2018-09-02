@@ -152,7 +152,7 @@ class PLELogic(GenericLogic):
 
     def set_integration_time(self, integration_time):
         """ Set integration time in seconds for each point """
-        self._integration_time_bins = int(np.floor(integration_time/0.003))
+        self._integration_time_bins = int(np.floor(integration_time/0.02))
         self._integration_time = integration_time
 
     def set_settling_time(self, settling_time):
@@ -257,7 +257,7 @@ class PLELogic(GenericLogic):
             self._scan_counter_up += 1
             self.upwards_scan = False
         else:
-            self.scan_matrix2[self._scan_counter_down,:] = counts
+            self.scan_matrix2[self._scan_counter_down,:] = np.flip(counts, 0)
             self.plot_y2 += counts
             self._scan_counter_down += 1
             self.upwards_scan = True
