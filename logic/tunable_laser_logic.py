@@ -27,7 +27,6 @@ from core.module import Connector, ConfigOption
 from logic.generic_logic import GenericLogic
 from interface.tunable_laser_interface import PowerControlMode, WavelengthControlMode, ShutterState, LaserState
 
-
 class TunableLaserLogic(GenericLogic):
     """ Logic module for controlling tunable laser in a generic way
     """
@@ -39,6 +38,7 @@ class TunableLaserLogic(GenericLogic):
     queryInterval = ConfigOption('query_interval', 100)
 
     sigUpdate = QtCore.Signal()
+    sigWavelengthControlModeChanged = QtCore.Signal()
 
     def on_activate(self):
         """ Prepare logic module for work.
@@ -173,6 +173,7 @@ class TunableLaserLogic(GenericLogic):
             ctrl_mode = self._laser.set_wavelength_control_mode(mode)
             self.laser_wavelength_range = self._laser.get_wavelength_range()
             self.log.info('Changed control mode to {0}'.format(ctrl_mode))
+            self.sigWavelengthControlModeChanged.emit()
 
     @QtCore.Slot(WavelengthControlMode)
     def get_wavelength_control_mode(self):

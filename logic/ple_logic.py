@@ -45,7 +45,7 @@ class PLELogic(GenericLogic):
 
     # declare connectors
     slowcounter = Connector(interface='CounterLogic')
-    tunablelaser = Connector(interface='TunableLaserInterface')
+    tunablelaserlogic = Connector(interface='TunableLaserLogic')
     savelogic = Connector(interface='SaveLogic')
 
     scan_range = StatusVar('scan_range', [-10, 10])
@@ -82,18 +82,11 @@ class PLELogic(GenericLogic):
         """ Initialisation performed during activation of the module.
         """
         self._counter = self.slowcounter()
-        self._tunable_laser = self.tunablelaser()
+        self._tunable_laser = self.tunablelaserlogic()
         self._save_logic = self.savelogic()
 
-        # Reads in the maximal tuning range. The unit of the scan range
-        # depends on the laser - voltage or wavelength
-        self.scan_limits = self._tunable_laser.get_wavelength_range()
-
-        # initialise the range for scanning
-        self.set_scan_range(self.scan_limits)
-
-        # keep track of where we currently are
-        self._static_position = self._tunable_laser.get_wavelength_setpoint()
+        # initialize the wavelength controls based on current laser control scheme
+        self.update_wavelength_controls()
 
         # Sets connections between signals and functions
 #        self.sigChangePosition.connect(self._change_position, QtCore.Qt.QueuedConnection)
@@ -117,6 +110,26 @@ class PLELogic(GenericLogic):
         # Initialize data matrix
         self._initialise_data_matrix(100)
 
+        # Connect to the signal which tells us that the laser control scheme
+        # has been modified
+        self._tunable_laser.sigWavelengthControlModeChanged.connect(self.update_wavelength_controls)
+
+    def update_wavelength_controls(self):
+        """ Called when the control scheme of the laser wavelength is changed to / from
+        VOLTAGE and WAVELENGTH. Will cause problems if the scheme is changed mid-scan """
+        # Reads in the maximal tuning range. The unit of the scan range
+        # depends on the laser - voltage or wavelength
+        self.scan_limits = self._tunable_laser.laser_wavelength_range
+
+        # initialise the range for scanning
+        self.set_scan_range(self.scan_limits)
+
+        # ensure position has been updated since changing control scheme
+        time.sleep(0.05)
+
+        # keep track of where we currently are
+        self._static_position = self._tunable_laser.laser_wavelength_setpoint
+
     def on_deactivate(self):
         """ Deinitialisation performed during deactivation of the module.
         """
@@ -124,7 +137,7 @@ class PLELogic(GenericLogic):
 
     def set_resolution(self, resolution):
         """ Calculate clock rate from scan speed and desired number of pixels """
-        self.resolution = resolution
+        self.resolution = int(resolution)
         return 0
 
     def set_scan_range(self, scan_range):
@@ -164,7 +177,7 @@ class PLELogic(GenericLogic):
         """Get current tunable laser position
 
         @return float: Current tunable laser position in units defined by the laser"""
-        return self._tunable_laser.get_wavelength_setpoint()
+        return self._tunable_laser.laser_wavelength_setpoint
 
     # TODO
     def _initialise_scanner(self):
@@ -178,9 +191,11 @@ class PLELogic(GenericLogic):
 
         @return int: error code (0:OK, -1:error)
         """
-        self._static_position = self._tunable_laser.get_wavelength_setpoint()
+        self._static_position = self._tunable_laser.laser_wavelength_setpoint
         print(self._static_position)
 
+        self._scan_counter_up = 0
+        self._scan_counter_down = 0
         self.upwards_scan = True
 
         # TODO: Generate Ramps
@@ -205,16 +220,14 @@ class PLELogic(GenericLogic):
         with self.threadlock:
             if self.module_state() == 'locked':
                 self.stopRequested = True
-                self.module_state.unlock()
         return 0
-    #
-    # # TODO
-    # def _close_scanner(self):
-    #     """Close the scanner and unlock"""
-    #     with self.threadlock:
-    #         self.stopRequested = False
-    #         if self.module_state.can('unlock'):
-    #             self.module_state.unlock()
+
+    def _close_scanner(self):
+        """Close the scanner and unlock"""
+        with self.threadlock:
+            self.stopRequested = False
+            if self.module_state.can('unlock'):
+                self.module_state.unlock()
 
     # TODO
     def _do_next_line(self):
@@ -223,6 +236,7 @@ class PLELogic(GenericLogic):
         # stops scanning
         if self.stopRequested or self._scan_counter_down >= self.number_of_repeats:
             self._tunable_laser.set_wavelength(self._static_position)
+            self._close_scanner()
             self.sigScanFinished.emit()
             return
 
@@ -232,30 +246,36 @@ class PLELogic(GenericLogic):
             self._tunable_laser.set_wavelength(wavelength)
             time.sleep(2)
 
-        counts = self._scan_line()
-        self.scan_matrix[self._scan_counter_up,:] = counts
-        # if self.upwards_scan:
-        #     counts = self._scan_line(self._upwards_ramp)
-        #     self.scan_matrix[self._scan_counter_up] = counts
-        #     self.plot_y += counts
-        #     self._scan_counter_up += 1
-        #     self.upwards_scan = False
-        # else:
-        #     counts = self._scan_line(self._downwards_ramp)
-        #     self.scan_matrix2[self._scan_counter_down] = counts
-        #     self.plot_y2 += counts
-        #     self._scan_counter_down += 1
-        #     self.upwards_scan = True
+        # self.scan_matrix[self._scan_counter_up,:] = counts
+        # self.plot_y += counts
+        # self._scan_counter_up += 1
+        # perform next scan - down or up depending on value of "upwards scan"
+        counts = self._scan_line(self.upwards_scan)
+        if self.upwards_scan:
+            self.scan_matrix[self._scan_counter_up,:] = counts
+            self.plot_y += counts
+            self._scan_counter_up += 1
+            self.upwards_scan = False
+        else:
+            self.scan_matrix2[self._scan_counter_down,:] = counts
+            self.plot_y2 += counts
+            self._scan_counter_down += 1
+            self.upwards_scan = True
 
         self.sigUpdatePlots.emit()
         self.sigScanNextLine.emit()
 
     # TODO
-    def _scan_line(self):
+    def _scan_line(self, scan_upwards):
         """ Perform a single frequency scan and record APD counts """
         try:
-            wavelength = self.scan_range[0]
-            step_size = (self.scan_range[1] - self.scan_range[0]) / (self.resolution - 1)
+            if scan_upwards:
+                wavelength = self.scan_range[0]
+                step_size = (self.scan_range[1] - self.scan_range[0]) / (self.resolution - 1)
+            else:
+                wavelength = self.scan_range[1]
+                step_size = -(self.scan_range[1] - self.scan_range[0]) / (self.resolution - 1)
+
             count_data = np.zeros(self.resolution)
 
             for i in range(self.resolution):
@@ -266,7 +286,7 @@ class PLELogic(GenericLogic):
                 count_data[i] = np.mean(point_counts)
                 wavelength += step_size
 
-            return np.array([count_data])
+            return np.array(count_data)
 
         except Exception as e:
             self.log.error('The scan went wrong, killing the scanner.')
