@@ -51,8 +51,8 @@ class PLELogic(GenericLogic):
     scan_range = StatusVar('scan_range', [-10, 10])
     number_of_repeats = StatusVar(default=10)
     resolution = StatusVar('resolution', 500)
-    _switch_delay = StatusVar('switch_delay', 0.5)
-    _settling_time = StatusVar('settling_time', 1)
+    _switch_delay = StatusVar('switch_delay', 0.05)
+    _settling_time = StatusVar('settling_time', 2)
     _integration_time = StatusVar('integration_time', 0.3)
 
     sigChangePosition = QtCore.Signal(float)
@@ -189,6 +189,7 @@ class PLELogic(GenericLogic):
     def set_wavelength(self, wavelength):
         """ Set the wavelength """
         self._tunable_laser.set_wavelength(wavelength)
+        self._static_position = wavelength
         self.sigWavelengthChanged.emit(wavelength)
 
     def _initialise_scanner(self):

@@ -192,7 +192,7 @@ class PLEGui(GUIBase):
         self._mw.stopDoubleSpinBox.editingFinished.connect(self.change_stop_volt)
         self._mw.resolutionSpinBox.editingFinished.connect(self.change_resolution)
         self._mw.linesSpinBox.editingFinished.connect(self.change_lines)
-        self._mw.constDoubleSpinBox.editingFinished.connect(self.change_voltage)
+        self._mw.constDoubleSpinBox.editingFinished.connect(self.change_static_wavelength)
 
         #
         self._mw.voltscan_cb_max_InputWidget.valueChanged.connect(self.refresh_matrix)
@@ -359,7 +359,7 @@ class PLEGui(GUIBase):
     def refresh_lines(self):
         self._mw.elapsed_lines_DisplayWidget.display(self._plelogic._scan_counter_up)
 
-    def change_voltage(self):
+    def change_static_wavelength(self):
         self.sigChangeWavelength.emit(self._mw.constDoubleSpinBox.value())
 
     def change_start_volt(self):
