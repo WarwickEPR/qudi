@@ -30,7 +30,7 @@ from core.module import Connector, StatusVar
 from core.util.mutex import Mutex
 from logic.generic_logic import GenericLogic
 from qtpy import QtCore
-
+from interface.tunable_laser_interface import WavelengthControlMode
 
 class PLELogic(GenericLogic):
 
@@ -63,7 +63,7 @@ class PLELogic(GenericLogic):
     sigScanStarted = QtCore.Signal()
 
     def __init__(self, **kwargs):
-        """ Create VoltageScanningLogic object with connectors.
+        """ Create PLELogic object with connectors.
 
           @param dict kwargs: optional parameters
         """
@@ -268,7 +268,7 @@ class PLELogic(GenericLogic):
             self.upwards_scan = False
         else:
             self.scan_matrix2[self._scan_counter_down,:] = np.flip(counts, 0)
-            self.plot_y2 += counts
+            self.plot_y2 += np.flip(counts, 0)
             self._scan_counter_down += 1
             self.upwards_scan = True
 
@@ -316,23 +316,26 @@ class PLELogic(GenericLogic):
 
         self._saving_stop_time = time.time()
 
-        filepath = self._save_logic.get_path_for_module(module_name='LaserScanning')
-        filepath2 = self._save_logic.get_path_for_module(module_name='LaserScanning')
-        filepath3 = self._save_logic.get_path_for_module(module_name='LaserScanning')
+        filepath = self._save_logic.get_path_for_module(module_name='PLE')
+        filepath2 = self._save_logic.get_path_for_module(module_name='PLE')
+        filepath3 = self._save_logic.get_path_for_module(module_name='PLE')
         timestamp = datetime.datetime.now()
 
         if len(tag) > 0:
-            filelabel = tag + '_volt_data'
-            filelabel2 = tag + '_volt_data_raw_trace'
-            filelabel3 = tag + '_volt_data_raw_retrace'
+            filelabel = tag + '_wavelength_data'
+            filelabel2 = tag + '_wavelength_data_raw_trace'
+            filelabel3 = tag + '_wavelength_data_raw_retrace'
         else:
-            filelabel = 'volt_data'
-            filelabel2 = 'volt_data_raw_trace'
-            filelabel3 = 'volt_data_raw_retrace'
+            filelabel = 'wavelength_data'
+            filelabel2 = 'wavelength_data_raw_trace'
+            filelabel3 = 'wavelength_data_raw_retrace'
 
         # prepare the data in a dict or in an OrderedDict:
         data = OrderedDict()
-        data['frequency (Hz)'] = self.plot_x
+        if self._tunable_laser.get_wavelength_control_mode() is WavelengthControlMode.WAVELENGTH_IN_METERS:
+            data['wavelength (m)'] = self.plot_x
+        else:
+            data['voltage (V)'] = self.plot_x
         data['trace count data (counts/s)'] = self.plot_y
         data['retrace count data (counts/s)'] = self.plot_y2
 
@@ -344,10 +347,14 @@ class PLELogic(GenericLogic):
 
         parameters = OrderedDict()
         parameters['Number of frequency sweeps (#)'] = self._scan_counter_up
-        parameters['Start Voltage (V)'] = self.scan_range[0]
-        parameters['Stop Voltage (V)'] = self.scan_range[1]
-        parameters['Scan speed [V/s]'] = self._scan_speed
-        parameters['Clock Frequency (Hz)'] = self._clock_frequency
+        if self._tunable_laser.get_wavelength_control_mode is WavelengthControlMode.WAVELENGTH_IN_METERS:
+            parameters['Start Wavelength (m)'] = self.scan_range[0]
+            parameters['Stop Wavelength (m)'] = self.scan_range[1]
+        else:
+            parameters['Start Voltage (V)'] = self.scan_range[0]
+            parameters['Stop Voltage (V)'] = self.scan_range[1]
+
+        parameters['Integration Time (s)'] = self._integration_time
 
         fig = self.draw_figure(
             self.scan_matrix,
@@ -399,7 +406,7 @@ class PLELogic(GenericLogic):
             plotfig=fig2
         )
 
-        self.log.info('Laser Scan saved to:\n{0}'.format(filepath))
+        self.log.info('PLE scan saved to:\n{0}'.format(filepath))
         return 0
 
     # TODO
@@ -482,7 +489,10 @@ class PLELogic(GenericLogic):
             aspect='auto',
             interpolation='nearest')
 
-        ax_matrix.set_xlabel('Frequency (' + mw_prefix + 'Hz)')
+        if self._tunable_laser.get_wavelength_control_mode() is WavelengthControlMode.WAVELENGTH_IN_METERS:
+            ax_matrix.set_xlabel('Wavelength (' + mw_prefix + 'm)')
+        else:
+            ax_matrix.set_xlabel('Voltage (' + mw_prefix + 'V)')
         ax_matrix.set_ylabel('Scan #')
 
         # Adjust subplots to make room for colorbar
