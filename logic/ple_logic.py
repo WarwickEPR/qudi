@@ -51,7 +51,8 @@ class PLELogic(GenericLogic):
     scan_range = StatusVar('scan_range', [-10, 10])
     number_of_repeats = StatusVar(default=10)
     resolution = StatusVar('resolution', 500)
-    _settling_time = StatusVar('settling_time', 0.5)
+    _switch_delay = StatusVar('switch_delay', 0.5)
+    _settling_time = StatusVar('settling_time', 1)
     _integration_time = StatusVar('integration_time', 0.3)
 
     sigChangePosition = QtCore.Signal(float)
@@ -159,6 +160,11 @@ class PLELogic(GenericLogic):
         """ Set the settling time for the laser before accumulating counts """
         self._settling_time = settling_time
 
+    def set_switch_delay(self, switch_delay):
+        """ Set the delay time for the laser to switch frequency between each point in a scan
+        before accumulating counts """
+        self._switch_delay = switch_delay
+
     def set_scan_lines(self, scan_lines):
         self.number_of_repeats = int(np.clip(scan_lines, 1, 1e6))
 
@@ -242,11 +248,12 @@ class PLELogic(GenericLogic):
             self.sigScanFinished.emit()
             return
 
+        # this is called before the first scan
         if self._scan_counter_up == 0:
             # move from current position to start of scan range.
             wavelength = self.scan_range[0]
             self._tunable_laser.set_wavelength(wavelength)
-            time.sleep(2)
+            time.sleep(self._settling_time)
 
         # self.scan_matrix[self._scan_counter_up,:] = counts
         # self.plot_y += counts
@@ -282,6 +289,7 @@ class PLELogic(GenericLogic):
 
             for i in range(self.resolution):
                 self._tunable_laser.set_wavelength(wavelength)
+                time.sleep(self._switch_delay)
                 time.sleep(self._integration_time)
 
                 point_counts = self._counter.countdata[0, -self._integration_time_bins:]

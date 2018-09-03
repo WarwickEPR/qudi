@@ -46,6 +46,19 @@ class PLEMainWindow(QtWidgets.QMainWindow):
         uic.loadUi(ui_file, self)
         self.show()
 
+class PLESettingsDialog(QtWidgets.QDialog):
+    """ Create the SettingsDialog window, based on the corresponding *.ui file."""
+
+    def __init__(self):
+        # Get the path to the *.ui file
+        this_dir = os.path.dirname(__file__)
+        ui_file = os.path.join(this_dir, 'ui_ple_settings.ui')
+
+        # Load it
+        super(PLESettingsDialog, self).__init__()
+        uic.loadUi(ui_file, self)
+
+
 class PLEGui(GUIBase):
     """
 
@@ -81,6 +94,10 @@ class PLEGui(GUIBase):
         self._plelogic = self.plelogic()
         self._savelogic = self.savelogic()
 
+        self.initMainUI()
+        self.initSettingsUI()
+
+    def initMainUI(self):
         # Use the inherited class to create the GUI element:
         self._mw = PLEMainWindow()
 
@@ -133,12 +150,12 @@ class PLEGui(GUIBase):
         # Add the display item to the xy and xz VieWidget, which was defined in
         # the UI file.
         self._mw.voltscan_ViewWidget.addItem(self.scan_image)
-        #self._mw.voltscan_ViewWidget.addItem(self.scan_fit_image)
+        # self._mw.voltscan_ViewWidget.addItem(self.scan_fit_image)
         self._mw.voltscan_ViewWidget.showGrid(x=True, y=True, alpha=0.8)
         self._mw.voltscan_matrix_ViewWidget.addItem(self.scan_matrix_image)
 
         self._mw.voltscan2_ViewWidget.addItem(self.scan_image2)
-        #self._mw.voltscan2_ViewWidget.addItem(self.scan_fit_image)
+        # self._mw.voltscan2_ViewWidget.addItem(self.scan_fit_image)
         self._mw.voltscan2_ViewWidget.showGrid(x=True, y=True, alpha=0.8)
         self._mw.voltscan_matrix2_ViewWidget.addItem(self.scan_matrix_image2)
 
@@ -151,7 +168,7 @@ class PLEGui(GUIBase):
         # Configuration of the Colorbar
         self.scan_cb = ColorBar(my_colors.cmap_normed, 100, 0, 100000)
 
-        #adding colorbar to ViewWidget
+        # adding colorbar to ViewWidget
         self._mw.voltscan_cb_ViewWidget.addItem(self.scan_cb)
         self._mw.voltscan_cb_ViewWidget.hideAxis('bottom')
         self._mw.voltscan_cb_ViewWidget.hideAxis('left')
@@ -202,9 +219,29 @@ class PLEGui(GUIBase):
         self._mw.action_run_stop.triggered.connect(self.run_stop)
         self._mw.action_Save.triggered.connect(self.save_data)
 
+        # Connect the settings menu option to create the dialog
+        self._mw.action_Settings.triggered.connect(self.menu_settings)
+
         self._plelogic._tunable_laser.sigWavelengthControlModeChanged.connect(self.update_wavelength_controls)
 
         self._mw.show()
+
+    def initSettingsUI(self):
+            """ Definition, configuration and initialisation of the settings GUI.
+
+            This init connects all the graphic modules, which were created in the
+            *.ui file and configures the event handling between the modules.
+            Moreover it sets default values if not existed in the logic modules.
+            """
+            # Create the Settings window
+            self._sd = PLESettingsDialog()
+            # Connect the action of the settings window with the code:
+            self._sd.accepted.connect(self.update_settings)
+            self._sd.rejected.connect(self.keep_former_settings)
+            self._sd.buttonBox.button(QtWidgets.QDialogButtonBox.Apply).clicked.connect(self.update_settings)
+
+            # write the configuration to the settings window of the GUI.
+            self.keep_former_settings()
 
     @QtCore.Slot()
     def update_wavelength_controls(self):
@@ -384,3 +421,17 @@ class PLEGui(GUIBase):
             pcile_range = [low_centile, high_centile]
 
         self.sigSaveMeasurement.emit(filetag, cb_range, pcile_range)
+
+    def menu_settings(self):
+        """ This method opens the settings menu. """
+        self._sd.exec_()
+
+    def update_settings(self):
+        """ Write new settings from the gui to the file. """
+        self._plelogic.set_settling_time(self._sd.startSettlingTimeDoubleSpinBox.value())
+        self._plelogic.set_switch_delay(self._sd.switchDelayDoubleSpinBox.value())
+
+    def keep_former_settings(self):
+        """ Keep the old settings and restores them in the gui. """
+        self._sd.startSettlingTimeDoubleSpinBox.setValue(self._plelogic._settling_time)
+        self._sd.switchDelayDoubleSpinBox.setValue(self._plelogic._switch_delay)
