@@ -731,7 +731,6 @@ class ConfocalGui(GUIBase):
         self._sd.accepted.connect(self.update_settings)
         self._sd.rejected.connect(self.keep_former_settings)
         self._sd.buttonBox.button(QtWidgets.QDialogButtonBox.Apply).clicked.connect(self.update_settings)
-        self._sd.hardware_switch.clicked.connect(self.switch_hardware)
 
         # write the configuration to the settings window of the GUI.
         self.keep_former_settings()
