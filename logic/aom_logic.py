@@ -48,8 +48,13 @@ class AomLogic(GenericLogic):
 
     # status vars
     _clock_frequency = StatusVar('clock_frequency', 30)
-    _calibration_voltage = ConfigOption('voltage', missing='error')
-    _calibration_efficiency = ConfigOption('efficiency', missing='error')
+    #_calibration_voltage = ConfigOption('voltage', missing='error')
+    #_calibration_efficiency = ConfigOption('efficiency', missing='error')
+
+    # temporary to avoid restarting qudi
+    _calibration_voltage = [0.6, 0.65, .7, .75, .8, .85, .9, .95, 1.0, 1.05, 1.10, 1.15, 1.2, 1.3, 1.4]
+    _calibration_efficiency = [.00141, .00554, .01342, .02467, .03881, .05515, .07320, 0.09160, .11123, .12956,
+                               .14604, .16094, .17408, .19377, .20777]
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -158,7 +163,7 @@ class AomLogic(GenericLogic):
         laser_power = self._get_laser_power()
         return laser_power * self.maximum_efficiency
 
-    def set_psat_points(self, minimum=0.0, maximum=None, points=20):
+    def set_psat_points(self, minimum=0.0, maximum=None, points=40):
         if maximum is None:
             maximum = self.current_maximum_power()*.95
         if maximum > self.current_maximum_power():
@@ -193,9 +198,9 @@ class AomLogic(GenericLogic):
         param['I_sat'].min = 0
         param['I_sat'].max = 1e7
         param['I_sat'].value = max(self.psat_data) * .7
-        param['P_sat'].max = 1.0
+        param['P_sat'].max = 10.0
         param['P_sat'].min = 0.0
-        param['P_sat'].value = 0.001
+        param['P_sat'].value = 0.0001
         param['slope'].min = 0.0
         param['slope'].value = 1e3
         param['offset'].min = 0.0
@@ -213,7 +218,7 @@ class AomLogic(GenericLogic):
 
     def set_to_psat(self):
         if self.fitted_Psat:
-            self.set_for_power(self.fitted_Psat)
+            self.set_power(self.fitted_Psat)
 
     def save_psat(self):
         # File path and name

@@ -221,7 +221,7 @@ class ImageStackLogic(GenericLogic):
         # should ensure the optimizer has a big enough
         # z range to account for a large drift in z
         self._surface = surface / 1e6 # in m
-        self._use_surface = True
+        self._use_surface = False
 
         # Potentially use this as a way to go between two orientations
         # if the value is odd then use orientation 1 of motor
@@ -271,6 +271,7 @@ class ImageStackLogic(GenericLogic):
                     self._optimizer_logic.start_refocus()
                 else:
                     self.log.info('No refocus happened, currently coded only for surface references')
+                    self.move_to_vertical()
             # Do the measurement
             else:
                 # self.log.debug('No need to focus, just go to position')
@@ -415,27 +416,33 @@ class ImageStackLogic(GenericLogic):
     # Moving things
 
     def move_to_vertical(self):
-        # check we're not already at zero degrees
-        current_position = self.get_pos([self.measurement_motor])
-        # self.log.debug('The current motor position is {0} but I need to be 0'.format(current_position))
+        if self._make_pol:
+            # check we're not already at zero degrees
+            current_position = self.get_pos([self.measurement_motor])
+            # self.log.debug('The current motor position is {0} but I need to be 0'.format(current_position))
 
-        if current_position != 0:
-            self.move_abs({self.measurement_motor: 0})
-            self.sigMovementStart.emit()
-        else:
-            # self.log.debug('The motor didnt need to move to 0 deg so will start up the XY imaging')
-            self._take_xy()
+            if current_position != 0:
+                self.move_abs({self.measurement_motor: 0})
+                self.sigMovementStart.emit()
+            else:
+                # self.log.debug('The motor didnt need to move to 0 deg so will start up the XY imaging')
+                self._take_xy()
+
+        self._take_xy()
 
     def move_to_horizontal(self):
-        current_position = self.get_pos([self.measurement_motor])
-        # self.log.debug('The current motor position is {0} but I need to be 45'.format(current_position))
+        if self._make_pol:
+            current_position = self.get_pos([self.measurement_motor])
+            # self.log.debug('The current motor position is {0} but I need to be 45'.format(current_position))
 
-        if current_position != 45:
-            self.move_abs({self.measurement_motor: 45})
-            self.sigMovementStart.emit()
-        else:
-            # self.log.debug('The motor didnt need to move to 45 deg so will start up the XY imaging')
-            self._take_xy()
+            if current_position != 45:
+                self.move_abs({self.measurement_motor: 45})
+                self.sigMovementStart.emit()
+            else:
+                # self.log.debug('The motor didnt need to move to 45 deg so will start up the XY imaging')
+                self._take_xy()
+
+        self._take_xy()
 
     def move_to_position(self, angle):
         self.move_abs({self.measurement_motor: angle})
