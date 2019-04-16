@@ -4,7 +4,31 @@
 
 Changes/New features:
 
-* Improved scientific SpinBox validators to allow for more intuitive keyboard input
+* Cleanup/Improvement/Debug of POI manager (logic and GUI)
+* New POI manager tool _POI selector_ which allows adding of new POIs by clicking inside the scan 
+image
+* Added an optional POI nametag to the POI manager. If you give this property a string value, all 
+new POIs will be named after this tag together with a consecutive integer index.
+* bug fix to how the flags are set for AWG70k
+* 
+
+Config changes:
+
+* 
+
+## Release 0.10
+Released on 14 Mar 2019
+Available at https://github.com/Ulm-IQO/qudi/releases/tag/v0.10
+
+Changes/New features:
+
+* Added support for Opal Kelly XEM6310-LX45 devices to HardwareSwitchFpga hardware module.
+* Newport CONEX-AGP piezo stage motor module.
+* Sequence Generator checks the step constraint and adds and idle block if necessary.
+* Save_logic now expands environment variables in the configured data path (e.g. $HOME under Unix or $HOMEPATH under Windows)
+* Added command line argument --logdir to specify the path to the logging directory
+* Added the keyword "labels" to the "measurement_information" dict container in predefined methods.
+This can be used to specify the axis labels for the measurement (excluding units)
 * All modules use new connector style where feasible.
 * Bug fix for POI manager was losing active POI when moving crosshair in confocal
 * Added a how-to-get-started guide to the documentation
@@ -18,13 +42,28 @@ Changes/New features:
 * Added installation options guide to the documentation
 * A lot of smaller fixes to the spectrometer (WinSpec) -> this also modifies the connectors in the default config
 * Added fitting to the spectrometer
+* Microwave interface passes trigger timing to microwave source, needs hardware module adjustments for not-in-tree modules
 * Bug fixes and support for SMD12 laser controller
-* New hardware file for Microwave source - Anritsu MG3691C has been added.
+* For SMIQs added config options to additionally limit frequency and power. Added constraint for SMQ06B model.
+* Added live OMDR functionality to only calculate the average signal over a limited amount of scanned lines
+* New hardware file for Microwave source - Anritsu MG3691C with SCPI commands has been added.
+* **Config Change:** Hardware file for mw_source_anritsu70GHz.py with class MicrowaveAnritsu70GHz was changed to file mw_source_anritsu_MG369x.py with class MicrowaveAnritsuMG369x to make it universal. Also hardware constraints are set per model.
+* Lock-In functionality was added to the ODMR counter and implemented for the NI-Card. All other hardware and interfuse with ODMRCounterInterface were updated.
+* New hardware file for Microwave source - WindFreak Technologies SynthHDPro 54MHz-13GHz source
+* New hardware file for AWG - Keysight M3202A 1GS/s 4-channel PXIe AWG
 * Add separate conda environments for windows 7 32bit, windows 7 64bit, and windows 10 64bit. 
 * Extend the windows installation procedure of the conda environment for qudi. The conda environments is selected automatically for the correct windows version and the appropriate environment file is taken.
 * Rewrite the documentation for required python packages for Qudi and mention instead the installation procedure, how to create manually a python environment for qudi.
+* Correct the low level implementation for the PulseBlasterESR-PRO.
+* Implement the pulser interface for PulseBlasterESR-PRO devices.
+* Implement the switch interface for PulseBlasterESR-PRO devices.
+* Add possibility to set instruction delays in the config for PulseBlasterESR-PRO sequence generation.
+* Add a copy-paste config option to the docstrings of all current qudi hardware modules.
 * **Pulsed 3.0:**\
     _A truckload of changes regarding all pulsed measurement related modules_
+    * analyze_sequence now returns all the necessary values to work with sequences.
+    * It is now possible to select no or analogue laser channels. In this case, the relevant block element gets marked as laser.
+    * Adding the possibility to reliably add flags to sequence steps and making them selectable in the GUI.
     * Bug fix for waveform generation larger than ~2 GSamples
     * Added chirp function to available analog shapes in pulsed measurements
     * Tab order in pulsed measurement GUI is now more useful
@@ -57,6 +96,7 @@ Changes/New features:
     generic. Makes it easier to create new pulse generator modules as long as the hardware can be 
     abstracted to a waveform/sequence terminology.
     * Adapted pulse generator modules to new pulser interface.
+    * Adapted FPGA hardware file to run with new interface.
     * All groups of settings in pulsed logic modules are now represented as dictionaries improving 
     flexibility as well as minimizing necessary code changes when adding new features.
     * Most parameter sets in `PulsedMeasurementLogic` and `SequenceGeneratorLogic` are now 
@@ -98,7 +138,17 @@ Changes/New features:
     directly in a tab of the PulsedMainGUI. Also added voltage settings for digital and analog 
     channels that were missing in the GUI before. 
     * Lots of smaller changes to improve programming flexibility and robustness against users
-    
+	* Added a new ungated extraction method ('ungated_gated_conv_deriv') which uses the keys in the 
+	  sampling information to convert an ungated timetrace into a gated timetrace which is then 
+	  anaylzed with the ungated method 'gated_conv_deriv'. The conversion is based on the rising
+	  and falling bins in the laser channel which indicate the positions of the laser pulses in 
+	  the ungated trace. For fine-tuning additional delays (for example from AOMs) can be taken 
+	  into account. This method speeds up laser extractions from ungated timetraced by a lot.
+	* Improved pulsed measurement textfile and plot layout for saved data
+    * Added buttons to delete all saved PulseBlock/PulseBlockEnsemble/PulseSequence objects at once.
+    * Introduced separate fit tools for each of the two plots in the pulsed analysis tab
+    * Automatically clears fit data when changing the alternative plot type or starting a new 
+      measurement.
 
 Config changes:
 * **All** pulsed related logic module paths need to be changed because they have been moved in the logic
@@ -172,6 +222,17 @@ the SpectrometerLogic module like:
         fitlogic: 'fitlogic'
     ```
 
+* Tektronix 7000 series is now in file `tektronix_awg7k.py` and class `AWG7k`.
+ Use that instead of `tektronix_awg7122c.py` and change the configuration like this:
+    ```
+    pulser_awg7000:
+        module.Class: 'awg.tektronix_awg7k.AWG7k'
+        awg_visa_address: 'TCPIP::10.42.0.211::INSTR'
+        awg_ip_address: '10.42.0.211'
+        timeout: 60
+
+   ```
+   
 ## Release 0.9
 Released on 6 Mar 2018
 Available at https://github.com/Ulm-IQO/qudi/releases/tag/v0.9

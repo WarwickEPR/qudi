@@ -198,6 +198,8 @@ class ConfocalGui(GUIBase):
     image_y_padding = ConfigOption('image_y_padding', 0.02)
     image_z_padding = ConfigOption('image_z_padding', 0.02)
 
+    default_meter_prefix = ConfigOption('default_meter_prefix', None)  # assume the unit prefix of position spinbox
+
     # status var
     adjust_cursor_roi = StatusVar(default=True)
     slider_small_step = StatusVar(default=10e-9)    # initial value in meter
@@ -481,6 +483,18 @@ class ConfocalGui(GUIBase):
         self._mw.y_max_InputWidget.setValue(self._scanning_logic.image_y_range[1])
         self._mw.z_min_InputWidget.setValue(self._scanning_logic.image_z_range[0])
         self._mw.z_max_InputWidget.setValue(self._scanning_logic.image_z_range[1])
+
+        if self.default_meter_prefix:
+            self._mw.x_current_InputWidget.assumed_unit_prefix = self.default_meter_prefix
+            self._mw.y_current_InputWidget.assumed_unit_prefix = self.default_meter_prefix
+            self._mw.z_current_InputWidget.assumed_unit_prefix = self.default_meter_prefix
+
+            self._mw.x_min_InputWidget.assumed_unit_prefix = self.default_meter_prefix
+            self._mw.x_max_InputWidget.assumed_unit_prefix = self.default_meter_prefix
+            self._mw.y_min_InputWidget.assumed_unit_prefix = self.default_meter_prefix
+            self._mw.y_max_InputWidget.assumed_unit_prefix = self.default_meter_prefix
+            self._mw.z_min_InputWidget.assumed_unit_prefix = self.default_meter_prefix
+            self._mw.z_max_InputWidget.assumed_unit_prefix = self.default_meter_prefix
 
         # Handle slider movements by user:
         self._mw.x_SliderWidget.sliderMoved.connect(self.update_from_slider_x)
@@ -823,7 +837,7 @@ class ConfocalGui(GUIBase):
         """ Determines the cb_min and cb_max values for the xy scan image
         """
         # If "Manual" is checked, or the image data is empty (all zeros), then take manual cb range.
-        if self._mw.xy_cb_manual_RadioButton.isChecked() or np.max(self.xy_image.image) == 0.0:
+        if self._mw.xy_cb_manual_RadioButton.isChecked() or np.count_nonzero(self.xy_image.image) < 1:
             cb_min = self._mw.xy_cb_min_DoubleSpinBox.value()
             cb_max = self._mw.xy_cb_max_DoubleSpinBox.value()
 
@@ -847,7 +861,7 @@ class ConfocalGui(GUIBase):
         """ Determines the cb_min and cb_max values for the xy scan image
         """
         # If "Manual" is checked, or the image data is empty (all zeros), then take manual cb range.
-        if self._mw.depth_cb_manual_RadioButton.isChecked() or np.max(self.depth_image.image) == 0.0:
+        if self._mw.depth_cb_manual_RadioButton.isChecked() or np.count_nonzero(self.depth_image.image) < 1:
             cb_min = self._mw.depth_cb_min_DoubleSpinBox.value()
             cb_max = self._mw.depth_cb_max_DoubleSpinBox.value()
 
@@ -1593,7 +1607,7 @@ class ConfocalGui(GUIBase):
         xy_optimizer_image = self._optimizer_logic.xy_refocus_image[:, :, 3 + self._optimizer_logic.opt_channel]
 
         # If the Z scan is done first, then the XY image has only zeros and there is nothing to draw.
-        if np.max(xy_optimizer_image) != 0:
+        if np.count_nonzero(xy_optimizer_image) > 0:
             colorscale_min = np.min(xy_optimizer_image[np.nonzero(xy_optimizer_image)])
             colorscale_max = np.max(xy_optimizer_image[np.nonzero(xy_optimizer_image)])
 

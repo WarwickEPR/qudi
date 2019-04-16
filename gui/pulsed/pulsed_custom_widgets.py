@@ -23,34 +23,33 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 from qtpy import QtCore, QtGui
 from collections import OrderedDict
 from qtwidgets.scientific_spinbox import ScienDSpinBox, ScienSpinBox
+from enum import Enum
 
 
-class DigitalChannelsWidget(QtGui.QWidget):
+class MultipleCheckboxWidget(QtGui.QWidget):
     """
     """
     stateChanged = QtCore.Signal()
 
-    def __init__(self, parent=None, digital_channels=None):
+    def __init__(self, parent=None, checkbox_labels=None):
         super().__init__(parent)
 
-        if digital_channels is None:
-            self._digital_channels = list()
-        else:
-            self._digital_channels = digital_channels
+        checkbox_labels = list() if checkbox_labels is None else list(checkbox_labels)
 
-        self._dch_checkboxes = OrderedDict()
-        self._width_hint = 30 * len(self._digital_channels)
+        self._checkboxes = OrderedDict()
+        self._checkbox_width = 30
+        self._width_hint = self._checkbox_width * len(checkbox_labels)
 
         main_layout = QtGui.QHBoxLayout()
-        for chnl in self._digital_channels:
-            # Create QLabel and QCheckBox for each digital channel
-            label = QtGui.QLabel(chnl.rsplit('ch')[1])
-            label.setFixedWidth(30)
+        for box_label in checkbox_labels:
+            # Create QLabel and QCheckBox for each checkbox label given in init
+            label = QtGui.QLabel(box_label)
+            label.setFixedWidth(self._checkbox_width)
             label.setAlignment(QtCore.Qt.AlignCenter)
             widget = QtGui.QCheckBox()
             widget.setFixedWidth(19)
             widget.setChecked(False)
-            self._dch_checkboxes[chnl] = {'label': label, 'widget': widget}
+            self._checkboxes[box_label] = {'label': label, 'widget': widget}
 
             # Forward editingFinished signal of child widget
             widget.stateChanged.connect(self.stateChanged)
@@ -68,14 +67,14 @@ class DigitalChannelsWidget(QtGui.QWidget):
         self.setLayout(main_layout)
 
     def data(self):
-        digital_states = OrderedDict()
-        for chnl in self._digital_channels:
-            digital_states[chnl] = self._dch_checkboxes[chnl]['widget'].isChecked()
-        return digital_states
+        checkbox_states = OrderedDict()
+        for box_label, box_dict in self._checkboxes.items():
+            checkbox_states[box_label] = box_dict['widget'].isChecked()
+        return checkbox_states
 
     def setData(self, data):
-        for chnl in data:
-            self._dch_checkboxes[chnl]['widget'].setChecked(data[chnl])
+        for label, state in data.items():
+            self._checkboxes[label]['widget'].setChecked(state)
         self.stateChanged.emit()
         return
 
@@ -137,6 +136,15 @@ class AnalogParametersWidget(QtGui.QWidget):
                 widget.setFixedWidth(90)
                 # Forward editingFinished signal of child widget
                 widget.stateChanged.connect(self.editingFinished)
+            elif issubclass(self._parameters[param]['type'], Enum):
+                widget = QtGui.QComboBox()
+                for option in self._parameters[param]['type']:
+                    widget.addItem(option.name, option)
+                widget.setCurrentText(self._parameters[param]['init'].name)
+                # Set size constraints
+                widget.setFixedWidth(90)
+                # Forward editingFinished signal of child widget
+                widget.currentIndexChanged.connect(self.editingFinished)
 
             self._ach_widgets[param] = {'label': label, 'widget': widget}
 
@@ -162,6 +170,8 @@ class AnalogParametersWidget(QtGui.QWidget):
                 widget.setText(data[param])
             elif self._parameters[param]['type'] == bool:
                 widget.setChecked(data[param])
+            elif issubclass(self._parameters[param]['type'], Enum):
+                widget.setCurrentText(data[param].name)
 
         self.editingFinished.emit()
         return
@@ -177,6 +187,8 @@ class AnalogParametersWidget(QtGui.QWidget):
                 analog_params[param] = widget.text()
             elif self._parameters[param]['type'] == bool:
                 analog_params[param] = widget.isChecked()
+            elif issubclass(self._parameters[param]['type'], Enum):
+                analog_params[param] = widget.itemData(widget.currentIndex())
         return analog_params
 
     def sizeHint(self):

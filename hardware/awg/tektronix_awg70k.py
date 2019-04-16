@@ -36,22 +36,36 @@ from interface.pulser_interface import PulserInterface, PulserConstraints
 
 
 class AWG70K(Base, PulserInterface):
-    """
+    """ A hardware module for the Tektronix AWG70000 series for generating
+        waveforms and sequences thereof.
+
+    Example config for copy-paste:
+
+    pulser_awg70000:
+        module.Class: 'awg.tektronix_awg70k.AWG70k'
+        awg_visa_address: 'TCPIP::10.42.0.211::INSTR'
+        awg_ip_address: '10.42.0.211'
+        timeout: 60
+        # tmp_work_dir: 'C:\\Software\\qudi_pulsed_files' # optional
+        # ftp_root_dir: 'C:\\inetpub\\ftproot' # optional, root directory on AWG device
+        # ftp_login: 'anonymous' # optional, the username for ftp login
+        # ftp_passwd: 'anonymous@' # optional, the password for ftp login
 
     """
     _modclass = 'awg70k'
     _modtype = 'hardware'
 
     # config options
+    _visa_address = ConfigOption(name='awg_visa_address', missing='error')
+    _ip_address = ConfigOption(name='awg_ip_address', missing='error')
+    _visa_timeout = ConfigOption(name='timeout', default=30, missing='nothing')
     _tmp_work_dir = ConfigOption(name='tmp_work_dir',
                                  default=os.path.join(get_home_dir(), 'pulsed_files'),
                                  missing='warn')
-    _visa_address = ConfigOption(name='awg_visa_address', missing='error')
-    _ip_address = ConfigOption(name='awg_ip_address', missing='error')
     _ftp_dir = ConfigOption(name='ftp_root_dir', default='C:\\inetpub\\ftproot', missing='warn')
     _username = ConfigOption(name='ftp_login', default='anonymous', missing='warn')
     _password = ConfigOption(name='ftp_passwd', default='anonymous@', missing='warn')
-    _visa_timeout = ConfigOption(name='timeout', default=30, missing='nothing')
+
 
     # translation dict from qudi trigger descriptor to device command
     __event_triggers = {'OFF': 'OFF', 'A': 'ATR', 'B': 'BTR', 'INT': 'INT'}
@@ -95,6 +109,12 @@ class AWG70K(Base, PulserInterface):
             self.awg_model = self.query('*IDN?').split(',')[1]
         else:
             self.awg_model = ''
+
+        # Query some constraints from the device and stash them in order to avoid redundant queries.
+        self.__max_seq_steps = int(self.query('SLIS:SEQ:STEP:MAX?'))
+        self.__max_seq_repetitions = int(self.query('SLIS:SEQ:STEP:RCO:MAX?'))
+        self.__min_waveform_length = int(self.query('WLIS:WAV:LMIN?'))
+        self.__max_waveform_length = int(self.query('WLIS:WAV:LMAX?'))
         return
 
     def on_deactivate(self):
@@ -144,30 +164,36 @@ class AWG70K(Base, PulserInterface):
             constraints.sample_rate.step = 5.0e2
             constraints.sample_rate.default = 25.0e9
         elif self.awg_model == 'AWG70001A':
-            constraints.sample_rate.min = 3.0e3
+            constraints.sample_rate.min = 1.49e3
             constraints.sample_rate.max = 50.0e9
-            constraints.sample_rate.step = 1.0e3
+            constraints.sample_rate.step = 10
             constraints.sample_rate.default = 50.0e9
 
         constraints.a_ch_amplitude.min = 0.25
         constraints.a_ch_amplitude.max = 0.5
-        constraints.a_ch_amplitude.step = 0.001
+        constraints.a_ch_amplitude.step = 0.0001
         constraints.a_ch_amplitude.default = 0.5
-        # FIXME: Enter the proper digital channel low constraints:
-        constraints.d_ch_low.min = 0.0
-        constraints.d_ch_low.max = 0.0
-        constraints.d_ch_low.step = 0.0
-        constraints.d_ch_low.default = 0.0
-        # FIXME: Enter the proper digital channel high constraints:
-        constraints.d_ch_high.min = 0.0
-        constraints.d_ch_high.max = 1.4
-        constraints.d_ch_high.step = 0.1
-        constraints.d_ch_high.default = 1.4
 
-        constraints.waveform_length.min = 1
-        constraints.waveform_length.max = 8000000000
-        constraints.waveform_length.step = 1
-        constraints.waveform_length.default = 1
+        constraints.d_ch_low.min = -1.4
+        constraints.d_ch_low.max = 0.9
+        constraints.d_ch_low.step = 0.1e-3
+        constraints.d_ch_low.default = 0.0
+
+        constraints.d_ch_high.min = -0.9
+        constraints.d_ch_high.max = 1.4
+        constraints.d_ch_high.step = 0.1e-3
+        constraints.d_ch_high.default = 1.4
+        # constraints.d_ch_difference.max = 1.4
+        # constraints.d_ch_difference.min = 0.5
+
+        constraints.waveform_length.min = self.__min_waveform_length
+        constraints.waveform_length.max = self.__max_waveform_length
+        if self.awg_model == 'AWG70002A':
+            constraints.waveform_length.step = 1
+            constraints.waveform_length.default = 1
+        elif self.awg_model == 'AWG70001A':
+            constraints.waveform_length.step = 2
+            constraints.waveform_length.default = 2
 
         # FIXME: Check the proper number for your device
         constraints.waveform_num.min = 1
@@ -187,17 +213,19 @@ class AWG70K(Base, PulserInterface):
 
         # If sequencer mode is available then these should be specified
         constraints.repetitions.min = 0
-        constraints.repetitions.max = 65536
+        constraints.repetitions.max = self.__max_seq_repetitions
         constraints.repetitions.step = 1
         constraints.repetitions.default = 0
         # ToDo: Check how many external triggers are available
-        constraints.event_triggers = ['A', 'B']
+        constraints.event_triggers = ['OFF', 'A', 'B', 'INT']
         constraints.flags = ['A', 'B', 'C', 'D']
 
         constraints.sequence_steps.min = 0
-        constraints.sequence_steps.max = 8000
+        constraints.sequence_steps.max = self.__max_seq_steps
         constraints.sequence_steps.step = 1
         constraints.sequence_steps.default = 0
+
+        # constraints.seqence_tracks.max = int(self.query('SLISt:SEQuence:TRACk:MAX?'))
 
         # the name a_ch<num> and d_ch<num> are generic names, which describe UNAMBIGUOUSLY the
         # channels. Here all possible channel configurations are stated, where only the generic
@@ -341,7 +369,7 @@ class AWG70K(Base, PulserInterface):
                 mrk_bytes = digital_samples[mrk_ch_1].view('uint8')
             else:
                 mrk_bytes = None
-            print('Prepare digital channel data: {0}'.format(time.time()-start))
+            self.log.debug('Prepare digital channel data: {0}'.format(time.time()-start))
 
             # Create waveform name string
             wfm_name = '{0}_ch{1:d}'.format(name, a_ch_num)
@@ -358,23 +386,30 @@ class AWG70K(Base, PulserInterface):
                              is_first_chunk=is_first_chunk,
                              is_last_chunk=is_last_chunk,
                              total_number_of_samples=total_number_of_samples)
-            print('Write WFMX file: {0}'.format(time.time() - start))
+            self.log.debug('Write WFMX file: {0}'.format(time.time() - start))
 
             # transfer waveform to AWG and load into workspace
             start = time.time()
             self._send_file(filename=wfm_name + '.wfmx')
-            print('Send WFMX file: {0}'.format(time.time() - start))
+            self.log.debug('Send WFMX file: {0}'.format(time.time() - start))
 
             start = time.time()
             self.write('MMEM:OPEN "{0}"'.format(os.path.join(
                 self._ftp_dir, self.ftp_working_dir, wfm_name + '.wfmx')))
             # Wait for everything to complete
-            while int(self.query('*OPC?')) != 1:
-                time.sleep(0.25)
+            timeout_old = self.awg.timeout
+            # increase this time so that there is no timeout for loading longer sequences
+            # which might take some minutes
+            self.awg.timeout = 5e6
+            # the answer of the *opc-query is received as soon as the loading is finished
+            opc = int(self.query('*OPC?'))
             # Just to make sure
             while wfm_name not in self.get_waveform_names():
                 time.sleep(0.25)
-            print('Load WFMX file into workspace: {0}'.format(time.time() - start))
+
+            # reset the timeout
+            self.awg.timeout = timeout_old
+            self.log.debug('Load WFMX file into workspace: {0}'.format(time.time() - start))
 
             # Append created waveform name to waveform list
             waveforms.append(wfm_name)
@@ -413,7 +448,7 @@ class AWG70K(Base, PulserInterface):
         self.new_sequence(name=name, steps=num_steps)
 
         # Fill in sequence information
-        for step, (wfm_tuple, seq_params) in enumerate(sequence_parameter_list, 1):
+        for step, (wfm_tuple, seq_step) in enumerate(sequence_parameter_list, 1):
             # Set waveforms to play
             if num_tracks == len(wfm_tuple):
                 for track, waveform in enumerate(wfm_tuple, 1):
@@ -424,20 +459,27 @@ class AWG70K(Base, PulserInterface):
                 return -1
 
             # Set event jump trigger
-            self.sequence_set_event_jump(name,
-                                         step,
-                                         seq_params['event_trigger'],
-                                         seq_params['event_jump_to'])
+            if seq_step.event_trigger != 'OFF':
+                self.sequence_set_event_jump(name,
+                                             step,
+                                             seq_step.event_trigger,
+                                             seq_step.event_jump_to)
             # Set wait trigger
-            self.sequence_set_wait_trigger(name, step, seq_params['wait_for'])
+            if seq_step.wait_for != 'OFF':
+                self.sequence_set_wait_trigger(name, step, seq_step.wait_for)
             # Set repetitions
-            self.sequence_set_repetitions(name, step, seq_params['repetitions'])
+            if seq_step.repetitions != 0:
+                self.sequence_set_repetitions(name, step, seq_step.repetitions)
             # Set go_to parameter
-            self.sequence_set_goto(name, step, seq_params['go_to'])
+            if seq_step.go_to > 0:
+                if seq_step.go_to <= num_steps:
+                    self.sequence_set_goto(name, step, seq_step.go_to)
+                else:
+                    self.log.error('Assigned "go_to = {0}" is larger than the number of steps '
+                                   '"{1}".'.format(seq_step.go_to, num_steps))
+                    return -1
             # Set flag states
-            trigger = seq_params['flag_trigger'] != 'OFF'
-            flag_list = [seq_params['flag_trigger']] if trigger else [seq_params['flag_high']]
-            self.sequence_set_flags(name, step, flag_list, trigger)
+            self.sequence_set_flags(name, step, seq_step.flag_trigger, seq_step.flag_high)
 
         # Wait for everything to complete
         while int(self.query('*OPC?')) != 1:
@@ -597,7 +639,7 @@ class AWG70K(Base, PulserInterface):
         # Load sequence
         for chnl in range(1, trac_num + 1):
             self.write('SOUR{0:d}:CASS:SEQ "{1}", {2:d}'.format(chnl, sequence_name, chnl))
-            while self.query('SOUR{0:d}:CASS?'.format(chnl))[1:-2] != '{0},{1:d}'.format(
+            while self.query('SOUR{0:d}:CASS?'.format(chnl)) != '{0},{1:d}'.format(
                     sequence_name, chnl):
                 time.sleep(0.2)
 
@@ -765,7 +807,7 @@ class AWG70K(Base, PulserInterface):
             for chnl in offset:
                 if chnl in chnl_list:
                     ch_num = int(chnl.rsplit('_ch', 1)[1])
-                    off[chnl] = 0.0
+                    off[chnl] = float(self.query('SOUR{0:d}:VOLT:OFFS?'.format(ch_num)))
                 else:
                     self.log.warning('Get analog offset from AWG70k channel "{0}" failed. '
                                      'Channel non-existent.'.format(chnl))
@@ -846,16 +888,16 @@ class AWG70K(Base, PulserInterface):
                     offset[chnl] = constraints.a_ch_offset.max
 
         if amplitude is not None:
-            for a_ch in amplitude:
+            for chnl, amp in amplitude.items():
                 ch_num = int(chnl.rsplit('_ch', 1)[1])
-                self.write('SOUR{0:d}:VOLT:AMPL {1}'.format(ch_num, amplitude[a_ch]))
+                self.write('SOUR{0:d}:VOLT:AMPL {1}'.format(ch_num, amp))
                 while int(self.query('*OPC?')) != 1:
                     time.sleep(0.25)
 
         if offset is not None:
-            for a_ch in offset:
+            for chnl, off in offset.items():
                 ch_num = int(chnl.rsplit('_ch', 1)[1])
-                self.write('SOUR{0:d}:VOLT:OFFSET {1}'.format(ch_num, offset[a_ch]))
+                self.write('SOUR{0:d}:VOLT:OFFSET {1}'.format(ch_num, off))
                 while int(self.query('*OPC?')) != 1:
                     time.sleep(0.25)
         return self.get_analog_level()
@@ -955,22 +997,58 @@ class AWG70K(Base, PulserInterface):
         (amplitude, offset) and (value high, value low)!
         """
         if low is None:
-            low = dict()
+            low = self.get_digital_level()[0]
         if high is None:
-            high = dict()
+            high = self.get_digital_level()[1]
 
         #If you want to check the input use the constraints:
         constraints = self.get_constraints()
+        digital_channels = self._get_all_digital_channels()
 
-        for d_ch, value in low.items():
-            #FIXME: Tell the device the proper digital voltage low value:
-            # self.tell('SOURCE1:MARKER{0}:VOLTAGE:LOW {1}'.format(d_ch, low[d_ch]))
-            pass
+        # Check the constraints for marker high level
+        for key in high:
+            if high[key] < constraints.d_ch_high.min:
+                self.log.warning('Voltages for digital values are too small for high. Setting to minimum value')
+                high[key] = constraints.d_ch_high.min
+            elif high[key] > constraints.d_ch_high.max:
+                self.log.warning('Voltages for digital values are too high for high. Setting to maximum value')
+                high[key] = constraints.d_ch_high.max
 
-        for d_ch, value in high.items():
-            #FIXME: Tell the device the proper digital voltage high value:
-            # self.tell('SOURCE1:MARKER{0}:VOLTAGE:HIGH {1}'.format(d_ch, high[d_ch]))
-            pass
+        # Check the constraints for marker low level
+        for key in low:
+            if low[key] < constraints.d_ch_low.min:
+                self.log.warning('Voltages for digital values are too small for low. Setting to minimum value')
+                low[key] = constraints.d_ch_low.min
+            elif low[key] > constraints.d_ch_low.max:
+                self.log.warning('Voltages for digital values are too high for low. Setting to maximum value')
+                low[key] = constraints.d_ch_low.max
+
+        # Check the difference between marker high and low
+        for key in high:
+            if high[key] - low[key] < 0.5:
+                self.log.warning('Voltage difference is too small. Reducing low voltage level.')
+                low[key] = high[key] - 0.5
+            elif high[key] - low[key] > 1.4:
+                self.log.warning('Voltage difference is too large. Increasing low voltage level.')
+                low[key] = high[key] - 1.4
+
+        # set high marker levels
+        for chnl in high:
+            if chnl not in digital_channels:
+                continue
+            d_ch_number = int(chnl.rsplit('_ch', 1)[1])
+            a_ch_number = (1 + d_ch_number) // 2
+            marker_index = 2 - (d_ch_number % 2)
+            self.write('SOUR{0:d}:MARK{1:d}:VOLT:HIGH {2}'.format(a_ch_number, marker_index, high[chnl]))
+        # set low marker levels
+        for chnl in low:
+            if chnl not in digital_channels:
+                continue
+            d_ch_number = int(chnl.rsplit('_ch', 1)[1])
+            a_ch_number = (1 + d_ch_number) // 2
+            marker_index = 2 - (d_ch_number % 2)
+            self.write('SOUR{0:d}:MARK{1:d}:VOLT:LOW {2}'.format(a_ch_number, marker_index, low[chnl]))
+
         return self.get_digital_level()
 
     def get_active_channels(self, ch=None):
@@ -1203,7 +1281,7 @@ class AWG70K(Base, PulserInterface):
                                                                           waveform_name))
         return 0
 
-    def sequence_set_repetitions(self, sequence_name, step, repeat=1):
+    def sequence_set_repetitions(self, sequence_name, step, repeat=0):
         """
         Set the repetition counter of sequence "sequence_name" at step "step" to "repeat".
         A repeat value of -1 denotes infinite repetitions; 0 means the step is played once.
@@ -1218,7 +1296,7 @@ class AWG70K(Base, PulserInterface):
             self.log.error('Direct sequence generation in AWG not possible. '
                            'Sequencer option not installed.')
             return -1
-        repeat = 'INF' if repeat < 0 else str(int(repeat))
+        repeat = 'INF' if repeat < 0 else str(int(repeat + 1))
         self.write('SLIS:SEQ:STEP{0:d}:RCO "{1}", {2}'.format(step, sequence_name, repeat))
         return 0
 
@@ -1236,7 +1314,7 @@ class AWG70K(Base, PulserInterface):
                            'Sequencer option not installed.')
             return -1
 
-        goto = str(int(goto)) if seq_params['go_to'] > 0 else 'NEXT'
+        goto = str(int(goto)) if goto > 0 else 'NEXT'
         self.write('SLIS:SEQ:STEP{0:d}:GOTO "{1}", {2}'.format(step, sequence_name, goto))
         return 0
 
@@ -1293,16 +1371,16 @@ class AWG70K(Base, PulserInterface):
         self.write('SLIS:SEQ:STEP{0:d}:WINP "{1}", {2}'.format(step, sequence_name, trigger))
         return 0
 
-    def sequence_set_flags(self, sequence_name, step, flags=None, trigger=False):
+    def sequence_set_flags(self, sequence_name, step, flags_t=None, flags_h=None):
         """
         Set the flags in "flags" to HIGH (trigger=False) during the sequence step or let the flags
         send out a fixed duration trigger pulse (trigger=True). All other flags are set to LOW.
 
         @param str sequence_name: Name of the sequence to be edited
         @param int step: Sequence step to be edited
-        @param list flags: List of flag specifiers to be active during this sequence step
-        @param bool trigger: Whether the flag should be HIGH during the step (False) or send out a
-                             fixed length trigger pulse when starting to play the step (True).
+        @param list flags_t: List of flag trigger specifiers to be active during this sequence step, if both options are
+                             selected, the flag is set to trigger (PULS)
+        @param list flags_h: List of flag high specifiers to be active during this sequence step
 
         @return int: error code
         """
@@ -1312,12 +1390,14 @@ class AWG70K(Base, PulserInterface):
             return -1
 
         for flag in ('A', 'B', 'C', 'D'):
-            if flag in flags:
-                state = 'PULS' if trigger else 'HIGH'
+            if flag in flags_t:
+                state = 'PULS'
+            elif flag in flags_h:
+                state = 'HIGH'
             else:
                 state = 'LOW'
 
-            self.write('SLIS:SEQ:STEP{0:d}:TFL1:{2}FL "{3}",{4}'.format(step,
+            self.write('SLIS:SEQ:STEP{0:d}:TFL1:{1}FL "{2}",{3}'.format(step,
                                                                         flag,
                                                                         sequence_name,
                                                                         state))
