@@ -30,6 +30,7 @@ from collections import OrderedDict
 
 from logic.pulsed.sampling_functions import SamplingFunctions
 from core.util.modules import get_main_dir
+from core.util.helpers import natural_sort
 
 
 class PulseBlockElement(object):
@@ -172,8 +173,7 @@ class PulseBlock(object):
         return_str += 'initial length: {0}s\n\tlength increment: {1}s\n\t'.format(
             self.init_length_s, self.increment_s)
         return_str += 'active analog channels: {0}\n\tactive digital channels: {1}'.format(
-            sorted(self.analog_channels, key=lambda ch: int(ch.split('ch')[-1])),
-            sorted(self.digital_channels, key=lambda ch: int(ch.split('ch')[-1])))
+            natural_sort(self.analog_channels), natural_sort(self.digital_channels))
         return return_str
 
     def __len__(self):
@@ -1403,14 +1403,9 @@ class PulseObjectGenerator(PredefinedGeneratorBase):
         # dictionary containing all keyword arguments as keys with their default value
         self._generate_method_parameters = dict()
 
-        # import path for generator modules from default dir (logic.predefined_generate_methods)
-        path_list = [os.path.join(get_main_dir(), 'logic', 'pulsed', 'predefined_generate_methods')]
-        # import path for generator modules from non-default directory if a path has been given
-        if isinstance(sequencegeneratorlogic.additional_methods_dir, str):
-            path_list.append(sequencegeneratorlogic.additional_methods_dir)
-
         # Import predefined generator modules and get a list of generator classes
-        generator_classes = self.__import_external_generators(paths=path_list)
+        generator_classes = self.__import_external_generators(
+            paths=sequencegeneratorlogic.predefined_methods_import_path)
 
         # create an instance of each class and put them in a temporary list
         generator_instances = [cls(sequencegeneratorlogic) for cls in generator_classes]

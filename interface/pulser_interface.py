@@ -23,6 +23,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 import abc
 from core.util.interfaces import InterfaceMetaclass, ScalarConstraint
+from enum import Enum
 
 
 class PulserInterface(metaclass=InterfaceMetaclass):
@@ -127,10 +128,12 @@ class PulserInterface(metaclass=InterfaceMetaclass):
         # the name a_ch<num> and d_ch<num> are generic names, which describe UNAMBIGUOUSLY the
         # channels. Here all possible channel configurations are stated, where only the generic
         # names should be used. The names for the different configurations can be customary chosen.
+        # IMPORTANT: Active channel sets must be of type frozenset to properly work as remote module
         activation_conf = OrderedDict()
-        activation_conf['yourconf'] = {'a_ch1', 'd_ch1', 'd_ch2', 'a_ch2', 'd_ch3', 'd_ch4'}
-        activation_conf['different_conf'] = {'a_ch1', 'd_ch1', 'd_ch2'}
-        activation_conf['something_else'] = {'a_ch2', 'd_ch3', 'd_ch4'}
+        activation_conf['yourconf'] = frozenset(
+            {'a_ch1', 'd_ch1', 'd_ch2', 'a_ch2', 'd_ch3', 'd_ch4'})
+        activation_conf['different_conf'] = frozenset({'a_ch1', 'd_ch1', 'd_ch2'})
+        activation_conf['something_else'] = frozenset({'a_ch2', 'd_ch3', 'd_ch4'})
         constraints.activation_config = activation_conf
         """
         pass
@@ -426,7 +429,7 @@ class PulserInterface(metaclass=InterfaceMetaclass):
         @param str name: the name of the waveform to be created/append to
         @param dict analog_samples: keys are the generic analog channel names (i.e. 'a_ch1') and
                                     values are 1D numpy arrays of type float32 containing the
-                                    voltage samples.
+                                    voltage samples normalized to half Vpp (between -1 and 1).
         @param dict digital_samples: keys are the generic digital channel names (i.e. 'd_ch1') and
                                      values are 1D numpy arrays of type bool containing the marker
                                      states.
@@ -531,13 +534,14 @@ class PulserInterface(metaclass=InterfaceMetaclass):
         """
         pass
 
-    @abc.abstractmethod
-    def has_sequence_mode(self):
-        """ Asks the pulse generator whether sequence mode exists.
 
-        @return: bool, True for yes, False for no.
-        """
-        pass
+class SequenceOption(Enum):
+    """
+    Different options of the sequence mode in the pulser device.
+    """
+    NON = 0  # No sequence mode, only waveforms can be used
+    OPTIONAL = 1  # Pulser can either work with waveforms directly or use sequences for the output
+    FORCED = 2  # Output is only allowed for sequences. Waveforms might still be uploaded but not played.
 
 
 class PulserConstraints:
@@ -562,5 +566,5 @@ class PulserConstraints:
         self.event_triggers = list()
         self.flags = list()
 
-
         self.activation_config = dict()
+        self.sequence_option = SequenceOption.OPTIONAL
