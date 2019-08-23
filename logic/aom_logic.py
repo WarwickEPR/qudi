@@ -163,7 +163,7 @@ class AomLogic(GenericLogic):
         laser_power = self._get_laser_power()
         return laser_power * self.maximum_efficiency
 
-    def set_psat_points(self, minimum=0.0, maximum=None, points=40):
+    def set_psat_points(self, minimum=0.0, maximum=None, points=100):
         if maximum is None:
             maximum = self.current_maximum_power()*.95
         if maximum > self.current_maximum_power():
@@ -243,12 +243,6 @@ class AomLogic(GenericLogic):
 
         return 0
 
-    def on_deactivate(self):
-        """ Reverse steps of activation
-
-        @return int: error code (0:OK, -1:error)
-        """
-        return 0
 
     def set_clock_frequency(self, clock_frequency):
         """Sets the frequency of the clock

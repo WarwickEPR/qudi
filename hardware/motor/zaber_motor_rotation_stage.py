@@ -35,8 +35,8 @@ class MotorRotationZaber(Base, MotorInterface):
     _modclass = 'MotorRotation'
     _modtype = 'hardware'
 
-    _com_port_rot = ConfigOption('com_port_zaber', 'ASRL1::INSTR', missing='warn')
-    _rot_baud_rate = ConfigOption('zaber_baud_rate', 9600, missing='warn')
+    _com_port_rot = ConfigOption('com_port_zaber', 'COM7', missing='warn')
+    _rot_baud_rate = ConfigOption('zaber_baud_rate', 115200, missing='warn')
     _rot_timeout = ConfigOption('zaber_timeout', 5000, missing='warn')     #TIMEOUT shorter?
     _rot_term_char = ConfigOption('zaber_term_char', '\n', missing='warn')
 
@@ -130,11 +130,10 @@ class MotorRotationZaber(Base, MotorInterface):
                     self.log.warning('Desired step "{0}" is too small. Minimum is "{1}"'
                                         .format(angle, self._micro_step_size))
                     pos = self.get_pos(param_dict.keys())
-        except:
-            self.log.error('relative movement of zaber rotation stage is not possible')
+        except Exception as e:
+            self.log.error(e)
             pos = self.get_pos(param_dict.keys())
         return pos
-
 
     def move_abs(self, param_dict):
         """Moves stage to an absolute angle (absolute movement)
@@ -154,6 +153,7 @@ class MotorRotationZaber(Base, MotorInterface):
             self.log.error('absolute movement of zaber rotation stage is not possible')
             pos = self.get_pos(param_dict.keys())
         return pos
+
 
 
 
@@ -193,8 +193,8 @@ class MotorRotationZaber(Base, MotorInterface):
                     time.sleep(0.2)
                     pos[axis_label] = answer * self._micro_step_size
                     return pos
-        except:
-            self.log.error('Cannot find position of zaber-rotation-stage')
+        except Exception as e:
+            self.log.error(e)
             return -1
 
 

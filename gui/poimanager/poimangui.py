@@ -49,7 +49,7 @@ class PoiMark(pg.CircleROI):
         http://www.pyqtgraph.org/documentation/graphicsItems/roi.html
     """
 
-    color = "F0F"
+    color = "0F0" # Default is F0F
     selectcolor = "FFF"
     selected = False
     radius = 0.6e-6
