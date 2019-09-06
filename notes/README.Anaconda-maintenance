@@ -1,0 +1,28 @@
+Updating Anaconda:
+
+The Python package environment. The win10-64 config file under tools _should_ be up to date
+with requirements from upstream and presumably updated in their CI testing. However I've had
+trouble with updates sometimes. The package numbering ranges _should_ be safe though so you
+can also open a CMD shell and run:
+
+conda update --prefix=c:\Users\Confocal\Anaconda3 anaconda
+
+which will attempt to find the latest complaint set of packages.
+
+I'm not sure if after initial installation the Anaconda environment config
+is updated so slow changes like repositories/channels may not be updated.
+Cleanest way might be a "fresh" installation.
+
+
+My way is to skip the upstream install scripts as we have a working conda installation for the tools. Make/update an environment(via cmd or bash):
+
+conda create -n qudi
+source activate qudi
+# This sets the environment of the current shell to select the Python instance
+conda env update --file conda-env-win10-64bit-qt5.yml
+
+If we need other modules to support our additions, then by preference install them using conda and update the .yml source file to track the requirement.
+
+
+
+
