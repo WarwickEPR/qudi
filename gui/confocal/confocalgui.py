@@ -31,7 +31,7 @@ from core.statusvariable import StatusVar
 from qtwidgets.scan_plotwidget import ScanImageItem
 from gui.guibase import GUIBase
 from gui.guiutils import ColorBar
-from gui.colordefs import ColorScaleInferno
+from gui.colordefs import ColorScaleInferno, ColorScaleMagma, ColorScaleViridis, ColorScalePlasma, GreyScale
 from gui.colordefs import QudiPalettePale as palette
 from gui.fitsettings import FitParametersWidget
 from qtpy import QtCore
@@ -545,6 +545,7 @@ class ConfocalGui(GUIBase):
         #################################################################
         #           Connect the colorbar and their actions              #
         #################################################################
+
         # Get the colorscale and set the LUTs
         self.my_colors = ColorScaleInferno()
 
@@ -680,6 +681,19 @@ class ConfocalGui(GUIBase):
                 self.update_from_key(z=float(round(z_pos - self.slider_small_step, 10)))
             else:
                 event.ignore()
+
+    def set_colormap(self, colors):
+        # Get the colorscale and set the LUTs
+        self.my_colors = colors
+
+        self.xy_image.setLookupTable(colors.lut)
+        self.depth_image.setLookupTable(colors.lut)
+        self.xy_refocus_image.setLookupTable(colors.lut)
+
+        self.xy_cb.set_colormap(colors.cmap_normed)
+        self.depth_cb.set_colormap(colors.cmap_normed)
+        self.refresh_depth_colorbar()
+        self.refresh_xy_colorbar()
 
     def get_xy_cb_range(self):
         """ Determines the cb_min and cb_max values for the xy scan image
