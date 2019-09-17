@@ -33,7 +33,8 @@ from collections import OrderedDict
 
 import grpc
 import os
-import hardware.swabian_instruments.pulse_streamer_pb2 as pulse_streamer_pb2
+import hardware.swabian_instruments.pulse_streamer_pb2 as ps_pb
+import hardware.swabian_instruments.pulse_streamer_pb2_grpc as ps_grpc
 import dill
 
 
@@ -85,7 +86,7 @@ class PulseStreamer(Base, PulserInterface):
 
     def on_activate(self):
         """ Establish connection to pulse streamer and tell it to cancel all operations """
-        self.pulse_streamer = pulse_streamer_pb2.PulseStreamerStub(self._channel)
+        self.pulse_streamer = ps_grpc.PulseStreamerStub(self._channel)
         self.pulser_off()
         self.current_status = 0
 
@@ -153,8 +154,7 @@ class PulseStreamer(Base, PulserInterface):
         # channels. Here all possible channel configurations are stated, where only the generic
         # names should be used. The names for the different configurations can be customary chosen.
         activation_config = OrderedDict()
-        activation_config['all'] = ['d_ch1', 'd_ch2', 'd_ch3', 'd_ch4', 'd_ch5', 'd_ch6', 'd_ch7',
-                                    'd_ch8']
+        activation_config['all'] = {'d_ch1', 'd_ch2', 'd_ch3', 'd_ch4', 'd_ch5', 'd_ch6', 'd_ch7', 'd_ch8'}
         constraints.activation_config = activation_config
 
         return constraints
@@ -167,7 +167,7 @@ class PulseStreamer(Base, PulserInterface):
         # start the pulse sequence
         self.pulse_streamer.stream(self._sequence)
         self.log.info('Asset uploaded to PulseStreamer')
-        self.pulse_streamer.startNow(pulse_streamer_pb2.VoidMessage())
+        self.pulse_streamer.startNow(ps_pb.VoidMessage())
         self.current_status = 1
         return 0
 
@@ -178,7 +178,7 @@ class PulseStreamer(Base, PulserInterface):
         """
         # stop the pulse sequence
         channels = self._convert_to_bitmask([self._laser_channel, self._uw_x_channel])
-        self.pulse_streamer.constant(pulse_streamer_pb2.PulseMessage(ticks=0, digi=channels, ao0=0, ao1=0))
+        self.pulse_streamer.constant(ps_pb.PulseMessage(ticks=0, digi=channels, ao0=0, ao1=0))
         self.current_status = 0
         return 0
 
@@ -230,14 +230,14 @@ class PulseStreamer(Base, PulserInterface):
 
         pulse_sequence = []
         for pulse in pulse_sequence_raw:
-            pulse_sequence.append(pulse_streamer_pb2.PulseMessage(ticks=pulse[0], digi=pulse[1], ao0=0, ao1=1))
+            pulse_sequence.append(ps_pb.PulseMessage(ticks=pulse[0], digi=pulse[1], ao0=0, ao1=1))
 
-        blank_pulse = pulse_streamer_pb2.PulseMessage(ticks=0, digi=0, ao0=0, ao1=0)
-        laser_on = pulse_streamer_pb2.PulseMessage(ticks=0, digi=self._convert_to_bitmask([self._laser_channel]), ao0=0, ao1=0)
+        blank_pulse = ps_pb.PulseMessage(ticks=0, digi=0, ao0=0, ao1=0)
+        laser_on = ps_pb.PulseMessage(ticks=0, digi=self._convert_to_bitmask([self._laser_channel]), ao0=0, ao1=0)
         laser_and_uw_channels = self._convert_to_bitmask([self._laser_channel, self._uw_x_channel])
-        laser_and_uw_on = pulse_streamer_pb2.PulseMessage(ticks=0, digi=laser_and_uw_channels, ao0=0, ao1=0)
-        self._sequence = pulse_streamer_pb2.SequenceMessage(pulse=pulse_sequence, n_runs=0, initial=laser_on,
-            final=laser_and_uw_on, underflow=blank_pulse, start=1)
+        laser_and_uw_on = ps_pb.PulseMessage(ticks=0, digi=laser_and_uw_channels, ao0=0, ao1=0)
+        self._sequence = ps_pb.SequenceMessage(pulse=pulse_sequence, n_runs=0, initial=laser_on,
+                                               final=laser_and_uw_on, underflow=blank_pulse, start=1)
 
         self.current_loaded_asset = asset_name
         return 0
@@ -558,7 +558,7 @@ a
         @return int: error code (0:OK, -1:error)
         """
         channels = self._convert_to_bitmask([self._laser_channel, self._uw_x_channel])
-        self.pulse_streamer.constant(pulse_streamer_pb2.PulseMessage(ticks=0, digi=channels, ao0=0, ao1=0))
+        self.pulse_streamer.constant(ps_pb.PulseMessage(ticks=0, digi=channels, ao0=0, ao1=0))
         self.pulse_streamer.constant(laser_on)
         return 0
 
@@ -623,3 +623,35 @@ a
             #                   => 0b1111
             bits = bits | (1<< channel)
         return bits
+
+    def load_waveform(self, load_dict):
+        pass
+
+    def load_sequence(self, sequence_name):
+        pass
+
+    def get_loaded_assets(self):
+        if self.current_loaded_asset is not None:
+            return self.current_loaded_asset, 'sequence'
+        else:
+            return {}, 'sequence'
+
+    def write_waveform(self, name, analog_samples, digital_samples, is_first_chunk, is_last_chunk,
+                       total_number_of_samples):
+        return total_number_of_samples, [name]
+
+    def write_sequence(self, name, sequence_parameters):
+        return []
+
+    def get_waveform_names(self):
+        return []
+
+    def get_sequence_names(self):
+        return []
+
+    def delete_waveform(self, waveform_name):
+        return []
+
+    def delete_sequence(self, sequence_name):
+        return []
+

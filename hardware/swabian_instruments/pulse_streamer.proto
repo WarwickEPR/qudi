@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+// retrieved from: https://www.swabianinstruments.com/static/documentation/PulseStreamer/sections/interface.html#grpc-interface
+// generate with: python -m grpc_tools.protoc -I=./ --python_out=. --grpc_python_out=. ./pulse_streamer.proto
+// in the appropriate Anaconda environment (e.g. conda activate qudi)
+
+package pulse_streamer;
+
+message VoidMessage {}
+
+message PulseMessage {
+    uint32 ticks = 1;
+    uint32 digi = 2;
+    int32 ao0 = 3;
+    int32 ao1 = 4;
+}
+
+message SequenceMessage {
+    repeated PulseMessage pulse = 1;
+    int64 n_runs = 2;
+    PulseMessage final = 3;
+}
+
+message TriggerMessage {
+    enum Start {
+        IMMEDIATE = 0;
+        SOFTWARE = 1;
+        HARDWARE_RISING = 2;
+        HARDWARE_FALLING = 3;
+        HARDWARE_RISING_AND_FALLING = 4;
+    }
+    Start start = 1;
+    enum Mode {
+        NORMAL = 0;
+        SINGLE = 1;
+    }
+    Mode mode = 2;
+}
+
+message ClockMessage {
+    enum Clocking {
+        INTERNAL = 0;
+        EXT_125MHZ = 1;
+        EXT_10MHZ = 2;
+    }
+    Clocking clock_source = 1;
+}
+
+message GetSerialMessage{
+    enum Serial{
+        ID=0;
+        MAC=1;
+    }
+    Serial serial =1;
+}
+
+message PulseStreamerReply {
+    uint32 value = 1;
+}
+
+message PulseStreamerStringReply {
+    string string_value=1;
+}
+
+service PulseStreamer {
+    rpc reset (VoidMessage) returns (PulseStreamerReply) {}
+    rpc constant (PulseMessage) returns (PulseStreamerReply) {}
+    rpc forceFinal (VoidMessage) returns (PulseStreamerReply) {}
+    rpc stream (SequenceMessage) returns (PulseStreamerReply) {}
+    rpc startNow (VoidMessage) returns (PulseStreamerReply) {}
+    rpc setTrigger (TriggerMessage) returns (PulseStreamerReply) {}
+    rpc rearm (VoidMessage) returns (PulseStreamerReply) {}
+    rpc selectClock (ClockMessage) returns (PulseStreamerReply) {}
+    rpc isStreaming (VoidMessage) returns (PulseStreamerReply) {}
+    rpc hasSequence (VoidMessage) returns (PulseStreamerReply) {}
+    rpc hasFinished (VoidMessage) returns (PulseStreamerReply) {}
+    rpc getFirmwareVersion (VoidMessage) returns (PulseStreamerStringReply) {}
+    rpc getSerial (GetSerialMessage) returns (PulseStreamerStringReply) {}
+}
