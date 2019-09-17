@@ -21,6 +21,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 from core.module import Base
 from core.configoption import ConfigOption
+from core.util.mutex import Mutex
 from interface.simple_laser_interface import SimpleLaserInterface
 from interface.simple_laser_interface import ControlMode
 from interface.simple_laser_interface import ShutterState
@@ -55,6 +56,10 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
     serial_interface = ConfigOption('interface', 'ASRL1::INSTR', missing='warn')
     maxpower = ConfigOption('maxpower', 0.250, missing='warn')
     psu_type = ConfigOption('psu', 'SMD6000', missing='warn')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.threadlock = Mutex()
 
     def on_activate(self):
         """ Activate module.
@@ -91,6 +96,39 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
         else:
             return True
 
+    def query(self, x):
+        """Wrap VISA query to silence unhelpful errors from occasional failures to poll the GEM laser status"""
+        attempts = 4
+        exception = None
+        for i in range(1, attempts):
+            try:
+                with self.threadlock:
+                    return self.inst.query(x)
+            except visa.VisaIOError as err:
+                self.log.warn('LaserQuantum VISA query failed attempt {}'.format(i))
+                exception = err
+                # retry
+                continue
+        # tried but failed, re-raise latest of original exception
+        raise visa.VisaIOError from exception
+
+    def write(self, x):
+        """Wrap VISA write to silence unhelpful errors from occasional failures to poll the GEM laser status"""
+        attempts = 4
+        exception = None
+        for i in range(1, attempts):
+            try:
+                with self.threadlock:
+                    return self.inst.write(x)
+            except visa.VisaIOError as err:
+                self.log.warn('LaserQuantum VISA write failed attempt {}'.format(i))
+                exception = err
+                # retry
+                continue
+        # tried but failed, re-raise latest of original exception
+        raise visa.VisaIOError from exception
+
+
     def disconnect_laser(self):
         """ Close the connection to the instrument.
         """
@@ -117,7 +155,7 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
         elif self.psu in (PSUTypes.SMD6000, PSUTypes.SMD12):
             return ControlMode.POWER
         else:
-            return ControlMode[self.inst.query('CONTROL?')]
+            return ControlMode[self.query('CONTROL?')]
 
     def set_control_mode(self, mode):
         """ Set laser control mode.
@@ -131,12 +169,12 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
             return ControlMode.POWER
         else:
             if mode == ControlMode.POWER:
-                reply1 = self.inst.query('PFB=OFF')
-                reply2 = self.inst.query('CONTROL=POWER')
+                reply1 = self.query('PFB=OFF')
+                reply2 = self.query('CONTROL=POWER')
                 self.log.debug("Set POWER control mode {0}, {1}.".format(reply1, reply2))
             else:
-                reply1 = self.inst.query('PFB=ON')
-                reply2 = self.inst.query('CONTROL=CURRENT')
+                reply1 = self.query('PFB=ON')
+                reply2 = self.query('CONTROL=CURRENT')
                 self.log.debug("Set CURRENT control mode {0}, {1}.".format(reply1, reply2))
         return self.get_control_mode()
 
@@ -145,17 +183,26 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
 
             @return float: laser power in watts
         """
-        answer = self.inst.query('POWER?')
-        try:
-            if "mW" in answer:
-                return float(answer.split('mW')[0])/1000
-            elif 'W' in answer:
-                return float(answer.split('W')[0])
-            else:
-                return float(answer)
-        except ValueError:
-            self.log.exception("Answer was {0}.".format(answer))
-            return -1
+        attempts = 3
+        exception = None
+        answer = ''
+        for i in range(1, attempts):
+            try:
+                answer = self.query('POWER?')
+                if "mW" in answer:
+                    return float(answer.split('mW')[0]) / 1000
+                elif 'W' in answer:
+                    return float(answer.split('W')[0])
+                else:
+                    return float(answer)
+            except ValueError as err:
+                self.log.exception("Laser 'POWER?' unexpected response {0}.".format(answer))
+                exception = err
+                # retry
+                continue
+
+        # tried but failed, re-raise latest of original exception
+        raise exception
 
     def get_power_setpoint(self):
         """ Get the laser power setpoint.
@@ -163,7 +210,7 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
         @return float: laser power setpoint in watts
         """
         if self.psu == PSUTypes.FPU:
-            answer = self.inst.query('SETPOWER?')
+            answer = self.query('SETPOWER?')
             try:
                 if "mW" in answer:
                     return float(answer.split('mW')[0]) / 1000
@@ -190,9 +237,9 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
         @param float power: desired laser power in watts
         """
         if self.psu == PSUTypes.FPU:
-            self.inst.query('POWER={0:f}'.format(power))
+            self.query('POWER={0:f}'.format(power))
         else:
-            self.inst.query('POWER={0:f}'.format(power*1000))
+            self.query('POWER={0:f}'.format(power*1000))
 
     def get_current_unit(self):
         """ Get unit for laser current.
@@ -209,33 +256,71 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
         return 0, 100
 
     def get_current(self):
-        """ Cet current laser current
+        """ Get current laser current
 
         @return float: current laser current
         """
-        if self.psu == PSUTypes.MPC3000 or self.psu == PSUTypes.MPC6000:
-            return float(self.inst.query('SETCURRENT1?').split('%')[0])
-        else:
-            return float(self.inst.query('CURRENT?').split('%')[0])
+
+        attempts = 3
+        exception = None
+        answer = ''
+        for i in range(1, attempts):
+            try:
+                if self.psu == PSUTypes.MPC3000 or self.psu == PSUTypes.MPC6000:
+                    answer = self.query('SETCURRENT1?')
+                    return float(answer.split('%')[0])
+                else:
+                    answer = self.query('CURRENT?')
+                    return float(answer.split('%')[0])
+            except ValueError as err:
+                self.log.exception("Laser 'CURRENT?/SETCURRENT?' unexpected response {0}.".format(answer))
+                exception = err
+                # retry
+                continue
+
+        # tried but failed, re-raise latest of original exception
+        raise exception
+
+    def get_set_current(self):
+        """ Get current current laser current setpoint
+
+        @return float: laser current setpoint
+        """
+
+        attempts = 3
+        exception = None
+        answer = ''
+        for i in range(1, attempts):
+            try:
+                if self.psu in (PSUTypes.MPC3000, PSUTypes.MPC6000):
+                    answer = self.query('SETCURRENT1?')
+                elif self.psu in (PSUTypes.SMD6000, PSUTypes.SMD12):
+                    answer = self.query('CURRENT?')
+                else:
+                    answer = self.query('SETCURRENT?')
+                return float(answer.split('%')[0])
+            except ValueError as err:
+                self.log.exception("Laser 'SETCURRENT?/CURRENT?' unexpected response {0}.".format(answer))
+                exception = err
+                # retry
+                continue
+
+        # tried but failed, re-raise latest of original exception
+        raise exception
+
 
     def get_current_setpoint(self):
         """ Current laser current setpoint.
 
         @return float: laser current setpoint
         """
-        if self.psu in (PSUTypes.MPC3000, PSUTypes.MPC6000):
-            return float(self.inst.query('SETCURRENT1?').split('%')[0])
-        elif self.psu in(PSUTypes.SMD6000, PSUTypes.SMD12):
-            return float(self.inst.query('CURRENT?').split('%')[0])
-        else:
-            return float(self.inst.query('SETCURRENT?').split('%')[0])
 
     def set_current(self, current_percent):
         """ Set laser current setpoint.
 
         @param float current_percent: laser current setpoint
         """
-        self.inst.query('CURRENT={0}'.format(current_percent))
+        self.query('CURRENT={0}'.format(current_percent))
         return self.get_current()
 
     def get_shutter_state(self):
@@ -244,7 +329,7 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
         @return ShutterState: laser shutter state
         """
         if self.psu == PSUTypes.FPU:
-            state = self.inst.query('SHUTTER?')
+            state = self.query('SHUTTER?')
             if 'OPEN' in state:
                 return ShutterState.OPEN
             elif 'CLOSED' in state:
@@ -264,9 +349,9 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
             actstate = self.get_shutter_state()
             if state != actstate:
                 if state == ShutterState.OPEN:
-                    self.inst.query('SHUTTER OPEN')
+                    self.query('SHUTTER OPEN')
                 elif state == ShutterState.CLOSED:
-                    self.inst.query('SHUTTER CLOSE')
+                    self.query('SHUTTER CLOSE')
         return self.get_shutter_state()
 
     def get_psu_temperature(self):
@@ -274,14 +359,42 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
 
         @return float: power supply temperature
         """
-        return float(self.inst.query('PSUTEMP?').split('C')[0])
+        attempts = 3
+        exception = None
+        answer = ''
+        for i in range(1, attempts):
+            try:
+                answer = self.query('PSUTEMP?')
+                return float(answer.split('C')[0])
+            except ValueError as err:
+                self.log.exception("Laser 'PSUTEMP?' unexpected response {0}.".format(answer))
+                exception = err
+                # retry
+                continue
+
+        # tried but failed, re-raise latest of original exception
+        raise exception
 
     def get_laser_temperature(self):
-        """ Get laser head temperature
+        """ Get power supply temperature
 
-        @return float: laser head temperature
+        @return float: power supply temperature
         """
-        return float(self.inst.query('LASTEMP?').split('C')[0])
+        attempts = 3
+        exception = None
+        answer = ''
+        for i in range(1, attempts):
+            try:
+                answer = self.query('LASTEMP?')
+                return float(answer.split('C')[0])
+            except ValueError as err:
+                self.log.exception("Laser 'LASTEMP?' unexpected response {0}.".format(answer))
+                exception = err
+                # retry
+                continue
+
+        # tried but failed, re-raise latest of original exception
+        raise exception
 
     def get_temperatures(self):
         """ Get all available temperatures.
@@ -315,7 +428,7 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
         if self.psu in(PSUTypes.SMD12, PSUTypes.SMD600):
             return ''
         else:
-            return self.inst.query('STATUSLCD?')
+            return self.query('STATUSLCD?')
 
     def get_laser_state(self):
         """ Get laser operation state
@@ -323,9 +436,9 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
         @return LaserState: laser state
         """
         if self.psu == PSUTypes.SMD6000:
-            state = self.inst.query('STAT?')
+            state = self.query('STAT?')
         else:
-            state = self.inst.query('STATUS?')
+            state = self.query('STATUS?')
         if 'ENABLED' in state:
             return LaserState.ON
         elif 'DISABLED' in state:
@@ -342,9 +455,9 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
         actstat = self.get_laser_state()
         if actstat != status:
             if status == LaserState.ON:
-                self.inst.query('ON')
+                self.query('ON')
             elif status == LaserState.OFF:
-                self.inst.query('OFF')
+                self.query('OFF')
         return self.get_laser_state()
 
     def on(self):
@@ -367,9 +480,9 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
         @return str: what the laser tells you about itself
         """
         if self.psu == PSUTypes.SMD6000:
-            self.inst.write('VERSION')
+            self.write('VERSION')
         else:
-            self.inst.write('SOFTVER?')
+            self.write('SOFTVER?')
         lines = []
         try:
             while True:
@@ -383,7 +496,7 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
 
         @return str: diagnostic information dump from laser
         """
-        self.inst.write('DUMP ')
+        self.write('DUMP ')
         lines = []
         try:
             while True:
@@ -397,7 +510,7 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
 
             @return str: runtimes of components
         """
-        self.inst.write('TIMERS')
+        self.write('TIMERS')
         lines = []
         try:
             while True:
