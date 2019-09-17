@@ -200,10 +200,7 @@ class RPyCServer(QObject):
                 hostname=self.host,
                 port=self.port,
                 protocol_config={'allow_all_attrs': True},
-                authenticator=authenticator,
-                cert_reqs=ssl.CERT_REQUIRED,
-                ciphers='EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH',
-                ssl_version=ssl.PROTOCOL_TLSv1_2)
+                authenticator=authenticator)
         else:
             self.server = ThreadedServer(
                 self.serviceClass,

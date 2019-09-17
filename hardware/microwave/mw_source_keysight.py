@@ -26,7 +26,8 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 import visa
 import time
 
-from core.module import Base, ConfigOption
+from core.module import Base
+from core.configoption import ConfigOption
 from interface.microwave_interface import MicrowaveInterface
 from interface.microwave_interface import MicrowaveLimits
 from interface.microwave_interface import MicrowaveMode
@@ -326,25 +327,30 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         return 1
 
 
-    def set_ext_trigger(self, pol=TriggerEdge.RISING):
+    def set_ext_trigger(self, pol, timing):
         """ Set the external trigger for this device with proper polarization.
 
         @param str source: channel name, where external trigger is expected.
         @param str pol: polarisation of the trigger (basically rising edge or
                         falling edge)
+        @param float timing: estimated time between triggers
 
-        @return int: error code (0:OK, -1:error)
+        @return object, float: current trigger polarity [TriggerEdge.RISING, TriggerEdge.FALLING], trigger timing
+
         """
         if pol == TriggerEdge.RISING:
             edge = 'POS'
         elif pol == TriggerEdge.FALLING:
             edge = 'NEG'
         else:
-            return -1
+            self.log.warning("Invalid trigger edge polarity")
+            return pol, timing
+
         try:
             self._connection.write(':LIST:TRIG:EXT:SOUR {0}'.format(self._trigger))
             self._connection.write(':LIST:TRIG:SLOP {0}'.format(edge))
-
         except:
-            return -1
-        return 0
+            self.log.warning("Failed to configure Keysight external trigger")
+            return pol, timing
+
+        return pol, timing
