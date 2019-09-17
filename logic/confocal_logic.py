@@ -295,6 +295,11 @@ class ConfocalLogic(GenericLogic):
         self.depth_scan_dir_is_xz = True
         self.depth_img_is_xz = True
         self.permanent_scan = False
+        self.image_x_range = [0, 0]
+        self.image_y_range = [0, 0]
+        self.image_z_range = [0, 0]
+        self.z_resolution = 1
+        self.xy_resolution = 1
 
     def on_activate(self):
         """ Initialisation performed during activation of the module.
@@ -306,6 +311,9 @@ class ConfocalLogic(GenericLogic):
         self.x_range = self._scanning_device.get_position_range()[0]
         self.y_range = self._scanning_device.get_position_range()[1]
         self.z_range = self._scanning_device.get_position_range()[2]
+        self.image_x_range[:] = self.x_range[:]
+        self.image_y_range[:] = self.y_range[:]
+        self.image_z_range[:] = self.z_range[:]
 
         # restore here ...
         self.history = []
@@ -381,6 +389,12 @@ class ConfocalLogic(GenericLogic):
             return -1
         else:
             return 0
+
+    def set_z_resolution(self, res):
+        self.z_resolution = res
+
+    def set_xy_resolution(self, res):
+        self.xy_resolution = res
 
     def start_scanning(self, zscan = False, tag='logic'):
         """Starts scanning
@@ -477,6 +491,8 @@ class ConfocalLogic(GenericLogic):
             else:
                 self._Y = np.linspace(y1, y2, max(self.xy_resolution, 2))
                 self._X = np.linspace(x1, x2, max(int(self.xy_resolution*(x2-x1)/(y2-y1)), 2))
+
+        self.log.debug('Initialising depth image ({},{}) ({},{}), ({},{})'.format(x1, x2, y1, y2, z1, z2))
 
         self._XL = self._X
         self._YL = self._Y

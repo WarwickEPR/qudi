@@ -1264,31 +1264,34 @@ class ConfocalGui(GUIBase):
     def change_xy_resolution(self):
         """ Update the xy resolution in the logic according to the GUI.
         """
-        self._scanning_logic.xy_resolution = self._mw.xy_res_InputWidget.value()
+        self._scanning_logic.set_xy_resolution(self._mw.xy_res_InputWidget.value())
+        self.log.debug('Updated xy_resolution to {}'.format(self._scanning_logic.xy_resolution))
 
     def change_z_resolution(self):
         """ Update the z resolution in the logic according to the GUI.
         """
-        self._scanning_logic.z_resolution = self._mw.z_res_InputWidget.value()
+        self._scanning_logic.set_z_resolution(self._mw.z_res_InputWidget.value())
+        self.log.debug('Updated z_resolution to {}'.format(self._scanning_logic.z_resolution))
+
 
     def change_x_image_range(self):
-        """ Adjust the image range for x in the logic. """
-        self._scanning_logic.image_x_range = [
-            self._mw.x_min_InputWidget.value(),
-            self._mw.x_max_InputWidget.value()]
+        self._scanning_logic.image_x_range[0] = self._mw.x_min_InputWidget.value()
+        self._scanning_logic.image_x_range[1] = self._mw.x_max_InputWidget.value()
+        self.log.debug('Updated image_x_range to {}'.format(self._scanning_logic.image_x_range))
 
     def change_y_image_range(self):
         """ Adjust the image range for y in the logic.
         """
-        self._scanning_logic.image_y_range = [
-            self._mw.y_min_InputWidget.value(),
-            self._mw.y_max_InputWidget.value()]
+        self._scanning_logic.image_y_range[0] = self._mw.y_min_InputWidget.value()
+        self._scanning_logic.image_y_range[1] = self._mw.y_max_InputWidget.value()
+        self.log.debug('Updated image_y_range to {}'.format(self._scanning_logic.image_y_range))
+
 
     def change_z_image_range(self):
         """ Adjust the image range for z in the logic. """
-        self._scanning_logic.image_z_range = [
-            self._mw.z_min_InputWidget.value(),
-            self._mw.z_max_InputWidget.value()]
+        self._scanning_logic.image_z_range[0] = self._mw.z_min_InputWidget.value()
+        self._scanning_logic.image_z_range[1] = self._mw.z_max_InputWidget.value()
+        self.log.debug('Updated image_z_range to {}'.format(self._scanning_logic.image_z_range))
 
     def update_tilt_correction(self):
         """ Update all tilt points from the scanner logic. """
