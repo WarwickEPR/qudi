@@ -85,23 +85,24 @@ class ConfocalHistoryEntry(QtCore.QObject):
         self.xy_scan_continuable = False
         self.depth_scan_continuable = False
 
-        # tilt correction stuff:
-        self.tilt_correction = False
-        # rotation point for tilt correction
-        self.tilt_reference_x = 0.5 * (self.x_range[0] + self.x_range[1])
-        self.tilt_reference_y = 0.5 * (self.y_range[0] + self.y_range[1])
-        # sample slope
-        self.tilt_slope_x = 0
-        self.tilt_slope_y = 0
-        # tilt correction points
-        self.point1 = np.array((0, 0, 0))
-        self.point2 = np.array((0, 0, 0))
-        self.point3 = np.array((0, 0, 0))
-        self.tilt_correction = False
-        self.tilt_slope_x = 0
-        self.tilt_slope_y = 0
-        self.tilt_reference_x = 0
-        self.tilt_reference_y = 0
+        if hasattr(confocal._scanning_device, 'tiltcorrection'):
+            # tilt correction stuff:
+            self.tilt_correction = False
+            # rotation point for tilt correction
+            self.tilt_reference_x = 0.5 * (self.x_range[0] + self.x_range[1])
+            self.tilt_reference_y = 0.5 * (self.y_range[0] + self.y_range[1])
+            # sample slope
+            self.tilt_slope_x = 0
+            self.tilt_slope_y = 0
+            # tilt correction points
+            self.point1 = np.array((0, 0, 0))
+            self.point2 = np.array((0, 0, 0))
+            self.point3 = np.array((0, 0, 0))
+            self.tilt_correction = False
+            self.tilt_slope_x = 0
+            self.tilt_slope_y = 0
+            self.tilt_reference_x = 0
+            self.tilt_reference_y = 0
 
     def restore(self, confocal):
         """ Write data back into confocal logic and pull all the necessary strings """
@@ -124,11 +125,12 @@ class ConfocalHistoryEntry(QtCore.QObject):
         confocal.point1 = np.copy(self.point1)
         confocal.point2 = np.copy(self.point2)
         confocal.point3 = np.copy(self.point3)
-        confocal._scanning_device.tilt_variable_ax = self.tilt_slope_x
-        confocal._scanning_device.tilt_variable_ay = self.tilt_slope_y
-        confocal._scanning_device.tilt_reference_x = self.tilt_reference_x
-        confocal._scanning_device.tilt_reference_y = self.tilt_reference_y
-        confocal._scanning_device.tiltcorrection = self.tilt_correction
+        if hasattr(confocal._scanning_device, 'tiltcorrection'):
+            confocal._scanning_device.tilt_variable_ax = self.tilt_slope_x
+            confocal._scanning_device.tilt_variable_ay = self.tilt_slope_y
+            confocal._scanning_device.tilt_reference_x = self.tilt_reference_x
+            confocal._scanning_device.tilt_reference_y = self.tilt_reference_y
+            confocal._scanning_device.tiltcorrection = self.tilt_correction
 
         confocal.initialize_image()
         try:
@@ -164,11 +166,12 @@ class ConfocalHistoryEntry(QtCore.QObject):
         self.xy_scan_continuable = confocal._xyscan_continuable
         self.depth_scan_continuable = confocal._zscan_continuable
         self.scan_counter = confocal._scan_counter
-        self.tilt_correction = confocal._scanning_device.tiltcorrection
-        self.tilt_slope_x = confocal._scanning_device.tilt_variable_ax
-        self.tilt_slope_y = confocal._scanning_device.tilt_variable_ay
-        self.tilt_reference_x = confocal._scanning_device.tilt_reference_x
-        self.tilt_reference_y = confocal._scanning_device.tilt_reference_y
+        if hasattr(confocal, '_scanning_device') and hasattr(confocal._scanning_device, 'tilt_variable_ax'):
+            self.tilt_correction = confocal._scanning_device.tiltcorrection
+            self.tilt_slope_x = confocal._scanning_device.tilt_variable_ax
+            self.tilt_slope_y = confocal._scanning_device.tilt_variable_ay
+            self.tilt_reference_x = confocal._scanning_device.tilt_reference_x
+            self.tilt_reference_y = confocal._scanning_device.tilt_reference_y
         self.point1 = np.copy(confocal.point1)
         self.point2 = np.copy(confocal.point2)
         self.point3 = np.copy(confocal.point3)
@@ -191,12 +194,13 @@ class ConfocalHistoryEntry(QtCore.QObject):
         serialized['xy_scan_cont'] = self.xy_scan_continuable
         serialized['depth_scan_cont'] = self.depth_scan_continuable
         serialized['scan_counter'] = self.scan_counter
-        serialized['tilt_correction'] = self.tilt_correction
-        serialized['tilt_point1'] = list(self.point1)
-        serialized['tilt_point2'] = list(self.point2)
-        serialized['tilt_point3'] = list(self.point3)
-        serialized['tilt_reference'] = [self.tilt_reference_x, self.tilt_reference_y]
-        serialized['tilt_slope'] = [self.tilt_slope_x, self.tilt_slope_y]
+        if hasattr(self, 'tilt_correction'):
+            serialized['tilt_correction'] = self.tilt_correction
+            serialized['tilt_point1'] = list(self.point1)
+            serialized['tilt_point2'] = list(self.point2)
+            serialized['tilt_point3'] = list(self.point3)
+            serialized['tilt_reference'] = [self.tilt_reference_x, self.tilt_reference_y]
+            serialized['tilt_slope'] = [self.tilt_slope_x, self.tilt_slope_y]
         serialized['xy_image'] = self.xy_image
         serialized['depth_image'] = self.depth_image
         return serialized
@@ -1218,10 +1222,11 @@ class ConfocalLogic(GenericLogic):
 
             @param bool enabled: whether we want to use tilt correction
         """
-        self._scanning_device.tiltcorrection = enabled
-        self._scanning_device.tilt_reference_x = self._scanning_device.get_scanner_position()[0]
-        self._scanning_device.tilt_reference_y = self._scanning_device.get_scanner_position()[1]
-        self.signal_tilt_correction_active.emit(enabled)
+        if hasattr(self._scanning_device, 'tiltcorrection'):
+            self._scanning_device.tiltcorrection = enabled
+            self._scanning_device.tilt_reference_x = self._scanning_device.get_scanner_position()[0]
+            self._scanning_device.tilt_reference_y = self._scanning_device.get_scanner_position()[1]
+            self.signal_tilt_correction_active.emit(enabled)
 
     def history_forward(self):
         """ Move forward in confocal image history.
@@ -1231,8 +1236,9 @@ class ConfocalLogic(GenericLogic):
             self.history[self.history_index].restore(self)
             self.signal_xy_image_updated.emit()
             self.signal_depth_image_updated.emit()
-            self.signal_tilt_correction_update.emit()
-            self.signal_tilt_correction_active.emit(self._scanning_device.tiltcorrection)
+            if hasattr(self._scanning_device,'tiltcorrection'):
+                self.signal_tilt_correction_update.emit()
+                self.signal_tilt_correction_active.emit(self._scanning_device.tiltcorrection)
             self._change_position('history')
             self.signal_change_position.emit('history')
             self.signal_history_event.emit()
@@ -1245,8 +1251,9 @@ class ConfocalLogic(GenericLogic):
             self.history[self.history_index].restore(self)
             self.signal_xy_image_updated.emit()
             self.signal_depth_image_updated.emit()
-            self.signal_tilt_correction_update.emit()
-            self.signal_tilt_correction_active.emit(self._scanning_device.tiltcorrection)
+            if hasattr(self._scanning_device, 'tiltcorrection'):
+                self.signal_tilt_correction_update.emit()
+                self.signal_tilt_correction_active.emit(self._scanning_device.tiltcorrection)
             self._change_position('history')
             self.signal_change_position.emit('history')
             self.signal_history_event.emit()
