@@ -418,20 +418,20 @@ class ConfocalGui(GUIBase):
         self._scanning_logic.signal_history_event.connect(self.change_z_image_range)
 
         # Get initial tilt correction values
-        self._mw.action_TiltCorrection.setChecked(
-            self._scanning_logic._scanning_device.tiltcorrection)
+        if hasattr(self._scanning_logic._scanning_device, 'tiltcorrection'):
+            self._mw.action_TiltCorrection.setChecked(self._scanning_logic._scanning_device.tiltcorrection)
 
-        self._mw.tilt_01_x_pos_doubleSpinBox.setValue(self._scanning_logic.point1[0])
-        self._mw.tilt_01_y_pos_doubleSpinBox.setValue(self._scanning_logic.point1[1])
-        self._mw.tilt_01_z_pos_doubleSpinBox.setValue(self._scanning_logic.point1[2])
+            self._mw.tilt_01_x_pos_doubleSpinBox.setValue(self._scanning_logic.point1[0])
+            self._mw.tilt_01_y_pos_doubleSpinBox.setValue(self._scanning_logic.point1[1])
+            self._mw.tilt_01_z_pos_doubleSpinBox.setValue(self._scanning_logic.point1[2])
 
-        self._mw.tilt_02_x_pos_doubleSpinBox.setValue(self._scanning_logic.point2[0])
-        self._mw.tilt_02_y_pos_doubleSpinBox.setValue(self._scanning_logic.point2[1])
-        self._mw.tilt_02_z_pos_doubleSpinBox.setValue(self._scanning_logic.point2[2])
+            self._mw.tilt_02_x_pos_doubleSpinBox.setValue(self._scanning_logic.point2[0])
+            self._mw.tilt_02_y_pos_doubleSpinBox.setValue(self._scanning_logic.point2[1])
+            self._mw.tilt_02_z_pos_doubleSpinBox.setValue(self._scanning_logic.point2[2])
 
-        self._mw.tilt_03_x_pos_doubleSpinBox.setValue(self._scanning_logic.point3[0])
-        self._mw.tilt_03_y_pos_doubleSpinBox.setValue(self._scanning_logic.point3[1])
-        self._mw.tilt_03_z_pos_doubleSpinBox.setValue(self._scanning_logic.point3[2])
+            self._mw.tilt_03_x_pos_doubleSpinBox.setValue(self._scanning_logic.point3[0])
+            self._mw.tilt_03_y_pos_doubleSpinBox.setValue(self._scanning_logic.point3[1])
+            self._mw.tilt_03_z_pos_doubleSpinBox.setValue(self._scanning_logic.point3[2])
 
         # Connect tilt correction buttons
         self._mw.action_TiltCorrection.triggered.connect(self._scanning_logic.set_tilt_correction)
@@ -440,8 +440,7 @@ class ConfocalGui(GUIBase):
         self._mw.tilt_set_03_pushButton.clicked.connect(self._scanning_logic.set_tilt_point3)
         self._mw.calc_tilt_pushButton.clicked.connect(self._scanning_logic.calc_tilt_correction)
         self._scanning_logic.signal_tilt_correction_update.connect(self.update_tilt_correction)
-        self._scanning_logic.signal_tilt_correction_active.connect(
-            self._mw.action_TiltCorrection.setChecked)
+        self._scanning_logic.signal_tilt_correction_active.connect(self._mw.action_TiltCorrection.setChecked)
 
         # Connect the default view action
         self._mw.restore_default_view_Action.triggered.connect(self.restore_default_view)

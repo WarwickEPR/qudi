@@ -122,10 +122,10 @@ class ConfocalHistoryEntry(QtCore.QObject):
         confocal._xyscan_continuable = self.xy_scan_continuable
         confocal._zscan_continuable = self.depth_scan_continuable
         confocal._scan_counter = self.scan_counter
-        confocal.point1 = np.copy(self.point1)
-        confocal.point2 = np.copy(self.point2)
-        confocal.point3 = np.copy(self.point3)
         if hasattr(confocal._scanning_device, 'tiltcorrection'):
+            confocal.point1 = np.copy(self.point1)
+            confocal.point2 = np.copy(self.point2)
+            confocal.point3 = np.copy(self.point3)
             confocal._scanning_device.tilt_variable_ax = self.tilt_slope_x
             confocal._scanning_device.tilt_variable_ay = self.tilt_slope_y
             confocal._scanning_device.tilt_reference_x = self.tilt_reference_x
@@ -172,9 +172,9 @@ class ConfocalHistoryEntry(QtCore.QObject):
             self.tilt_slope_y = confocal._scanning_device.tilt_variable_ay
             self.tilt_reference_x = confocal._scanning_device.tilt_reference_x
             self.tilt_reference_y = confocal._scanning_device.tilt_reference_y
-        self.point1 = np.copy(confocal.point1)
-        self.point2 = np.copy(confocal.point2)
-        self.point3 = np.copy(confocal.point3)
+            self.point1 = np.copy(confocal.point1)
+            self.point2 = np.copy(confocal.point2)
+            self.point3 = np.copy(confocal.point3)
         self.xy_image = np.copy(confocal.xy_image)
         self.depth_image = np.copy(confocal.depth_image)
 
