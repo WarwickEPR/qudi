@@ -21,7 +21,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 """
 
 
-from core.interface import abstract_interface_method
+from core.interface import abstract_interface_method, interface_method
 from core.meta import InterfaceMetaclass
 from core.interface import ScalarConstraint
 from enum import Enum
@@ -190,6 +190,18 @@ class PulserInterface(metaclass=InterfaceMetaclass):
         being associated to a SINGLE wavfeorm asset.
         """
         pass
+
+    @interface_method
+    def set_pulse_ensemble(self, ensemble):
+        """ Set up the pulse ensemble on the pulser device. For use in non-sampling pulsers that
+        take a programmatic description of pulse trains. Complementary to load_waveforms and
+        ignored for devices which do not implement a method of high-level configuration without
+        sampling.
+
+        @param ensemble: a PulseBlockEnsemble
+
+        """
+        return False
 
     @abstract_interface_method
     def load_sequence(self, sequence_name):
