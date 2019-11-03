@@ -12,6 +12,7 @@ Qudi is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
+(at your option) any later version.
 
 Qudi is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -27,15 +28,10 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 from core.module import Base
 from core.configoption import ConfigOption
-from core.util.modules import get_home_dir
 from interface.pulser_interface import PulserInterface, PulserConstraints
 from collections import OrderedDict
-
-import grpc
+import pulsestreamer as ps
 import os
-import hardware.swabian_instruments.pulse_streamer_pb2 as ps_pb
-import hardware.swabian_instruments.pulse_streamer_pb2_grpc as ps_grpc
-import dill
 
 
 class PulseStreamer(Base, PulserInterface):
@@ -45,48 +41,44 @@ class PulseStreamer(Base, PulserInterface):
 
     pulse_streamer:
         module.Class: 'swabian_instruments.pulse_streamer.PulseStreamer'
-        pulsestreamer_ip: '192.168.1.100'
+        ip_address: '192.168.1.100'
         laser_channel: 0
         uw_x_channel: 2
 
     """
 
-    _pulsestreamer_ip = ConfigOption('pulsestreamer_ip', '192.168.1.100', missing='warn')
-    _laser_channel = ConfigOption('laser_channel', 0, missing='warn')
-    _uw_x_channel = ConfigOption('uw_x_channel', 2, missing='warn')
+    _ip_address = ConfigOption('ip_address', '169.254.8.2', missing='warn')
+    _laser_channel = ConfigOption('laser_channel', 'd_ch1', missing='warn')
+    _uw_x_channel = ConfigOption('uw_x_channel', 'd_ch2', missing='warn')
+    _uw_y_channel = ConfigOption('uw_y_channel', 'd_ch3', missing='warn')
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
-
-        if 'pulsed_file_dir' in config.keys():
-            self.pulsed_file_dir = config['pulsed_file_dir']
-
-            if not os.path.exists(self.pulsed_file_dir):
-                homedir = get_home_dir()
-                self.pulsed_file_dir = os.path.join(homedir, 'pulsed_files')
-                self.log.warning('The directory defined in parameter '
-                            '"pulsed_file_dir" in the config for '
-                            'PulseStreamer does not exist!\n'
-                            'The default home directory\n{0}\n will be taken '
-                            'instead.'.format(self.pulsed_file_dir))
-        else:
-            homedir = get_home_dir()
-            self.pulsed_file_dir = os.path.join(homedir, 'pulsed_files')
-            self.log.warning('No parameter "pulsed_file_dir" was specified in the config for '
-                             'PulseStreamer as directory for the pulsed files!\nThe default home '
-                             'directory\n{0}\nwill be taken instead.'.format(self.pulsed_file_dir))
-
-        self.host_waveform_directory = self._get_dir_for_name('sampled_hardware_files')
-
+        self.waveforms = dict()
+        self._sequence = None
         self.current_status = -1
         self.sample_rate = 1e9
         self.current_loaded_asset = None
+        self.pulse_streamer = None
 
-        self._channel = grpc.insecure_channel(self._pulsestreamer_ip + ':50051')
+    @staticmethod
+    def numeric_channel(channel_name):
+        # 8 channels so one digit will do
+        return int(channel_name[-1])-1
 
     def on_activate(self):
         """ Establish connection to pulse streamer and tell it to cancel all operations """
-        self.pulse_streamer = ps_grpc.PulseStreamerStub(self._channel)
+
+        self.waveforms = dict()
+        self.current_status = -1
+        self.sample_rate = 1e9
+        self.current_loaded_asset = None
+        self._current_pulse_ensemble = None
+        self.laser_channel = PulseStreamer.numeric_channel(self._laser_channel)
+        self.uw_x_channel = PulseStreamer.numeric_channel(self._uw_x_channel)
+        self.uw_y_channel = PulseStreamer.numeric_channel(self._uw_y_channel)
+
+        self.pulse_streamer = ps.PulseStreamer(self._ip_address)
         self.pulser_off()
         self.current_status = 0
 
@@ -165,9 +157,13 @@ class PulseStreamer(Base, PulserInterface):
         @return int: error code (0:OK, -1:error)
         """
         # start the pulse sequence
+        if self.current_loaded_asset is None:
+            self.log.warn("Pulser cannot be started without loading a pulse sequence")
+            return -1
+
         self.pulse_streamer.stream(self._sequence)
         self.log.info('Asset uploaded to PulseStreamer')
-        self.pulse_streamer.startNow(ps_pb.VoidMessage())
+        self.pulse_streamer.startNow()
         self.current_status = 1
         return 0
 
@@ -176,9 +172,10 @@ class PulseStreamer(Base, PulserInterface):
 
         @return int: error code (0:OK, -1:error)
         """
-        # stop the pulse sequence
-        channels = self._convert_to_bitmask([self._laser_channel, self._uw_x_channel])
-        self.pulse_streamer.constant(ps_pb.PulseMessage(ticks=0, digi=channels, ao0=0, ao1=0))
+        # stop the pulse sequence, set all channels LOW except laser and cw microwave x phase
+        # set analogue outputs to 0V
+        self.log.debug("Setting pulser off (laser channel {} & uw_x_channel {} set on".format(self.laser_channel, self.uw_x_channel))
+        self.pulse_streamer.constant(([self.laser_channel, self.uw_x_channel], 0, 0))
         self.current_status = 0
         return 0
 
@@ -186,13 +183,14 @@ class PulseStreamer(Base, PulserInterface):
         """ Upload an already hardware conform file to the device.
             Does NOT load it into channels.
 
-        @param name: string, name of the ensemble/seqeunce to be uploaded
+        @param name: string, name of the ensemble/sequence to be uploaded
 
         @return int: error code (0:OK, -1:error)
         """
-        self.log.debug('PulseStreamer has no own storage capability.\n"upload_asset" call ignored.')
+        self.log.debug('PulseStreamer does not require upload of assets in preparation\n"upload_asset" call ignored.')
         return 0
 
+    # gone
     def load_asset(self, asset_name, load_dict=None):
         """ Loads a sequence or waveform to the specified channel of the pulsing
             device.
@@ -212,34 +210,6 @@ class PulseStreamer(Base, PulserInterface):
 
         @return int: error code (0:OK, -1:error)
         """
-        # ignore if no asset_name is given
-        if asset_name is None:
-            self.log.warning('"load_asset" called with asset_name = None.')
-            return 0
-
-        # check if asset exists
-        saved_assets = self.get_saved_asset_names()
-        if asset_name not in saved_assets:
-            self.log.error('No asset with name "{0}" found for PulseStreamer.\n'
-                           '"load_asset" call ignored.'.format(asset_name))
-            return -1
-
-        # get samples from file
-        filepath = os.path.join(self.host_waveform_directory, asset_name + '.pstream')
-        pulse_sequence_raw = dill.load(open(filepath, 'rb'))
-
-        pulse_sequence = []
-        for pulse in pulse_sequence_raw:
-            pulse_sequence.append(ps_pb.PulseMessage(ticks=pulse[0], digi=pulse[1], ao0=0, ao1=1))
-
-        blank_pulse = ps_pb.PulseMessage(ticks=0, digi=0, ao0=0, ao1=0)
-        laser_on = ps_pb.PulseMessage(ticks=0, digi=self._convert_to_bitmask([self._laser_channel]), ao0=0, ao1=0)
-        laser_and_uw_channels = self._convert_to_bitmask([self._laser_channel, self._uw_x_channel])
-        laser_and_uw_on = ps_pb.PulseMessage(ticks=0, digi=laser_and_uw_channels, ao0=0, ao1=0)
-        self._sequence = ps_pb.SequenceMessage(pulse=pulse_sequence, n_runs=0, initial=laser_on,
-                                               final=laser_and_uw_on, underflow=blank_pulse, start=1)
-
-        self.current_loaded_asset = asset_name
         return 0
 
     def clear_all(self):
@@ -454,8 +424,8 @@ class PulseStreamer(Base, PulserInterface):
         Unused for digital pulse generators without sequence storage capability
         (PulseBlaster, FPGA).
         """
-        names = []
-        return names
+        names = list()
+        return list()
 
     def get_saved_asset_names(self):
         """ Retrieve the names of all sampled and saved assets on the host PC.
@@ -557,9 +527,7 @@ a
 
         @return int: error code (0:OK, -1:error)
         """
-        channels = self._convert_to_bitmask([self._laser_channel, self._uw_x_channel])
-        self.pulse_streamer.constant(ps_pb.PulseMessage(ticks=0, digi=channels, ao0=0, ao1=0))
-        self.pulse_streamer.constant(laser_on)
+        self.pulser_off()
         return 0
 
     def has_sequence_mode(self):
@@ -624,34 +592,107 @@ a
             bits = bits | (1<< channel)
         return bits
 
+    def set_pulse_ensemble(self, ensemble_name, ensemble):
+        # Here we actually set up the pulse sequence on the PulseStreamer
+        active_channels = [channel for channel, active in self.get_active_channels().items() if active]
+        sq = self.pulse_streamer.createSequence()
+        self._current_pulse_ensemble = ensemble
+
+        # digital channel set up
+        for channel in active_channels:
+            rle = []
+            try:
+                channel_num = PulseStreamer.numeric_channel(channel)
+                # TODO: check what the correct number of elements supplied is
+                # n_elem = ensemble['number_of_elements']
+                n_samples = ensemble['number_of_samples'] # total time in ns for PulseStreamer
+                rising = ensemble['digital_rising_bins'][channel]
+                falling = ensemble['digital_falling_bins'][channel]
+                n_elem = len(rising)  # will serve for now
+
+                # not all channels have pulses to configure
+                if len(rising) + len(falling) == 0:
+                    self.log.debug('No pulses on channel "{}"'.format(channel))
+                    continue
+
+                # a few sanity checks, just in case I missed something
+                if len(rising) != n_elem:
+                    self.log.warn('Number of rising edges {} does not match expected number {}'.format(len(rising), n_elem))
+                    return False
+                if len(falling) != n_elem:
+                    self.log.warn('Number of falling edges {} does not match expected number {}'.format(len(falling), n_elem))
+                    return False
+                if falling[0] < rising[0]:
+                    # starts with a falling edge?
+                    # expect a rising edge first, unless I've missed a case
+                    self.log.error('Unexpected falling edge first in pulse sequence')
+                    return False
+
+                # Now build the run length encoded sequence for this channel
+                # it may start with a low
+                if rising[0] > 0:
+                    rle.append((rising[0], 0))
+
+                # followed by alternating high and low pulses with some length. Total length is nsamples
+                for i in range(0, n_elem):
+                    rle.append((falling[i] - rising[i], 1))
+                    if i+1 < n_elem:
+                        rle.append((rising[i+1] - falling[i], 0))
+                    elif falling[i] < n_samples:
+                        rle.append((n_samples - falling[i], 0))
+
+                # At this point should have the form the PulseStreamer API uses for pulse sequences.
+                # Set up this channel
+                self.log.debug('Setting pulse sequence on channel {}\n{}'.format(channel_num, rle))
+                sq.setDigital(channel_num, rle)
+
+            except KeyError:
+                self.log.exception('Could not find pulse train description for channel "{}"'.format(channel))
+                return False
+
+            except ValueError:
+                self.log.exception('Failed to extract channel number for channel "{}"'.format(channel))
+                return False
+
+        #TODO: add analogue channel configuration
+
+        self._sequence = sq
+        self.current_loaded_asset = ensemble_name
+
+        return True
+
     def load_waveform(self, load_dict):
-        pass
+        self._wfm = load_dict
+
+    def write_waveform(self, name, analog_samples, digital_samples, is_first_chunk, is_last_chunk,
+                       total_number_of_samples):
+        self.waveforms[name] = 1;
+        return total_number_of_samples, [name]
+
+    def get_waveform_names(self):
+        return list(self.waveforms.keys())
+
+    def delete_waveform(self, waveform_name):
+        return []
 
     def load_sequence(self, sequence_name):
         pass
 
-    def get_loaded_assets(self):
-        if self.current_loaded_asset is not None:
-            return self.current_loaded_asset, 'sequence'
-        else:
-            return {}, 'sequence'
-
-    def write_waveform(self, name, analog_samples, digital_samples, is_first_chunk, is_last_chunk,
-                       total_number_of_samples):
-        return total_number_of_samples, [name]
-
     def write_sequence(self, name, sequence_parameters):
         return []
 
-    def get_waveform_names(self):
+    def delete_sequence(self, sequence_name):
         return []
 
     def get_sequence_names(self):
         return []
 
-    def delete_waveform(self, waveform_name):
-        return []
+    def get_loaded_assets(self):
+        asset = self.current_loaded_asset
+        if asset is not None:
+            return {asset: asset}, 'waveform'
+        else:
+            return {}, 'waveform'
 
-    def delete_sequence(self, sequence_name):
-        return []
+
 
