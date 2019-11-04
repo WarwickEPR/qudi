@@ -1002,11 +1002,11 @@ class MagnetLogic(GenericLogic):
 
         @return bool: True indicates the magnet is moving, False the magnet stopped movement
         """
-        # get axis names
-        axes = [i for i in self._magnet_device.get_constraints()]
-        state = self._magnet_device.get_status()
-
-        return (state[axes[0]] or state[axes[1]] or state[axes[2]]) is (1 or -1)
+        moving = False
+        for axis, code in self._magnet_device.get_status().items():
+            if code != 0:
+                moving = True
+        return not moving
 
     def _set_meas_point(self, meas_val, add_meas_val, pathway_index, back_map):
 

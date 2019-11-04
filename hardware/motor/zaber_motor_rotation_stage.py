@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-This file contains the hardware control of the motorized stage for PI.
+This file contains the hardware control of the motorized stage for Zaber
 
 Qudi is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 import time
 import serial
+import struct
 from collections import OrderedDict
 
 from core.module import Base
@@ -38,58 +39,82 @@ class MotorRotationZaber(Base, MotorInterface):
 
     motorstage_zaber:
         module.Class: 'motor.zaber_motor_rotation_stage.MotorRotationZaber'
-        com_port_zaber: 'ASRL1::INSTR'
-        zaber_baud_rate: 9600
-        zaber_timeout: 1000
-        zaber_term_char: '\n'
-
-        zaber_axis_label: 'phi'
-        zaber_angle_min: -1e5 # in degrees
-        zaber_angle_max: 1e5 # in degrees
-        zaber_angle_step: 1e-5 # in degrees
-
-        zaber_velocity_min: 1e-3 # in degrees/s
-        zaber_velocity_max: 10 # in degrees/s
-        zaber_velocity_step: -1e-3 # in degrees/s
-
-        zaber_micro_step_size: 234.375e-6
-        zaber_speed_conversion: 9.375
-
+        com_port: 'COM1'
+        baud_rate: 9600
+        timeout: 1000
+        term_char: '\n'
+        micro_step_size: 234.375e-6
+        speed_conversion: 9.375
+        axes:
+            -   label: 'phi'
+                id: 1
+                angle_min: -10 # degrees
+                angle_max: 10
+                angle_step: 0.1
+                velocity_min: 0.1 # degrees/s
+                velocity_max: 5
+                velocity_step: .1
+            -   label: 'theta'
+                id: 2
+                angle_min: -10
+                angle_max: 10
+                angle_step: 0.1
+                velocity_min: 0.1
+                velocity_max: 5
+                velocity_step: .1
     """
 
-    _com_port_rot = ConfigOption('com_port_zaber', 'ASRL1::INSTR', missing='warn')
-    _rot_baud_rate = ConfigOption('zaber_baud_rate', 9600, missing='warn')
-    _rot_timeout = ConfigOption('zaber_timeout', 5000, missing='warn')     #TIMEOUT shorter?
-    _rot_term_char = ConfigOption('zaber_term_char', '\n', missing='warn')
+    _com_port = ConfigOption('com_port', 'COM1', missing='warn')
+    _baud_rate = ConfigOption('baud_rate', 9600, missing='warn')
+    _timeout = ConfigOption('timeout', 2000, missing='warn')
+    _term_char = ConfigOption('term_char', '\n', missing='warn')
+    _micro_step_size = ConfigOption('micro_step_size', 234.375e-6, missing='warn')
+    _velocity_conversion = ConfigOption('speed_conversion', 9.375, missing='warn')
 
-    _axis_label = ConfigOption('zaber_axis_label', 'phi', missing='warn')
-    _min_angle = ConfigOption('zaber_angle_min', -1e5, missing='warn')
-    _max_angle = ConfigOption('zaber_angle_max', 1e5, missing='warn')
-    _min_step = ConfigOption('zaber_angle_step', 1e-5, missing='warn')
+    _axes_conf = ConfigOption('axes', missing='error')
+    _axes = dict()
 
-    _min_vel = ConfigOption('zaber_velocity_min', 1e-3, missing='warn')
-    _max_vel = ConfigOption('zaber_velocity_max', 10, missing='warn')
-    _step_vel = ConfigOption('zaber_velocity_step', 1e-3, missing='warn')
+    # see https://www.zaber.com/w/Manuals/Binary_Protocol_Manual
+    # for full command set
+    _cmd = {
+            'home': 1,
+            'move absolute': 20,
+            'move relative': 21,
+            'stop': 23,
+            'set target speed': 42,
+            'query': 53,
+            'status': 54,
+            'echo': 55,
+            'return current position': 60
+            }
 
-    _micro_step_size = ConfigOption('zaber_micro_step_size', 234.375e-6, missing='warn')
-    velocity_conversion = ConfigOption('zaber_speed_conversion', 9.375, missing='warn')
-
+    _status = {
+                0: 'idle',
+                1: 'executing home',
+                10: 'manual move in progress',
+                20: 'absolute move in progress',
+                21: 'relative move in progress',
+                22: 'constant speed motion',
+                23: 'stopping'
+                }
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+        for axis in self._axes_conf:
+            self._axes[axis['label']] = axis
 
     def on_activate(self):
         """ Initialisation performed during activation of the module.
         """
 
-        self._serial_connection_rot = serial.Serial(
-            port=self._com_port_rot,
-            baudrate=self._rot_baud_rate,
+        self._serial_connection = serial.Serial(
+            port=self._com_port,
+            baudrate=self._baud_rate,
             bytesize=8,
             parity='N',
             stopbits=1,
-            timeout=self._rot_timeout)
+            timeout=self._timeout)
 
         return 0
 
@@ -97,7 +122,7 @@ class MotorRotationZaber(Base, MotorInterface):
     def on_deactivate(self):
         """ Deinitialisation performed during deactivation of the module.
         """
-        self._serial_connection_rot.close()
+        self._serial_connection.close()
         return 0
 
 
@@ -112,24 +137,26 @@ class MotorRotationZaber(Base, MotorInterface):
             (min_value, max_value, stepsize)
         """
         constraints = OrderedDict()
+        for axis, params in self._axes.items():
+            constraints[axis] = {'label': axis,
+                                 'ID': params['id'],
+                                 'pos_min': params['angle_min'],
+                                 'pos_max': params['angle_max'],
+                                 'pos_step': params['angle_step'],
+                                 'vel_min': params['velocity_min'],
+                                 'vel_max': params['velocity_max'],
+                                 'vel_step': params['velocity_step'],
+                                 'unit': '°',
+                                 'ramp': None,
+                                 'acc_min': None,
+                                 'acc_max': None,
+                                 'acc_step': None}
 
-        rot = {'label': self._axis_label,
-               'ID': None,
-               'unit': '°',
-               'ramp': None,
-               'pos_min': self._min_angle,
-               'pos_max': self._max_angle,
-               'pos_step': self._min_step,
-               'vel_min': self._min_vel,
-               'vel_max': self._max_vel,
-               'vel_step': self._step_vel,
-               'acc_min': None,
-               'acc_max': None,
-               'acc_step': None}
-
-        # assign the parameter container to a name which will identify it
-        constraints[rot['label']] = rot
         return constraints
+
+    def ping(self, axis):
+        response = self._ask(axis, 'echo', 555)
+        return response == 555
 
     def move_rel(self, param_dict):
         """Moves stage by a given angle (relative movement)
@@ -138,23 +165,20 @@ class MotorRotationZaber(Base, MotorInterface):
 
         @return dict velocity: Dictionary with axis name and final position in deg
         """
-        pos={}
+        pos = {}
         try:
-            for axis_label in param_dict:
-                angle = param_dict[axis_label]
+            for axis_label, angle in param_dict.items():
                 if abs(angle) >= self._micro_step_size:
-                    data = int(angle / self._micro_step_size)
-                    self._write_rot([1,21,data])
-                    pos[axis_label] = self._read_answer_rot() * self._micro_step_size # stage sends signal after motion finished
+                    steps = int(angle / self._micro_step_size)
+                    pos[axis_label] = self._ask(axis_label, 'move relative', steps) * self._micro_step_size
                 else:
-                    self.log.warning('Desired step "{0}" is too small. Minimum is "{1}"'
-                                        .format(angle, self._micro_step_size))
-                    pos = self.get_pos(param_dict.keys())
+                    self.log.warning('Desired step "{0}" is too small. Minimum is "{1}"'.format(angle,
+                                                                                                self._micro_step_size))
+                    pos = self.get_pos(list(param_dict.keys()))
         except:
             self.log.error('relative movement of zaber rotation stage is not possible')
-            pos = self.get_pos(param_dict.keys())
+            pos = self.get_pos(list(param_dict.keys()))
         return pos
-
 
     def move_abs(self, param_dict):
         """Moves stage to an absolute angle (absolute movement)
@@ -165,17 +189,16 @@ class MotorRotationZaber(Base, MotorInterface):
         """
         pos = {}
         try:
-            for axis_label in param_dict:
-                angle = param_dict[axis_label]
-                data = int(self._map_angle(angle) / self._micro_step_size)
-                self._write_rot([1,20,data])
-                pos[axis_label] = self._read_answer_rot() * self._micro_step_size  # stage sends signal after motion finished
+            for axis_label, angle in param_dict.items():
+                steps = int(angle / self._micro_step_size)
+                pos[axis_label] = self._ask(axis_label, 'move absolute', steps) * self._micro_step_size
         except:
             self.log.error('absolute movement of zaber rotation stage is not possible')
-            pos = self.get_pos(param_dict.keys())
+            pos = self.get_pos(list(param_dict.keys()))
         return pos
 
-
+    def axes(self):
+        return list(self._axes.keys())
 
     def abort(self):
         """Stops movement of the stage
@@ -183,14 +206,14 @@ class MotorRotationZaber(Base, MotorInterface):
         @return int: error code (0:OK, -1:error)
         """
         try:
-            self._write_rot([1, 23, 0])
-            while not self._motor_stopped():
+            for axis in self.axes():
+                self._send_command(axis, 'stop', 0)
+            while not self._motors_stopped():
                 time.sleep(0.2)
             return 0
         except:
             self.log.error('ROTATIONAL MOVEMENT NOT STOPPED!!!)')
             return -1
-
 
     def get_pos(self,param_list=None):
         """ Gets current position of the rotation stage
@@ -198,25 +221,15 @@ class MotorRotationZaber(Base, MotorInterface):
         @param list param_list: List with axis name
 
         @return dict pos: Dictionary with axis name and pos in deg    """
-        constraints = self.get_constraints()
         try:
             pos = {}
-            if param_list is not None:
-                for axis_label in param_list:
-                    answer = self._ask_rot([1, 60, 0])
-                    time.sleep(0.2)
-                    pos[axis_label] = answer * self._micro_step_size
-                    return pos
-            else:
-                for axis_label in constraints:
-                    answer = self._ask_rot([1, 60, 0])
-                    time.sleep(0.2)
-                    pos[axis_label] = answer * self._micro_step_size
-                    return pos
+            axis_list = param_list if param_list is not None else self.axes()
+            for axis_label in axis_list:
+                pos[axis_label] = self._ask(axis_label, 'return current position', 0) * self._micro_step_size
+            return pos
         except:
             self.log.error('Cannot find position of zaber-rotation-stage')
             return -1
-
 
     def get_status(self,param_list=None):
         """ Get the status of the position
@@ -235,24 +248,25 @@ class MotorRotationZaber(Base, MotorInterface):
                         · 22 - executing a move at constant speed instruction
                         · 23 - executing a stop instruction (i.e. decelerating)
                                 """
-        constraints = self.get_constraints()
         status = {}
+        axis_list = param_list if param_list is not None else self.axes()
+
         try:
-            if param_list is not None:
-                for axis_label in param_list:
-                    status[axis_label] = self._ask_rot([1, 54, 0])
-                    time.sleep(0.1)
-                    return status
-            else:
-                for axis_label in constraints:
-                    status[axis_label] = self._ask_rot([1, 54, 0])
-                    time.sleep(0.1)
-                    return status
+            for axis_label in axis_list:
+                status[axis_label] = self._ask(axis_label, 'status', 0)
+            return status
         except:
             self.log.error('Could not get status')
             return -1
 
+    def status_decode(self, status):
+        msg = {}
+        for axis, code in status.items():
+            msg[axis] = self._status[code] if code in self._status else 'Unknown code: {}'.format(code)
+        return msg
 
+    def get_status_decoded(self, param_list=None):
+        return self.status_decode(self.get_status(param_list))
 
     def calibrate(self, param_list=None):
         """ Calibrates the rotation motor
@@ -261,17 +275,11 @@ class MotorRotationZaber(Base, MotorInterface):
 
         @return dict pos: Dictionary with axis name and pos in deg
         """
-        constraints = self.get_constraints()
+        axis_list = param_list if param_list is not None else self.axes()
         pos = {}
         try:
-            if param_list is not None:
-                for axis_label in param_list:
-                    self._write_rot([1, 1, 0])
-                    pos[axis_label] = self._read_answer_rot() * self._micro_step_size # stage sends signal after motion finished
-            else:
-                for axis_label in constraints:
-                    self._write_rot([1, 1, 0])
-                    pos[axis_label] = self._read_answer_rot() * self._micro_step_size # stage sends signal after motion finished
+            for axis_label in axis_list:
+                pos[axis_label] = self._ask(axis_label, 'home', 0) * self._micro_step_size
         except:
             self.log.error('Could not calibrate zaber rotation stage!')
             pos = self.get_pos()
@@ -285,23 +293,15 @@ class MotorRotationZaber(Base, MotorInterface):
 
         @return dict velocity: Dictionary with axis name and velocity in deg/s
         """
-        constraints = self.get_constraints()
+        axis_list = param_list if param_list is not None else self.axes()
         velocity = {}
         try:
-            if param_list is not None:
-                for axis_label in param_list:
-                    data = self._ask_rot([1, 53, 42])
-                    velocity[axis_label] = data*self.velocity_conversion*self._micro_step_size
-            else:
-                for axis_label in constraints:
-                    data = self._ask_rot([1, 53, 42])
-                    velocity[axis_label] = data*self.velocity_conversion*self._micro_step_size
+            for axis_label in axis_list:
+                velocity[axis_label] = self._ask(axis_label, 'query', self._cmd['set target speed']) * self._micro_step_size
             return velocity
         except:
             self.log.error('Could not set rotational velocity')
             return -1
-
-
 
     def set_velocity(self, param_dict):
         """ Write new value for velocity.
@@ -312,137 +312,67 @@ class MotorRotationZaber(Base, MotorInterface):
         """
         velocity = {}
         try:
-            for axis_label in param_dict:
-                speed = param_dict[axis_label]
+            for axis_label, speed in param_dict.items():
                 if speed <= self._max_vel:
-                    speed  = int(speed/self.velocity_conversion/self._micro_step_size)
-                    self._write_rot([1,42, speed])
-                    velocity[axis_label] = self._read_answer_rot()*self.velocity_conversion*self._micro_step_size  # stage sends signal after motion finished
+                    speed = int(speed/self.velocity_conversion/self._micro_step_size)
+                    speed_set = self._ask(axis_label, 'set target speed', speed);
+                    velocity[axis_label] = speed_set * self._velocity_conversion * self._micro_step_size
                 else:
                     self.log.warning('Desired velocity "{0}" is too high. Maximum is "{1}"'
-                                     .format(velocity,self._max_vel))
+                                     .format(velocity, self._max_vel))
                     velocity = self.get_velocity()
         except:
             self.log.error('Could not set rotational velocity')
             velocity = self.get_velocity()
         return velocity
 
-
-
 ########################## internal methods ##################################
 
-
-    def _write_rot(self, command_list):
-        """ sending a command encode in a list to the rotation stage,
-        requires [1, commandnumber, value]
-
-        @param list command_list: command in a list form
-
-        @return errorcode"""
-
+    def _send_command(self, axis, command, data):
         try:
-            xx = command_list[0]
-            yy = command_list[1]
-            zz = command_list[2]
-            z4 = 0
-            z3 = 0
-            z2 = 0
-            z1 = 0
-            base = 256
+            axis_no = self._axes[axis]['id']
+            cmd_no = self._cmd[command]
+            self._send_raw_command(axis_no, cmd_no, data)
+        except KeyError as ke:
+            self.log.error("Failed to send command - missing {}".format(ke))
 
-            if zz >= 0:
-                if zz/base**3 >= 1:
-                    z4 = int(zz/base**3)   #since  int(8.9999)=8  !
-                    zz -= z4*base**3
-                if zz/base**2 >= 1:
-                    z3 = int(zz/base**2)
-                    zz -= z3*base**2
-                if zz/base >= 1:
-                    z2 = int(zz/base)
-                    zz -= z2*base
-                z1 = zz
-            else:
-                z4 = 255
-                zz += base**3
-                if zz/base**2 >= 1:
-                    z3 =int(zz/base**2)
-                    zz -= z3*base**2
-                if zz/base >= 1:
-                    z2 = int(zz/base)
-                    zz -= z2*base
-                z1 = zz
+    def _send_raw_command(self, axis_no, cmd_no, data):
+        try:
+            msg = struct.pack('<BBl', axis_no, cmd_no, data)
+            self._serial_connection.write(msg)
+            self.log.debug('Sending command {} {} {} as {}'.format(axis_no, cmd_no, data, msg.hex()))
+        except serial.SerialException as se:
+            self.log.error("Failed to send command {}".format(se))
 
-            sends = [xx,yy,z1,z2,z3,z4]
+    def _read_response(self):
+        response = bytearray([0] * 6)
+        try:
+            self._serial_connection.readinto(response)
+            (axis_no, cmd_ret, data) = struct.unpack('<BBl', response)
+            self.log.debug('Received {} unpacked as {} {} {}'.format(response.hex(), axis_no, cmd_ret, data))
+            return axis_no, cmd_ret, data
+        except serial.SerialException as se:
+            self.log.error("Failed to read response: {}".format(se))
+        except Exception as e:
+            self.log.error("Failed to decode response {} {}".format(response.hex(), e))
 
-            for ii in range (6):
-                self._serial_connection_rot.write(chr(sends[ii]).encode('latin'))
-            return 0
-        except:
-            self.log.error('Command was not sent to zaber rotation stage')
-            return -1
-
-    def _read_answer_rot(self):
-        """this method reads the answer from the motor!
-        return 6 bytes from the receive buffer
-        there must be 6 bytes to receive (no error checking)
-
-        @return answer float: answer of motor coded in a single float
-        """
-
-
-        r = [0, 0, 0, 0, 0, 0]
-        for i in range(6):
-            r[i] = ord(self._serial_connection_rot.read(1))
-        yy = r[1]
-        z1 = r[2]
-        z2 = r[3]
-        z3 = r[4]
-        z4 = r[5]
-        answer = z1 + z2 * 256 + z3 * 256 ** 2 + z4 * 256 ** 3
-
-        if yy == 255:                        #yy is command number and 255 implies error
-            self.log.error('error nr. ' + str(answer))
-        return answer
-
-
-    def _ask_rot(self, command_list):
-        """this method combines writing a command and reading the answer
-        @param list command_list: list encoded command
-
-        @return answer float: answer of motor coded in a single float
-        """
-        self._write_rot(command_list)
-        time.sleep(0.1)
-        answer=self._read_answer_rot()
-        return answer
+    def _ask(self, axis, command, data):
+        self._send_command(axis, command, data)
+        r_axis, status, response = self._read_response()
+        if r_axis != self._axes[axis]['id']:
+            self.log.error('Response was for the wrong axis')
+        elif status == 0xff:
+            self.log.error('Zaber replied with an error')
+        else:
+            return response
 
     def _motor_stopped(self):
         """checks if the rotation stage is still moving
         @return: bool stopped: True if motor is not moving, False otherwise"""
 
-        stopped=True
-        status = self.get_status()
-        if status:
-            stopped=False
-        return stopped
-
-    def _map_angle(self, init_angle):
-        """maps the angle if larger or lower than 360° to inbetween 0° and 360°
-
-        @params init_angle: initial angle, possible not element of {0°,360°}
-
-        @return: float angle: Angle between 0° and 360°"""
-
-        angle = init_angle%360
-
-        return angle
-
-
-
-
-      #########################################################################################
-#########################################################################################
-#########################################################################################
-
-
+        moving = False
+        for axis, code in self.get_status().items():
+            if code != 0:
+                moving = True
+        return not moving
 
