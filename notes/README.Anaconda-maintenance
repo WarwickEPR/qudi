@@ -18,11 +18,19 @@ My way is to skip the upstream install scripts as we have a working conda instal
 
 conda create -n qudi
 source activate qudi
+
 # This sets the environment of the current shell to select the Python instance
 conda env update --file conda-env-win10-64bit-qt5.yml
 
 If we need other modules to support our additions, then by preference install them using conda and update the .yml source file to track the requirement.
 
+Should be merged into the local package list, but to add missing packages:
 
+conda install -n qudi grpcio grpcio-tools dill
 
+or if from PIP
+
+pip install <X>
+
+and manually add to the yml file
 
