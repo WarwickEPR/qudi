@@ -617,16 +617,20 @@ a
 
                 # a few sanity checks, just in case I missed something
                 if len(rising) != n_elem:
-                    self.log.warn('Number of rising edges {} does not match expected number {}'.format(len(rising), n_elem))
+                    self.log.warn('Number of rising edges {} does not match expected number {} on channel {}'.format(len(rising), n_elem, channel))
                     return False
                 if len(falling) != n_elem:
-                    self.log.warn('Number of falling edges {} does not match expected number {}'.format(len(falling), n_elem))
+                    self.log.warn('Number of falling edges {} does not match expected number {} on channel {}'.format(len(falling), n_elem, channel))
                     return False
                 if falling[0] < rising[0]:
                     # starts with a falling edge?
-                    # expect a rising edge first, unless I've missed a case
-                    self.log.error('Unexpected falling edge first in pulse sequence')
-                    return False
+                    # e.g. a sync pulse might only rise once, at the end
+                    if falling[0] == 0:
+                        # This is ok, just starts low
+                        pass
+                    else:
+                        self.log.error('Pulse sequence for channel {} starts with a falling edge, unexpectedly'.format(channel))
+                        return False
 
                 # Now build the run length encoded sequence for this channel
                 # it may start with a low
@@ -635,11 +639,20 @@ a
 
                 # followed by alternating high and low pulses with some length. Total length is nsamples
                 for i in range(0, n_elem):
-                    rle.append((falling[i] - rising[i], 1))
+                    # add HIGH pulse
+                    duration = falling[i] - rising[i]
+                    if duration > 0:
+                        rle.append((duration, 1))
+
+                    # add LOW pulse
                     if i+1 < n_elem:
-                        rle.append((rising[i+1] - falling[i], 0))
+                        duration = rising[i+1] - falling[i]
+                        if duration > 0:
+                            rle.append((duration, 0))
                     elif falling[i] < n_samples:
-                        rle.append((n_samples - falling[i], 0))
+                        duration = n_samples - falling[i]
+                        if duration > 0:
+                            rle.append((duration, 0))
 
                 # At this point should have the form the PulseStreamer API uses for pulse sequences.
                 # Set up this channel
