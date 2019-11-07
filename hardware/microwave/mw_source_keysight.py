@@ -198,11 +198,11 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         else:
             return -1
 
-    def set_cw(self, freq=None, power=None, useinterleave=None):
+    def set_cw(self, frequency=None, power=None, useinterleave=None):
         """ Sets the MW mode to cw and additionally frequency and power
         #For agilent device there is no CW mode, so just do nothing
 
-        @param float freq: frequency to set in Hz
+        @param float frequency: frequency to set in Hz
         @param float power: power to set in dBm
         @param bool useinterleave: If this mode exists you can choose it.
 
@@ -214,8 +214,8 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         if is_running:
             self.off()
 
-        if freq is not None:
-            self.set_frequency(freq)
+        if frequency is not None:
+            self.set_frequency(frequency)
         if power is not None:
             self.set_power(power)
         if useinterleave is not None:
@@ -227,19 +227,19 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         return actual_freq, actual_power, mode
 
 
-    def set_list(self, freq=None, power=None):
+    def set_list(self, frequency=None, power=None):
         """
-        @param list freq: list of frequencies in Hz
+        @param list frequency: list of frequencies in Hz
         @param float power: MW power of the frequency list in dBm
 
         """
         # put all frequencies into a string, first element is doubled
         # so there are n+1 list entries for scanning n frequencies
         # due to counter/trigger issues
-        freqstring = ' {0:f},'.format(freq[0])
-        for f in freq[:-1]:
+        freqstring = ' {0:f},'.format(frequency[0])
+        for f in frequency[:-1]:
             freqstring += ' {0:f},'.format(f)
-        freqstring += ' {0:f}'.format(freq[-1])
+        freqstring += ' {0:f}'.format(frequency[-1])
 
         freqcommand = ':LIST:FREQ' + freqstring
 
@@ -253,7 +253,7 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
 
         mode = "list"
 
-        return freq, freq_power, mode
+        return frequency, freq_power, mode
 
     def reset_listpos(self):
         """ Reset of MW List Mode position to start from first given frequency
