@@ -146,10 +146,10 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         @return str, bool: mode ['cw', 'list', 'sweep'], is_running [True, False]
         """
 
-        is_running = bool(int(float(self._connection.ask(":OUTP:STATe?"))))
+        is_running = bool(int(float(self._connection.query(":OUTP:STATe?"))))
 
-        if bool(int(float(self._connection.ask(":OUTP:STATe?")))):
-            if self._connection.ask(":LIST:TYPE?") == "STEP":
+        if bool(int(float(self._connection.query(":OUTP:STATe?")))):
+            if self._connection.query(":LIST:TYPE?") == "STEP":
                 mode = "sweep"
             else:
                 mode = "list"
@@ -295,9 +295,9 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
 
         time.sleep(0.2)
 
-        freq_start = float(self._connection.ask(':FREQ:STAR?'))
-        freq_stop = float(self._connection.ask(':FREQ:STOP?'))
-        num_of_points = int(self._connection.ask(':LIST:FREQ:POIN?'))
+        freq_start = float(self._connection.query(':FREQ:STAR?'))
+        freq_stop = float(self._connection.query(':FREQ:STOP?'))
+        num_of_points = int(self._connection.query(':LIST:FREQ:POIN?'))
         freq_range = freq_stop - freq_start
         freq_step = freq_range / (num_of_points -1)
         freq_power = self.get_power()
