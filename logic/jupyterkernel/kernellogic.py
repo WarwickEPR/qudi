@@ -34,10 +34,11 @@ from core.util.network import netobtain
 
 
 class QudiKernelLogic(GenericLogic):
-    """ Logic module providing a Jupyer-compatible kernel connected via ZMQ."""
+    """ Logic module providing a Jupyter-compatible kernel connected via ZMQ."""
 
     sigStartKernel = QtCore.Signal(str)
     sigStopKernel = QtCore.Signal(int)
+    sigNotify = QtCore.Signal(str)
 
     def __init__(self, **kwargs):
         """ Create logic object
@@ -54,6 +55,7 @@ class QudiKernelLogic(GenericLogic):
         self.modules = set()
         self._manager.sigModulesChanged.connect(self.updateModuleList)
         self.sigStartKernel.connect(self.updateModuleList, QtCore.Qt.QueuedConnection)
+        self.sigNotify.connect(self.notify_kernels, QtCore.Qt.QueuedConnection)
 
     def on_deactivate(self):
         """ Deactivate module.
@@ -84,7 +86,8 @@ class QudiKernelLogic(GenericLogic):
             'pg': pg,
             'np': np,
             'config': self._manager.tree['defined'],
-            'manager': self._manager
+            'manager': self._manager,
+            'notifications': dict()  # each kernel has its own
         })
         kernel.sigShutdownFinished.connect(self.cleanupKernel)
         self.log.debug('Kernel is {0}'.format(kernel.engine_id))
@@ -137,3 +140,17 @@ class QudiKernelLogic(GenericLogic):
             for kernel in self.kernellist:
                 self.kernellist[kernel].user_global_ns.pop(module, None)
         self.modules = currentModules
+
+    def bind_notification(self, signal, flag):
+        """Helper to hook up signals to kernellogic notifications"""
+        # ideally should record lambdas and signals and disconnect on deactivate
+        signal.connect(lambda *x: self.notify_kernels(flag), QtCore.Qt.QueuedConnection)
+
+    def notify_kernels(self, flag):
+        """Communicate a message to the running kernels."""
+        # Ideally with iPython 7 this could use comm and async
+        # however for now, simply set a flag in a dictionary
+        self.log.debug('Signal notification: {}'.format(flag))
+        for kernel in self.kernellist:
+            self.kernellist[kernel].user_global_ns.update({'notifications': {flag: True}})
+
