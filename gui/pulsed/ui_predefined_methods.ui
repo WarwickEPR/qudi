@@ -35,6 +35,7 @@
        <item row="0" column="0">
         <layout class="QVBoxLayout" name="verticalLayout">
          <item>
+<<<<<<< HEAD
           <layout class="QGridLayout" name="gridLayout_5">
            <item row="0" column="3">
             <widget class="QLineEdit" name="pm_gate_count_channel_Widget">
@@ -448,6 +449,9 @@
             </widget>
            </item>
           </layout>
+=======
+          <layout class="QGridLayout" name="global_param_gridLayout"/>
+>>>>>>> refresh
          </item>
          <item>
           <widget class="QLabel" name="hintLabel">
@@ -467,24 +471,7 @@
    </item>
   </layout>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>ScienDSpinBox</class>
-   <extends>QDoubleSpinBox</extends>
-   <header>qtwidgets.scientific_spinbox.h</header>
-  </customwidget>
- </customwidgets>
  <tabstops>
-  <tabstop>pm_sync_trig_channel_Widget</tabstop>
-  <tabstop>pm_gate_count_channel_Widget</tabstop>
-  <tabstop>pm_channel_amp_Widget</tabstop>
-  <tabstop>pm_laser_length_Widget</tabstop>
-  <tabstop>pm_wait_time_Widget</tabstop>
-  <tabstop>pm_delay_length_Widget</tabstop>
-  <tabstop>pm_mw_channel_Widget</tabstop>
-  <tabstop>pm_mw_freq_Widget</tabstop>
-  <tabstop>pm_mw_amp_Widget</tabstop>
-  <tabstop>pm_rabi_period_Widget</tabstop>
   <tabstop>scrollArea</tabstop>
  </tabstops>
  <resources/>

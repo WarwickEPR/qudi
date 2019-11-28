@@ -24,7 +24,7 @@ import numpy as np
 import os
 import pyqtgraph as pg
 
-from core.module import Connector
+from core.connector import Connector
 from gui.colordefs import QudiPalettePale as palette
 from gui.guibase import GUIBase
 from qtpy import QtCore
@@ -49,11 +49,8 @@ class CounterMainWindow(QtWidgets.QMainWindow):
 
 
 class CounterGui(GUIBase):
-
     """ FIXME: Please document
     """
-    _modclass = 'countergui'
-    _modtype = 'gui'
 
     # declare connectors
     counterlogic1 = Connector(interface='CounterLogic')
@@ -68,7 +65,7 @@ class CounterGui(GUIBase):
         """ Definition and initialisation of the GUI.
         """
 
-        self._counting_logic = self.get_connector('counterlogic1')
+        self._counting_logic = self.counterlogic1()
 
         #####################
         # Configuring the dock widgets

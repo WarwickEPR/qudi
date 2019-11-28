@@ -22,7 +22,8 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 import numpy as np
 
-from core.module import Connector, ConfigOption, StatusVar
+from core.connector import Connector
+from core.statusvariable import StatusVar
 from core.util.mutex import Mutex
 from logic.generic_logic import GenericLogic
 from qtpy import QtCore
@@ -32,10 +33,8 @@ class PIDLogic(GenericLogic):
     """
     Control a process via software PID.
     """
-    _modclass = 'pidlogic'
-    _modtype = 'logic'
 
-    ## declare connectors
+    # declare connectors
     controller = Connector(interface='PIDControllerInterface')
     savelogic = Connector(interface='SaveLogic')
 
@@ -57,8 +56,8 @@ class PIDLogic(GenericLogic):
     def on_activate(self):
         """ Initialisation performed during activation of the module.
         """
-        self._controller = self.get_connector('controller')
-        self._save_logic = self.get_connector('savelogic')
+        self._controller = self.controller()
+        self._save_logic = self.savelogic()
 
         self.history = np.zeros([3, self.bufferLength])
         self.savingState = False

@@ -23,7 +23,7 @@ import numpy as np
 import pyqtgraph as pg
 
 
-class ColorScale():
+class ColorScale:
     """ Custom color scale for use in Qudi.
 
         You need to add two numpy arrays, COLORS and COLORS_INV when subclassing
@@ -61,6 +61,21 @@ class ColorScaleRainbow(ColorScale):
         ], dtype=np.ubyte)
 
     COLORS_INV = COLORS[::-1]
+
+class GreyScale(ColorScale):
+    """ Define the color map that goes from dark blue to bright red.
+        Looks gay but is not preferable for a number of reasons:
+        brightness linearity, visual banding, red-green colorblindness problems, etc.
+
+        See the matplotlib discussion about their default color scale for reference.
+    """
+    COLORS = np.array([
+        [0,     0,   0,   255],
+        [255,   255, 255, 255]
+        ], dtype=np.ubyte)
+
+    COLORS_INV = COLORS[::-1]
+
 
 # Shamelessly stolen from https://bids.github.io/colormap/
 # New matplotlib colormaps by Nathaniel J. Smith, Stefan van der Walt,
@@ -1127,7 +1142,7 @@ class ColorScaleViridis(ColorScale):
     COLORS_INV = COLORS[::-1]
 
 
-class QudiPalette():
+class QudiPalette:
     """ Qudi saturated color palette """
 
     blue = pg.mkColor(34, 23, 244)
@@ -1149,7 +1164,7 @@ class QudiPalette():
     c6 = purple
 
 
-class QudiPalettePale():
+class QudiPalettePale:
     """ Qudi desaturated color palette """
 
     blue = pg.mkColor(102, 94, 252)

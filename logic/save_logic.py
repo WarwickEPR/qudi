@@ -30,9 +30,10 @@ import sys
 import time
 
 from collections import OrderedDict
-from core.module import ConfigOption
+from core.configoption import ConfigOption
 from core.util import units
 from core.util.mutex import Mutex
+from core.util.network import netobtain
 from logic.generic_logic import GenericLogic
 from matplotlib.backends.backend_pdf import PdfPages
 from PIL import Image
@@ -120,9 +121,6 @@ class SaveLogic(GenericLogic):
     A general class which saves all kinds of data in a general sense.
     """
 
-    _modclass = 'savelogic'
-    _modtype = 'logic'
-
     _win_data_dir = ConfigOption('win_data_directory', 'C:/Data/')
     _unix_data_dir = ConfigOption('unix_data_directory', 'Data')
     log_into_daily_directory = ConfigOption('log_into_daily_directory', False, missing='warn')
@@ -155,6 +153,8 @@ class SaveLogic(GenericLogic):
         'savefig.dpi': '180'
         }
 
+    _additional_parameters = {}
+
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
 
@@ -177,6 +177,9 @@ class SaveLogic(GenericLogic):
             self.data_dir = self._win_data_dir
         else:
             raise Exception('Identify the operating system.')
+
+        # Expand environment variables in the data_dir path (e.g. $HOME)
+        self.data_dir = os.path.expandvars(self.data_dir)
 
         # start logging into daily directory?
         if not isinstance(self.log_into_daily_directory, bool):
@@ -406,44 +409,6 @@ class SaveLogic(GenericLogic):
                            'data arrays.')
             return -1
 
-        # Reshape data if multiple 1D arrays have been passed to this method.
-        # If a 2D array has been passed, reformat the specifier
-        if len(data) != 1:
-            identifier_str = ''
-            if multiple_dtypes:
-                field_dtypes = list(zip(['f{0:d}'.format(i) for i in range(len(arr_dtype))],
-                                        arr_dtype))
-                new_array = np.empty(max_line_num, dtype=field_dtypes)
-                for i, keyname in enumerate(data):
-                    identifier_str += keyname + delimiter
-                    field = 'f{0:d}'.format(i)
-                    length = data[keyname].size
-                    new_array[field][:length] = data[keyname]
-                    if length < max_line_num:
-                        if isinstance(data[keyname][0], str):
-                            new_array[field][length:] = 'nan'
-                        else:
-                            new_array[field][length:] = np.nan
-            else:
-                new_array = np.empty([max_line_num, max_row_num], arr_dtype[0])
-                for i, keyname in enumerate(data):
-                    identifier_str += keyname + delimiter
-                    length = data[keyname].size
-                    new_array[:length, i] = data[keyname]
-                    if length < max_line_num:
-                        if isinstance(data[keyname][0], str):
-                            new_array[length:, i] = 'nan'
-                        else:
-                            new_array[length:, i] = np.nan
-            # discard old data array and use new one
-            data = {identifier_str: new_array}
-        elif found_2d:
-            keyname = list(data.keys())[0]
-            identifier_str = keyname.replace(', ', delimiter).replace(',', delimiter)
-            data[identifier_str] = data.pop(keyname)
-        else:
-            identifier_str = list(data)[0]
-
         # Create header string for the file
         header = 'Saved Data from the class {0} on {1}.\n' \
                  ''.format(module_name, timestamp.strftime('%d.%m.%Y at %Hh%Mm%Ss'))
@@ -455,6 +420,8 @@ class SaveLogic(GenericLogic):
         if parameters is not None:
             # check whether the format for the parameters have a dict type:
             if isinstance(parameters, dict):
+                if isinstance(self._additional_parameters, dict):
+                    parameters = {**self._additional_parameters, **parameters}
                 for entry, param in parameters.items():
                     if isinstance(param, float):
                         header += '{0}: {1:.16e}\n'.format(entry, param)
@@ -466,16 +433,61 @@ class SaveLogic(GenericLogic):
                                'try to save the parameters nevertheless.')
                 header += 'not specified parameters: {0}\n'.format(parameters)
         header += '\nData:\n=====\n'
-        header += list(data)[0]
 
         # write data to file
         # FIXME: Implement other file formats
+        # write to textfile
         if filetype == 'text':
+            # Reshape data if multiple 1D arrays have been passed to this method.
+            # If a 2D array has been passed, reformat the specifier
+            if len(data) != 1:
+                identifier_str = ''
+                if multiple_dtypes:
+                    field_dtypes = list(zip(['f{0:d}'.format(i) for i in range(len(arr_dtype))],
+                                            arr_dtype))
+                    new_array = np.empty(max_line_num, dtype=field_dtypes)
+                    for i, keyname in enumerate(data):
+                        identifier_str += keyname + delimiter
+                        field = 'f{0:d}'.format(i)
+                        length = data[keyname].size
+                        new_array[field][:length] = data[keyname]
+                        if length < max_line_num:
+                            if isinstance(data[keyname][0], str):
+                                new_array[field][length:] = 'nan'
+                            else:
+                                new_array[field][length:] = np.nan
+                else:
+                    new_array = np.empty([max_line_num, max_row_num], arr_dtype[0])
+                    for i, keyname in enumerate(data):
+                        identifier_str += keyname + delimiter
+                        length = data[keyname].size
+                        new_array[:length, i] = data[keyname]
+                        if length < max_line_num:
+                            if isinstance(data[keyname][0], str):
+                                new_array[length:, i] = 'nan'
+                            else:
+                                new_array[length:, i] = np.nan
+                # discard old data array and use new one
+                data = {identifier_str: new_array}
+            elif found_2d:
+                keyname = list(data.keys())[0]
+                identifier_str = keyname.replace(', ', delimiter).replace(',', delimiter)
+                data[identifier_str] = data.pop(keyname)
+            else:
+                identifier_str = list(data)[0]
+            header += list(data)[0]
             self.save_array_as_text(data=data[identifier_str], filename=filename, filepath=filepath,
                                     fmt=fmt, header=header, delimiter=delimiter, comments='#',
                                     append=False)
+        # write npz file and save parameters in textfile
+        elif filetype == 'npz':
+            header += str(list(data.keys()))[1:-1]
+            np.savez_compressed(filepath + '/' + filename[:-4], **data)
+            self.save_array_as_text(data=[], filename=filename[:-4]+'_params.dat', filepath=filepath,
+                                    fmt=fmt, header=header, delimiter=delimiter, comments='#',
+                                    append=False)
         else:
-            self.log.error('Only saving of data as textfile is implemented. Filetype "{0}" is not '
+            self.log.error('Only saving of data as textfile and npz-file is implemented. Filetype "{0}" is not '
                            'supported yet. Saving as textfile.'.format(filetype))
             self.save_array_as_text(data=data[identifier_str], filename=filename, filepath=filepath,
                                     fmt=fmt, header=header, delimiter=delimiter, comments='#',
@@ -595,7 +607,7 @@ class SaveLogic(GenericLogic):
             folderlist = [d for d in os.listdir(current_dir) if os.path.isdir(os.path.join(current_dir, d))]
             # Search if there is a folder which starts with the current date:
             for entry in folderlist:
-                if (time.strftime("%Y%m%d") in (entry[:2])):
+                if time.strftime("%Y%m%d") in (entry[:2]):
                     current_dir = os.path.join(current_dir, str(entry))
                     folder_exists = True
                     break
@@ -624,3 +636,39 @@ class SaveLogic(GenericLogic):
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
         return dir_path
+
+    def get_additional_parameters(self):
+        """ Method that return the additional parameters dictionary securely """
+        return self._additional_parameters.copy()
+
+    def update_additional_parameters(self, *args, **kwargs):
+        """
+        Method to update one or multiple additional parameters
+
+        @param dict args: Optional single positional argument holding parameters in a dict to
+                          update additional parameters from.
+        @param kwargs: Optional keyword arguments to be added to additional parameters
+        """
+        if len(args) == 0:
+            param_dict = kwargs
+        elif len(args) == 1 and isinstance(args[0], dict):
+            param_dict = args[0]
+            param_dict.update(kwargs)
+        else:
+            raise TypeError('"update_additional_parameters" takes exactly 0 or 1 positional '
+                            'argument of type dict.')
+
+        for key in param_dict.keys():
+            param_dict[key] = netobtain(param_dict[key])
+        self._additional_parameters.update(param_dict)
+        return
+
+    def remove_additional_parameter(self, key):
+        """
+        remove parameter from additional parameters
+
+        @param str key: The additional parameters key/name to delete
+        """
+        self._additional_parameters.pop(key, None)
+        return
+

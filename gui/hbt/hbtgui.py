@@ -25,6 +25,10 @@ import os
 import pyqtgraph as pg
 
 from core.module import Connector
+<<<<<<< HEAD
+=======
+from core.configoption import ConfigOption
+>>>>>>> refresh
 from gui.colordefs import QudiPalettePale as palette
 from gui.guibase import GUIBase
 from qtpy import QtCore
@@ -57,6 +61,10 @@ class HbtGui(GUIBase):
 
     # declare connectors
     hbtlogic = Connector(interface='HbtLogic')
+<<<<<<< HEAD
+=======
+    time_window = ConfigOption('time_window', 100, missing='info')
+>>>>>>> refresh
 
     sigHbtStopped = QtCore.Signal()
     sigHbtFitted = QtCore.Signal()
@@ -91,6 +99,10 @@ class HbtGui(GUIBase):
         self._mw.hbt_plot_PlotWidget.setLabel(axis='left', text='g2(t)', units='normalised units')
         self._mw.hbt_plot_PlotWidget.setLabel(axis='bottom', text='Time', units='ns')
         self._mw.hbt_plot_PlotWidget.showGrid(x=True, y=True, alpha=0.8)
+<<<<<<< HEAD
+=======
+        self.set_time_window(self.time_window)
+>>>>>>> refresh
 
         #####################
         # Connecting user interactions
@@ -118,6 +130,12 @@ class HbtGui(GUIBase):
         self._mw.raise_()
         return
 
+<<<<<<< HEAD
+=======
+    def set_time_window(self, t):
+        self._mw.hbt_plot_PlotWidget.setXRange(-0.5*t, 0.5*t, padding=None)
+
+>>>>>>> refresh
     def on_deactivate(self):
         """ Deactivate the module
         """

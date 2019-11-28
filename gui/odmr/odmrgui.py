@@ -24,7 +24,7 @@ import numpy as np
 import os
 import pyqtgraph as pg
 
-from core.module import Connector
+from core.connector import Connector
 from core.util import units
 from gui.guibase import GUIBase
 from gui.guiutils import ColorBar
@@ -68,9 +68,6 @@ class ODMRGui(GUIBase):
     This is the GUI Class for ODMR measurements
     """
 
-    _modclass = 'ODMRGui'
-    _modtype = 'gui'
-
     # declare connectors
     odmrlogic1 = Connector(interface='ODMRLogic')
     savelogic = Connector(interface='SaveLogic')
@@ -85,11 +82,14 @@ class ODMRGui(GUIBase):
     sigMwCwParamsChanged = QtCore.Signal(float, float)
     sigMwSweepParamsChanged = QtCore.Signal(float, float, float, float)
     sigClockFreqChanged = QtCore.Signal(float)
+    sigOversamplingChanged = QtCore.Signal(int)
+    sigLockInChanged = QtCore.Signal(bool)
     sigFitChanged = QtCore.Signal(str)
     sigNumberOfLinesChanged = QtCore.Signal(int)
     sigRuntimeChanged = QtCore.Signal(float)
-    sigDoFit = QtCore.Signal(str)
+    sigDoFit = QtCore.Signal(str, object, object, int)
     sigSaveMeasurement = QtCore.Signal(str, list, list)
+    sigAverageLinesChanged = QtCore.Signal(int)
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -101,7 +101,7 @@ class ODMRGui(GUIBase):
         *.ui file and configures the event handling between the modules.
         """
 
-        self._odmr_logic = self.get_connector('odmrlogic1')
+        self._odmr_logic = self.odmrlogic1()
 
         # Use the inherited class 'Ui_ODMRGuiUI' to create now the GUI element:
         self._mw = ODMRMainWindow()
@@ -121,15 +121,12 @@ class ODMRGui(GUIBase):
         self._mw.start_freq_DoubleSpinBox.setMaximum(constraints.max_frequency)
         self._mw.start_freq_DoubleSpinBox.setMinimum(constraints.min_frequency)
         self._mw.step_freq_DoubleSpinBox.setMaximum(100e9)
-        self._mw.step_freq_DoubleSpinBox.setOpts(minStep=1.0)  # set the minimal step to 1Hz
         self._mw.stop_freq_DoubleSpinBox.setMaximum(constraints.max_frequency)
         self._mw.stop_freq_DoubleSpinBox.setMinimum(constraints.min_frequency)
         self._mw.cw_power_DoubleSpinBox.setMaximum(constraints.max_power)
         self._mw.cw_power_DoubleSpinBox.setMinimum(constraints.min_power)
-        self._mw.cw_power_DoubleSpinBox.setOpts(minStep=0.1)
         self._mw.sweep_power_DoubleSpinBox.setMaximum(constraints.max_power)
         self._mw.sweep_power_DoubleSpinBox.setMinimum(constraints.min_power)
-        self._mw.sweep_power_DoubleSpinBox.setOpts(minStep=0.1)
 
         # Add save file tag input box
         self._mw.save_tag_LineEdit = QtWidgets.QLineEdit(self._mw)
@@ -217,9 +214,12 @@ class ODMRGui(GUIBase):
         self._mw.runtime_DoubleSpinBox.setValue(self._odmr_logic.run_time)
         self._mw.elapsed_time_DisplayWidget.display(int(np.rint(self._odmr_logic.elapsed_time)))
         self._mw.elapsed_sweeps_DisplayWidget.display(self._odmr_logic.elapsed_sweeps)
+        self._mw.average_level_SpinBox.setValue(self._odmr_logic.lines_to_average)
 
         self._sd.matrix_lines_SpinBox.setValue(self._odmr_logic.number_of_lines)
         self._sd.clock_frequency_DoubleSpinBox.setValue(self._odmr_logic.clock_frequency)
+        self._sd.oversampling_SpinBox.setValue(self._odmr_logic.oversampling)
+        self._sd.lock_in_CheckBox.setChecked(self._odmr_logic.lock_in)
 
         # fit settings
         self._fsd = FitSettingsDialog(self._odmr_logic.fc)
@@ -242,6 +242,7 @@ class ODMRGui(GUIBase):
         self._mw.odmr_cb_min_DoubleSpinBox.valueChanged.connect(self.colorscale_changed)
         self._mw.odmr_cb_high_percentile_DoubleSpinBox.valueChanged.connect(self.colorscale_changed)
         self._mw.odmr_cb_low_percentile_DoubleSpinBox.valueChanged.connect(self.colorscale_changed)
+        self._mw.average_level_SpinBox.valueChanged.connect(self.average_level_changed)
         # Internal trigger signals
         self._mw.odmr_cb_manual_RadioButton.clicked.connect(self.colorscale_changed)
         self._mw.odmr_cb_centiles_RadioButton.clicked.connect(self.colorscale_changed)
@@ -271,7 +272,11 @@ class ODMRGui(GUIBase):
                                              QtCore.Qt.QueuedConnection)
         self.sigClockFreqChanged.connect(self._odmr_logic.set_clock_frequency,
                                          QtCore.Qt.QueuedConnection)
+        self.sigOversamplingChanged.connect(self._odmr_logic.set_oversampling, QtCore.Qt.QueuedConnection)
+        self.sigLockInChanged.connect(self._odmr_logic.set_lock_in, QtCore.Qt.QueuedConnection)
         self.sigSaveMeasurement.connect(self._odmr_logic.save_odmr_data, QtCore.Qt.QueuedConnection)
+        self.sigAverageLinesChanged.connect(self._odmr_logic.set_average_length,
+                                            QtCore.Qt.QueuedConnection)
 
         # Update signals coming from logic:
         self._odmr_logic.sigParameterUpdated.connect(self.update_parameter,
@@ -321,7 +326,10 @@ class ODMRGui(GUIBase):
         self.sigRuntimeChanged.disconnect()
         self.sigNumberOfLinesChanged.disconnect()
         self.sigClockFreqChanged.disconnect()
+        self.sigOversamplingChanged.disconnect()
+        self.sigLockInChanged.disconnect()
         self.sigSaveMeasurement.disconnect()
+        self.sigAverageLinesChanged.disconnect()
         self._mw.odmr_cb_manual_RadioButton.clicked.disconnect()
         self._mw.odmr_cb_centiles_RadioButton.clicked.disconnect()
         self._mw.clear_odmr_PushButton.clicked.disconnect()
@@ -342,6 +350,7 @@ class ODMRGui(GUIBase):
         self._mw.odmr_cb_min_DoubleSpinBox.valueChanged.disconnect()
         self._mw.odmr_cb_high_percentile_DoubleSpinBox.valueChanged.disconnect()
         self._mw.odmr_cb_low_percentile_DoubleSpinBox.valueChanged.disconnect()
+        self._mw.average_level_SpinBox.valueChanged.disconnect()
         self._fsd.sigFitsUpdated.disconnect()
         self._mw.action_FitSettings.triggered.disconnect()
         self._mw.close()
@@ -373,6 +382,8 @@ class ODMRGui(GUIBase):
             self._mw.stop_freq_DoubleSpinBox.setEnabled(False)
             self._mw.runtime_DoubleSpinBox.setEnabled(False)
             self._sd.clock_frequency_DoubleSpinBox.setEnabled(False)
+            self._sd.oversampling_SpinBox.setEnabled(False)
+            self._sd.lock_in_CheckBox.setEnabled(False)
             self.sigStartOdmrScan.emit()
         else:
             self._mw.action_run_stop.setEnabled(False)
@@ -394,6 +405,8 @@ class ODMRGui(GUIBase):
             self._mw.stop_freq_DoubleSpinBox.setEnabled(False)
             self._mw.runtime_DoubleSpinBox.setEnabled(False)
             self._sd.clock_frequency_DoubleSpinBox.setEnabled(False)
+            self._sd.oversampling_SpinBox.setEnabled(False)
+            self._sd.lock_in_CheckBox.setEnabled(False)
             self.sigContinueOdmrScan.emit()
         else:
             self._mw.action_run_stop.setEnabled(False)
@@ -443,6 +456,8 @@ class ODMRGui(GUIBase):
                 self._mw.sweep_power_DoubleSpinBox.setEnabled(False)
                 self._mw.runtime_DoubleSpinBox.setEnabled(False)
                 self._sd.clock_frequency_DoubleSpinBox.setEnabled(False)
+                self._sd.oversampling_SpinBox.setEnabled(False)
+                self._sd.lock_in_CheckBox.setEnabled(False)
                 self._mw.action_run_stop.setChecked(True)
                 self._mw.action_resume_odmr.setChecked(True)
                 self._mw.action_toggle_cw.setChecked(False)
@@ -456,6 +471,8 @@ class ODMRGui(GUIBase):
                 self._mw.sweep_power_DoubleSpinBox.setEnabled(True)
                 self._mw.runtime_DoubleSpinBox.setEnabled(True)
                 self._sd.clock_frequency_DoubleSpinBox.setEnabled(True)
+                self._sd.oversampling_SpinBox.setEnabled(True)
+                self._sd.lock_in_CheckBox.setEnabled(True)
                 self._mw.action_run_stop.setChecked(False)
                 self._mw.action_resume_odmr.setChecked(False)
                 self._mw.action_toggle_cw.setChecked(True)
@@ -472,6 +489,8 @@ class ODMRGui(GUIBase):
             self._mw.stop_freq_DoubleSpinBox.setEnabled(True)
             self._mw.runtime_DoubleSpinBox.setEnabled(True)
             self._sd.clock_frequency_DoubleSpinBox.setEnabled(True)
+            self._sd.oversampling_SpinBox.setEnabled(True)
+            self._sd.lock_in_CheckBox.setEnabled(True)
             self._mw.action_run_stop.setChecked(False)
             self._mw.action_resume_odmr.setChecked(False)
             self._mw.action_toggle_cw.setChecked(False)
@@ -514,6 +533,13 @@ class ODMRGui(GUIBase):
             self._odmr_logic.odmr_plot_y,
             self._odmr_logic.odmr_plot_xy)
 
+    def average_level_changed(self):
+        """
+        Sends to lines to average to the logic
+        """
+        self.sigAverageLinesChanged.emit(self._mw.average_level_SpinBox.value())
+        return
+
     def colorscale_changed(self):
         """
         Updates the range of the displayed colorscale in both the colorbar and the matrix plot.
@@ -541,7 +567,7 @@ class ODMRGui(GUIBase):
 
         # If "Manual" is checked or the image is empty (all zeros), then take manual cb range.
         # Otherwise, calculate cb range from percentiles.
-        if self._mw.odmr_cb_manual_RadioButton.isChecked() or np.max(matrix_image) < 0.1:
+        if self._mw.odmr_cb_manual_RadioButton.isChecked() or np.count_nonzero(matrix_image) < 1:
             cb_min = self._mw.odmr_cb_min_DoubleSpinBox.value()
             cb_max = self._mw.odmr_cb_max_DoubleSpinBox.value()
         else:
@@ -572,6 +598,10 @@ class ODMRGui(GUIBase):
         """ Write the new settings from the gui to the file. """
         number_of_lines = self._sd.matrix_lines_SpinBox.value()
         clock_frequency = self._sd.clock_frequency_DoubleSpinBox.value()
+        oversampling = self._sd.oversampling_SpinBox.value()
+        lock_in = self._sd.lock_in_CheckBox.isChecked()
+        self.sigOversamplingChanged.emit(oversampling)
+        self.sigLockInChanged.emit(lock_in)
         self.sigClockFreqChanged.emit(clock_frequency)
         self.sigNumberOfLinesChanged.emit(number_of_lines)
         return
@@ -580,11 +610,13 @@ class ODMRGui(GUIBase):
         """ Keep the old settings and restores the old settings in the gui. """
         self._sd.matrix_lines_SpinBox.setValue(self._odmr_logic.number_of_lines)
         self._sd.clock_frequency_DoubleSpinBox.setValue(self._odmr_logic.clock_frequency)
+        self._sd.oversampling_SpinBox.setValue(self._odmr_logic.oversampling)
+        self._sd.lock_in_CheckBox.setChecked(self._odmr_logic.lock_in)
         return
 
     def do_fit(self):
         fit_function = self._mw.fit_methods_ComboBox.getCurrentFit()[0]
-        self.sigDoFit.emit(fit_function)
+        self.sigDoFit.emit(fit_function, None, None, self._mw.odmr_channel_ComboBox.currentIndex())
         return
 
     def update_fit(self, x_data, y_data, result_str_dict, current_fit):
@@ -667,6 +699,18 @@ class ODMRGui(GUIBase):
             self._sd.clock_frequency_DoubleSpinBox.setValue(param)
             self._sd.clock_frequency_DoubleSpinBox.blockSignals(False)
 
+        param = param_dict.get('oversampling')
+        if param is not None:
+            self._sd.oversampling_SpinBox.blockSignals(True)
+            self._sd.oversampling_SpinBox.setValue(param)
+            self._sd.oversampling_SpinBox.blockSignals(False)
+
+        param = param_dict.get('lock_in')
+        if param is not None:
+            self._sd.lock_in_CheckBox.blockSignals(True)
+            self._sd.lock_in_CheckBox.setChecked(param)
+            self._sd.lock_in_CheckBox.blockSignals(False)
+
         param = param_dict.get('cw_mw_frequency')
         if param is not None:
             self._mw.cw_frequency_DoubleSpinBox.blockSignals(True)
@@ -678,6 +722,12 @@ class ODMRGui(GUIBase):
             self._mw.cw_power_DoubleSpinBox.blockSignals(True)
             self._mw.cw_power_DoubleSpinBox.setValue(param)
             self._mw.cw_power_DoubleSpinBox.blockSignals(False)
+
+        param = param_dict.get('average_length')
+        if param is not None:
+            self._mw.average_level_SpinBox.blockSignals(True)
+            self._mw.average_level_SpinBox.setValue(param)
+            self._mw.average_level_SpinBox.blockSignals(False)
         return
 
     ############################################################################

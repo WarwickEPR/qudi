@@ -23,7 +23,7 @@ import os
 import pyqtgraph.configfile as configfile
 
 from collections import OrderedDict
-from core.module import Connector
+from core.connector import Connector
 from logic.generic_logic import GenericLogic
 from qtpy import QtCore
 
@@ -261,11 +261,10 @@ class TreeModel(QtCore.QAbstractItemModel):
         else:
             return parent.itemData[0]
 
+
 class AutomationLogic(GenericLogic):
     """ Logic module agreggating multiple hardware switches.
     """
-    _modclass = 'AutomationLogic'
-    _modtype = 'logic'
     
     taskrunner = Connector(interface='TaskRunner')
 
@@ -274,7 +273,7 @@ class AutomationLogic(GenericLogic):
     def on_activate(self):
         """ Prepare logic module for work.
         """
-        self._taskrunner = self.get_connector('taskrunner')
+        self._taskrunner = self.taskrunner()
         #stuff = "a\txyz\n    b\tx\n    c\ty\n        d\tw\ne\tm\n"
         #tr = OrderedDict([
         #    ('a', OrderedDict([

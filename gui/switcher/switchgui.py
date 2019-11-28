@@ -21,7 +21,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 import os
 
-from core.module import Connector
+from core.connector import Connector
 from gui.guibase import GUIBase
 from qtpy import QtWidgets
 from qtpy import QtCore
@@ -31,16 +31,15 @@ from qtpy import uic
 class SwitchGui(GUIBase):
     """ A grephical interface to mofe switches by hand and change their calibration.
     """
-    _modclass = 'SwitchGui'
-    _modtype = 'gui'
-    ## declare connectors
+
+    # declare connectors
     switchlogic = Connector(interface='SwitchLogic')
 
     def on_activate(self):
         """Create all UI objects and show the window.
         """
         self._mw = SwitchMainWindow()
-        lsw =  self.get_connector('switchlogic')
+        lsw = self.switchlogic()
         # For each switch that the logic has, add a widget to the GUI to show its state
         for hw in lsw.switches:
             frame = QtWidgets.QGroupBox(hw, self._mw.scrollAreaWidgetContents)

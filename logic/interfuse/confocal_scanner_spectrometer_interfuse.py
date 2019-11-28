@@ -22,7 +22,9 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 import time
 import numpy as np
 
-from core.module import Base, Connector, ConfigOption
+from core.module import Base
+from core.configoption import ConfigOption
+from core.connector import Connector
 from interface.confocal_scanner_interface import ConfocalScannerInterface
 
 
@@ -31,8 +33,6 @@ class SpectrometerScannerInterfuse(Base, ConfocalScannerInterface):
     """This is the Interface class to define the controls for the simple
     microwave hardware.
     """
-    _modclass = 'confocalscannerinterface'
-    _modtype = 'hardware'
 
     # connectors
     fitlogic = Connector(interface='FitLogic')
@@ -59,9 +59,9 @@ class SpectrometerScannerInterfuse(Base, ConfocalScannerInterface):
         """ Initialisation performed during activation of the module.
         """
 
-        self._fit_logic = self.get_connector('fitlogic')
-        self._scanner_hw = self.get_connector('confocalscanner1')
-        self._spectrometer_hw = self.get_connector('spectrometer1')
+        self._fit_logic = self.fitlogic()
+        self._scanner_hw = self.confocalscanner1()
+        self._spectrometer_hw = self.spectrometer1()
 
 
     def on_deactivate(self):

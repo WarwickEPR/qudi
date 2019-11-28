@@ -61,13 +61,13 @@ class RemoteObjectManager(QObject):
             def get_service_name():
                 return 'RemoteModule'
 
-            def on_connect(self):
+            def on_connect(self, conn):
                 """ code that runs when a connection is created
                     (to init the service, if needed)
                 """
                 logger.info('Client connected!')
 
-            def on_disconnect(self):
+            def on_disconnect(self, conn):
                 """ code that runs when the connection has already closed
                     (to finalize the service, if needed)
                 """
@@ -200,10 +200,7 @@ class RPyCServer(QObject):
                 hostname=self.host,
                 port=self.port,
                 protocol_config={'allow_all_attrs': True},
-                authenticator=authenticator,
-                cert_reqs=ssl.CERT_REQUIRED,
-                ciphers='EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH',
-                ssl_version=ssl.PROTOCOL_TLSv1_2)
+                authenticator=authenticator)
         else:
             self.server = ThreadedServer(
                 self.serviceClass,

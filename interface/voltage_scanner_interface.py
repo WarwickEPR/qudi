@@ -20,8 +20,13 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
 
+<<<<<<< HEAD
 import abc
 from core.util.interfaces import InterfaceMetaclass
+=======
+from core.interface import abstract_interface_method
+from core.meta import InterfaceMetaclass
+>>>>>>> refresh
 
 class VoltageScannerInterface(metaclass=InterfaceMetaclass):
     """ This is the Interface class to define the controls for generic voltage sweeping hardware.
@@ -30,7 +35,11 @@ class VoltageScannerInterface(metaclass=InterfaceMetaclass):
     _modtype = 'VoltageScannerInterface'
     _modclass = 'interface'
 
+<<<<<<< HEAD
     @abc.abstractmethod
+=======
+    @abstract_interface_method
+>>>>>>> refresh
     def set_voltage(self, v):
         """Set output to voltage v.
 
@@ -40,7 +49,11 @@ class VoltageScannerInterface(metaclass=InterfaceMetaclass):
         """
         pass
 
+<<<<<<< HEAD
     @abc.abstractmethod
+=======
+    @abstract_interface_method
+>>>>>>> refresh
     def get_voltage(self):
         """ Get the current voltage.
 
@@ -48,7 +61,11 @@ class VoltageScannerInterface(metaclass=InterfaceMetaclass):
         """
         pass
 
+<<<<<<< HEAD
     @abc.abstractmethod
+=======
+    @abstract_interface_method
+>>>>>>> refresh
     def scan_voltage(self, voltages=None, pixel_clock=False):
         """ Scans the voltage and returns the counts at each point.
 

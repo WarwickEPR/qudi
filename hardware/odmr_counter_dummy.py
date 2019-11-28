@@ -22,31 +22,45 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 import numpy as np
 import time
 
-from core.module import Base, Connector, ConfigOption
+from core.module import Base
+from core.connector import Connector
+from core.configoption import ConfigOption
 from interface.odmr_counter_interface import ODMRCounterInterface
 
+
 class ODMRCounterDummy(Base, ODMRCounterInterface):
-    """This is the Dummy hardware class that simulates the controls for a simple ODMR.
+    """ Dummy hardware class to simulate the controls for a simple ODMR.
+
+    Example config for copy-paste:
+
+    odmr_counter_dummy:
+        module.Class: 'odmr_counter_dummy.ODMRCounterDummy'
+        clock_frequency: 100 # in Hz
+        number_of_channels: 2
+        fitlogic: 'fitlogic' # name of the fitlogic module, see default config
+
     """
-    _modclass = 'ODMRCounterDummy'
-    _modtype = 'hardware'
 
     # connectors
     fitlogic = Connector(interface='FitLogic')
 
     # config options
     _clock_frequency = ConfigOption('clock_frequency', 100, missing='warn')
+    _number_of_channels = ConfigOption('number_of_channels', 2, missing='warn')
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
 
         self._scanner_counter_daq_task = None
         self._odmr_length = None
+        self._pulse_out_channel = 'dummy'
+        self._lock_in_active = False
+        self._oversampling = 10
 
     def on_activate(self):
         """ Initialisation performed during activation of the module.
         """
-        self._fit_logic = self.get_connector('fitlogic')
+        self._fit_logic = self.fitlogic()
 
     def on_deactivate(self):
         """ Deinitialisation performed during deactivation of the module.
@@ -103,11 +117,7 @@ class ODMRCounterDummy(Base, ODMRCounterInterface):
         @return int: error code (0:OK, -1:error)
         """
 
-
         self._odmr_length = length
-#
-#        self.log.warning('ODMRCounterDummy>set_odmr_length')
-
         return 0
 
     def count_odmr(self, length=100):
@@ -125,10 +135,7 @@ class ODMRCounterDummy(Base, ODMRCounterInterface):
 
         self.module_state.lock()
 
-
         self._odmr_length = length
-
-        count_data = np.random.uniform(0, 5e4, length)
 
         lorentians, params = self._fit_logic.make_lorentziandouble_model()
 
@@ -142,15 +149,18 @@ class ODMRCounterDummy(Base, ODMRCounterInterface):
         params.add('l1_sigma', value=sigma)
         params.add('offset', value=50000.)
 
-        count_data += lorentians.eval(x=np.arange(1, length+1, 1), params=params)
+        ret = np.empty((self._number_of_channels, length))
+
+        for chnl_index in range(self._number_of_channels):
+            count_data = np.random.uniform(0, 5e4, length)
+            count_data += (chnl_index + 1) * lorentians.eval(x=np.arange(1, length + 1, 1),
+                                                             params=params)
+            ret[chnl_index] = count_data
 
         time.sleep(self._odmr_length*1./self._clock_frequency)
 
         self.module_state.unlock()
-
-        ret = np.empty((1, len(count_data)))
-        ret[0] = count_data
-        return ret
+        return False, ret
 
 
     def close_odmr(self):
@@ -180,4 +190,28 @@ class ODMRCounterDummy(Base, ODMRCounterInterface):
 
         @return list(str): channels recorded during ODMR measurement
         """
-        return ['ch1']
+        return ['ch{0:d}'.format(i) for i in range(1, self._number_of_channels + 1)]
+
+    @property
+    def oversampling(self):
+        return self._oversampling
+
+    @oversampling.setter
+    def oversampling(self, val):
+        if not isinstance(val, (int, float)):
+            self.log.error('oversampling has to be int of float.')
+        else:
+            self._oversampling = int(val)
+
+    @property
+    def lock_in_active(self):
+        return self._lock_in_active
+
+    @lock_in_active.setter
+    def lock_in_active(self, val):
+        if not isinstance(val, bool):
+            self.log.error('lock_in_active has to be boolean.')
+        else:
+            self._lock_in_active = val
+            if self._lock_in_active:
+                self.log.warn('Lock-In is not implemented')

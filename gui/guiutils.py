@@ -48,6 +48,10 @@ class ColorBar(pg.GraphicsObject):
 
         self.refresh_colorbar(cb_min, cb_max)
 
+    def set_colormap(self, cmap):
+        self.stops, self.colors = cmap.getStops('float')
+        self.stops = (self.stops - self.stops.min())/self.stops.ptp()
+
     def refresh_colorbar(self, cb_min, cb_max, width = None, height = None, xMin = None, yMin = None):
         """ Refresh the appearance of the colorbar for a changed count range.
 

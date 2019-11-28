@@ -29,7 +29,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 
-from core.module import Connector, StatusVar
+from core.connector import Connector
+from core.statusvariable import StatusVar
 from core.util.mutex import Mutex
 from logic.generic_logic import GenericLogic
 from qtpy import QtCore
@@ -42,9 +43,6 @@ class LaserScannerLogic(GenericLogic):
     """
 
     sig_data_updated = QtCore.Signal()
-
-    _modclass = 'laserscannerlogic'
-    _modtype = 'logic'
 
     # declare connectors
     confocalscanner1 = Connector(interface='ConfocalScannerInterface')
@@ -83,8 +81,8 @@ class LaserScannerLogic(GenericLogic):
     def on_activate(self):
         """ Initialisation performed during activation of the module.
         """
-        self._scanning_device = self.get_connector('confocalscanner1')
-        self._save_logic = self.get_connector('savelogic')
+        self._scanning_device = self.confocalscanner1()
+        self._save_logic = self.savelogic()
 
         # Reads in the maximal scanning range. The unit of that scan range is
         # micrometer!

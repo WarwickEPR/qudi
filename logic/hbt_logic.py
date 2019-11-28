@@ -21,10 +21,19 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 from collections import OrderedDict
 import numpy as np
 from logic.generic_logic import GenericLogic
+<<<<<<< HEAD
 from core.module import Connector, ConfigOption
 import TimeTagger as tt
 from qtpy import QtCore
 
+=======
+from core.module import Connector
+from core.configoption import ConfigOption
+import TimeTagger as tt
+from qtpy import QtCore
+
+
+>>>>>>> refresh
 class HbtLogic(GenericLogic):
     """
     This is the logic for running HBT experiments
@@ -40,22 +49,37 @@ class HbtLogic(GenericLogic):
 
     hbt_updated = QtCore.Signal()
     hbt_fit_updated = QtCore.Signal()
+<<<<<<< HEAD
+=======
+    hbt_saved = QtCore.Signal()
+>>>>>>> refresh
     sigStart = QtCore.Signal()
     sigStop = QtCore.Signal()
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
+<<<<<<< HEAD
         self.bin_times = []
         self.fit_times = []
+=======
+        self.fit_times = []
+        self.bin_times = []
+>>>>>>> refresh
         self.fit_g2 = []
         self.g2_data = []
         self.g2_data_normalised = []
         self.hbt_available = False
+<<<<<<< HEAD
+=======
+        self._setup_measurement()
+        self._close_measurement()
+>>>>>>> refresh
 
     def on_activate(self):
         """ Connect and configure the access to the FPGA.
         """
         self._save_logic = self.get_connector('savelogic')
+<<<<<<< HEAD
         self._tagger = tt.createTimeTagger()
         self._number_of_gates = int(100)
         self.coin = tt.Correlation(self._tagger, self._channel_apd_0, self._channel_apd_1,
@@ -64,6 +88,9 @@ class HbtLogic(GenericLogic):
         self.coin.stop()
         self.coin.clear()
         self.bin_times = self.coin.getIndex()
+=======
+        self._number_of_gates = int(100)
+>>>>>>> refresh
         self.g2_data = np.zeros_like(self.bin_times)
         self.g2_data_normalised = np.zeros_like(self.bin_times)
         self.fit_times = self.bin_times
@@ -75,6 +102,20 @@ class HbtLogic(GenericLogic):
         self.sigStart.connect(self._start_hbt)
         self.sigStop.connect(self._stop_hbt)
 
+<<<<<<< HEAD
+=======
+    def _setup_measurement(self):
+        self._tagger = tt.createTimeTagger()
+        self.coin = tt.Correlation(self._tagger, self._channel_apd_0, self._channel_apd_1,
+                                   binwidth=self._bin_width, n_bins=self._n_bins)
+        self.bin_times = self.coin.getIndex()
+
+    def _close_measurement(self):
+        self.coin.stop()
+        self.coin = None
+        self._tagger = None
+
+>>>>>>> refresh
     def start_hbt(self):
         self.sigStart.emit()
 
@@ -82,6 +123,10 @@ class HbtLogic(GenericLogic):
         self.sigStop.emit()
 
     def _start_hbt(self):
+<<<<<<< HEAD
+=======
+        self._setup_measurement()
+>>>>>>> refresh
         self.coin.clear()
         self.coin.start()
         self.timer.start(500)  # 0.5s
@@ -98,6 +143,7 @@ class HbtLogic(GenericLogic):
         self.hbt_updated.emit()
 
     def pause_hbt(self):
+<<<<<<< HEAD
         self.coin.stop()
 
     def continue_hbt(self):
@@ -105,6 +151,19 @@ class HbtLogic(GenericLogic):
 
     def _stop_hbt(self):
         self.coin.stop()
+=======
+        if self.coin is not None:
+            self.coin.stop()
+
+    def continue_hbt(self):
+        if self.coin is not None:
+            self.coin.start()
+
+    def _stop_hbt(self):
+        if self.coin is not None:
+            self._close_measurement()
+
+>>>>>>> refresh
         self.timer.stop()
 
     def fit_data(self):
@@ -139,6 +198,10 @@ class HbtLogic(GenericLogic):
         self._save_logic.save_data(data, filepath=filepath, filelabel='g2data', fmt=['%.6e', '%.6e', '%.6e'])
         self.log.debug('HBT data saved to:\n{0}'.format(filepath))
 
+<<<<<<< HEAD
+=======
+        self.hbt_saved.emit()
+>>>>>>> refresh
         return 0
 
     def on_deactivate(self):

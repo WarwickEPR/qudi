@@ -22,9 +22,17 @@ from collections import OrderedDict
 import numpy as np
 from logic.generic_logic import GenericLogic
 from core.util.mutex import Mutex
+<<<<<<< HEAD
 from core.module import Connector, ConfigOption, StatusVar
 from qtpy import QtCore
 
+=======
+from core.connector import Connector
+from core.statusvariable import StatusVar
+from qtpy import QtCore
+
+
+>>>>>>> refresh
 class AomLogic(GenericLogic):
     """
     This is the logic for controlling AOM diffraction efficiency
@@ -52,9 +60,15 @@ class AomLogic(GenericLogic):
     #_calibration_efficiency = ConfigOption('efficiency', missing='error')
 
     # temporary to avoid restarting qudi
+<<<<<<< HEAD
     _calibration_voltage = [0.6, 0.65, .7, .75, .8, .85, .9, .95, 1.0, 1.05, 1.10, 1.15, 1.2, 1.3, 1.4]
     _calibration_efficiency = [.00141, .00554, .01342, .02467, .03881, .05515, .07320, 0.09160, .11123, .12956,
                                .14604, .16094, .17408, .19377, .20777]
+=======
+    #_calibration_voltage = [0.6, 0.65, .7, .75, .8, .85, .9, .95, 1.0, 1.05, 1.10, 1.15, 1.2, 1.3, 1.4]
+    #_calibration_efficiency = [.00141, .00554, .01342, .02467, .03881, .05515, .07320, 0.09160, .11123, .12956,
+    #                           .14604, .16094, .17408, .19377, .20777]
+>>>>>>> refresh
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -90,6 +104,10 @@ class AomLogic(GenericLogic):
         self.clear()
 
         self.psat_updated.connect(self.fit_data)
+<<<<<<< HEAD
+=======
+        self.set_power(1e-4)
+>>>>>>> refresh
         # self.laser.sigPower.connect(self.update_aom)
 
 
@@ -136,7 +154,11 @@ class AomLogic(GenericLogic):
             self.update_aom()
 
     def source_changed(self):
+<<<<<<< HEAD
         self.max_power_updated.emit()
+=======
+        self.max_power_update.emit()
+>>>>>>> refresh
         self.update_aom()
 
     def update_aom(self):
@@ -151,7 +173,11 @@ class AomLogic(GenericLogic):
             self.aom_updated.emit()
 
     def _get_laser_power(self):
+<<<<<<< HEAD
         return self._laser.laser_power_setpoint
+=======
+        return self._laser.get_power_setpoint()
+>>>>>>> refresh
 
     def get_power(self):
         laser_power = self._get_laser_power()
@@ -175,7 +201,11 @@ class AomLogic(GenericLogic):
         if max(self.powers) > self.current_maximum_power():
             self.log.warn("Full range not available for current laser power")
         v = self.voltages_for_powers(self.powers)
+<<<<<<< HEAD
         self.log.info("Scanning AOM efficiency with voltages {}".format(v))
+=======
+        self.log.debug("Scanning AOM efficiency with voltages {}".format(v))
+>>>>>>> refresh
         self._voltagescanner.set_up_scanner_clock(clock_frequency=self._clock_frequency)
         self._voltagescanner.set_up_scanner()
         o = self._voltagescanner.scan_voltage(v)
@@ -237,7 +267,11 @@ class AomLogic(GenericLogic):
         data['Count rate (/s)'] = np.array(counts)
 
         self._save_logic.save_data(data, filepath=filepath, filelabel='Psat', fmt=['%.6e', '%.6e', '%.6e'])
+<<<<<<< HEAD
         self.log.debug('Psat saved to:\n{0}'.format(filepath))
+=======
+        self.log.info('Psat saved to:\n{0}'.format(filepath))
+>>>>>>> refresh
 
         self.psat_saved.emit()
 

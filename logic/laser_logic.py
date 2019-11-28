@@ -23,30 +23,29 @@ import time
 import numpy as np
 from qtpy import QtCore
 
-from core.module import Connector
+from core.connector import Connector
+from core.configoption import ConfigOption
 from logic.generic_logic import GenericLogic
-from interface.simple_laser_interface import ControlMode, ShutterState, LaserState
+from interface.simple_laser_interface import ControlMode, ShutterState, LaserState, LaserNotConnected
 
 
 class LaserLogic(GenericLogic):
     """ Logic module agreggating multiple hardware switches.
     """
-    _modclass = 'laser'
-    _modtype = 'logic'
 
+    # waiting time between queries im milliseconds
     laser = Connector(interface='SimpleLaserInterface')
+    queryInterval = ConfigOption('query_interval', 100)
 
     sigUpdate = QtCore.Signal()
 
     def on_activate(self):
         """ Prepare logic module for work.
         """
-        self._laser = self.get_connector('laser')
+        self._laser = self.laser()
         self.stopRequest = False
         self.bufferLength = 100
         self.data = {}
-        # waiting time between queries im milliseconds
-        self.queryInterval = 100
 
         # delay timer for querying laser
         self.queryTimer = QtCore.QTimer()
@@ -110,6 +109,9 @@ class LaserLogic(GenericLogic):
 
             for k, v in self.laser_temps.items():
                 self.data[k][-1] = v
+        except LaserNotConnected:
+            self.log.info("Laser is not connected, stopping status loop")
+            return
         except:
             qi = 3000
             self.log.exception("Exception in laser status loop, throttling refresh rate.")
@@ -165,6 +167,7 @@ class LaserLogic(GenericLogic):
             self._laser.on()
         if not state and self.laser_state == LaserState.ON:
             self._laser.off()
+        self.sigUpdate.emit()
 
     @QtCore.Slot(bool)
     def set_shutter_state(self, state):

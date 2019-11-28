@@ -27,7 +27,7 @@ from qtpy import QtWidgets
 from qtpy import QtCore
 from qtpy import uic
 
-from core.module import Connector
+from core.connector import Connector
 from gui.guibase import GUIBase
 
 
@@ -47,11 +47,8 @@ class QdplotMainWindow(QtWidgets.QMainWindow):
 
 
 class QdplotterGui(GUIBase):
-
     """ FIXME: Please document
     """
-    _modclass = 'qdplotgui'
-    _modtype = 'gui'
 
     # declare connectors
     qdplotlogic1 = Connector(interface='QdplotLogic')
@@ -66,7 +63,7 @@ class QdplotterGui(GUIBase):
         """ Definition and initialisation of the GUI.
         """
 
-        self._qdplot_logic = self.get_connector('qdplotlogic1')
+        self._qdplot_logic = self.qdplotlogic1()
 
         #####################
         # Configuring the dock widgets

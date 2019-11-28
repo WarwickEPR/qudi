@@ -25,7 +25,8 @@ import numpy as np
 import time
 
 from collections import OrderedDict
-from core.module import Connector, StatusVar
+from core.connector import Connector
+from core.statusvariable import StatusVar
 from core.util.mutex import Mutex
 from logic.generic_logic import GenericLogic
 from qtpy import QtCore
@@ -56,18 +57,15 @@ class NuclearOperationsLogic(GenericLogic):
 
     """
 
-    _modclass = 'NuclearOperationsLogic'
-    _modtype = 'logic'
-
     # declare connectors
-    #TODO: Use rather the task runner instead directly the module!
+    # TODO: Use rather the task runner instead directly the module!
 
-    sequencegenerationlogic = Connector(interface='SequenceGenerationLogic')
+    sequencegenerationlogic = Connector(interface='SequenceGeneratorLogic')
     traceanalysislogic = Connector(interface='TraceAnalysisLogic')
     gatedcounterlogic = Connector(interface='CounterLogic')
     odmrlogic = Connector(interface='ODMRLogic')
     optimizerlogic = Connector(interface='OptimizerLogic')
-    scannerlogic = Connector(interface='ScannerLogic')
+    scannerlogic = Connector(interface='ConfocalLogic')
     savelogic = Connector(interface='SaveLogic')
 
     # status vars
@@ -150,16 +148,16 @@ class NuclearOperationsLogic(GenericLogic):
         """ Initialisation performed during activation of the module.
         """
         # establish the access to all connectors:
-        self._save_logic = self.get_connector('savelogic')
+        self._save_logic = self.savelogic()
 
         #FIXME: THAT IS JUST A TEMPORARY SOLUTION! Implement the access on the
         #       needed methods via the TaskRunner!
-        self._seq_gen_logic = self.get_connector('sequencegenerationlogic')
-        self._trace_ana_logic = self.get_connector('traceanalysislogic')
-        self._gc_logic = self.get_connector('gatedcounterlogic')
-        self._odmr_logic = self.get_connector('odmrlogic')
-        self._optimizer_logic = self.get_connector('optimizerlogic')
-        self._confocal_logic = self.get_connector('scannerlogic')
+        self._seq_gen_logic = self.sequencegenerationlogic()
+        self._trace_ana_logic = self.traceanalysislogic()
+        self._gc_logic = self.gatedcounterlogic()
+        self._odmr_logic = self.odmrlogic()
+        self._optimizer_logic = self.optimizerlogic()
+        self._confocal_logic = self.scannerlogic()
 
         # current measurement information:
         self.current_meas_point = self.x_axis_start

@@ -23,19 +23,16 @@ import numpy as np
 import random
 import time
 
-from core.module import Base, Connector
+from core.module import Base
+from core.connector import Connector
 from interface.motor_interface import MotorInterface
 from interface.slow_counter_interface import SlowCounterInterface
 from qtpy import QtCore
 
 
 class PolarizationDependenceSim(Base, SlowCounterInterface, MotorInterface):
-
     """ This class wraps the slow-counter dummy and adds polarisation angle dependence in order to simulate dipole polarisation measurements.
     """
-
-    _modclass = 'polarizationdepsim'
-    _modtype = 'hardware'
 
     # Connectors
     counter1 = Connector(interface='SlowCounterInterface')
@@ -46,7 +43,7 @@ class PolarizationDependenceSim(Base, SlowCounterInterface, MotorInterface):
         """ Activation of the class
         """
         # name connected modules
-        self._counter_hw = self.get_connector('counter1')
+        self._counter_hw = self.counter1()
 
         # Required class variables to pretend to be the counter hardware
         self._photon_source2 = None
