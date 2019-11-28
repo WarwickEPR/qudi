@@ -92,6 +92,7 @@ class AomLogic(GenericLogic):
         self.clear()
 
         self.psat_updated.connect(self.fit_data)
+        self.set_power(1e-4)
         # self.laser.sigPower.connect(self.update_aom)
 
 
@@ -138,7 +139,7 @@ class AomLogic(GenericLogic):
             self.update_aom()
 
     def source_changed(self):
-        self.max_power_updated.emit()
+        self.max_power_update.emit()
         self.update_aom()
 
     def update_aom(self):
