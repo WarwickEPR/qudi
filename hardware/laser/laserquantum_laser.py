@@ -22,7 +22,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 from core.module import Base
 from core.configoption import ConfigOption
 from core.util.mutex import Mutex
-from interface.simple_laser_interface import SimpleLaserInterface
+from interface.simple_laser_interface import SimpleLaserInterface, LaserNotConnected
 from interface.simple_laser_interface import ControlMode
 from interface.simple_laser_interface import ShutterState
 from interface.simple_laser_interface import LaserState
@@ -91,7 +91,10 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
             # give laser 2 seconds maximum to reply
             self.inst.timeout = 2000
         except visa.VisaIOError:
-            self.log.exception('Communication Failure:')
+            self.log.exception('Communication Failure')
+            return False
+        except visa.InvalidSession:
+            self.log.exception('Session closed, failed to open')
             return False
         else:
             return True
@@ -104,13 +107,18 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
             try:
                 with self.threadlock:
                     return self.inst.query(x)
+            except visa.InvalidSession as err:
+                self.log.exception('Query while session closed: {}'.format(x))
+                raise LaserNotConnected()
             except visa.VisaIOError as err:
                 self.log.warn('LaserQuantum VISA query failed attempt {}'.format(i))
+                self.log.warn('Clearing LaserQuantum VISA IO')
+                self.inst.clear()
                 exception = err
                 # retry
                 continue
         # tried but failed, re-raise latest of original exception
-        raise visa.VisaIOError from exception
+        raise exception
 
     def write(self, x):
         """Wrap VISA write to silence unhelpful errors from occasional failures to poll the GEM laser status"""
@@ -120,13 +128,18 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
             try:
                 with self.threadlock:
                     return self.inst.write(x)
+            except visa.InvalidSession as err:
+                self.log.exception('Session closed')
+                raise err
             except visa.VisaIOError as err:
                 self.log.warn('LaserQuantum VISA write failed attempt {}'.format(i))
+                self.log.warn('Clearing LaserQuantum VISA IO')
+                self.inst.clear()
                 exception = err
                 # retry
                 continue
         # tried but failed, re-raise latest of original exception
-        raise visa.VisaIOError from exception
+        raise exception
 
 
     def disconnect_laser(self):
@@ -487,6 +500,9 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
         try:
             while True:
                 lines.append(self.inst.read())
+        except visa.InvalidSession as err:
+            self.log.exception("Can't get firmware version, session closed")
+            raise LaserNotConnected()
         except:
             pass
         return lines
@@ -501,6 +517,9 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
         try:
             while True:
                 lines.append(self.inst.read())
+        except visa.InvalidSession as err:
+            self.log.exception("Can't get dump info, session closed")
+            raise LaserNotConnected()
         except:
             pass
         return lines
@@ -515,6 +534,9 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
         try:
             while True:
                 lines.append(self.inst.read())
+        except visa.InvalidSession as err:
+            self.log.exception("Can't get dump info, session closed")
+            raise LaserNotConnected()
         except:
             pass
         return lines
@@ -535,4 +557,3 @@ class LaserQuantumLaser(Base, SimpleLaserInterface):
         extra += '\n'.join(self.timers())
         extra += '\n'
         return extra
-
