@@ -640,7 +640,14 @@ a
                 # followed by alternating high and low pulses with some length. Total length is nsamples
                 for i in range(0, n_elem):
                     # add HIGH pulse
-                    duration = falling[i] - rising[i]
+
+                    # need to deal with the case that falling[0] == 0 (i.e. for a sync pulse). In this case, duration
+                    # will end up being negative and the pulse will never be added
+                    if i == (n_elem - 1) and falling[0] == 0:
+                        duration = n_samples - rising[i]
+                        self.log.debug('Adding inferred rising pulse of duration {} to channel {}'.format(duration, channel))
+                    else:
+                        duration = falling[i] - rising[i]
                     if duration > 0:
                         rle.append((duration, 1))
 
@@ -650,6 +657,9 @@ a
                         if duration > 0:
                             rle.append((duration, 0))
                     elif falling[i] < n_samples:
+                        if i == (n_elem - 1) and falling[0] == 0:
+                            self.log.debug('Ignoring final pulse of channel {} as it should be set at the start of the sequence'.format(channel))
+                            continue
                         duration = n_samples - falling[i]
                         if duration > 0:
                             rle.append((duration, 0))
