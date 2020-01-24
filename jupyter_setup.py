@@ -32,7 +32,8 @@ def bind_common_notifications():
     kernellogic.bind_notification(aomlogic.psat_fit_updated,'psat fit done')
     kernellogic.bind_notification(aomlogic.psat_saved,'psat saved')
 
-    kernellogic.bind_notification(hbtlogic.hbt_updated,'hbt done')
+    #kernellogic.bind_notification(hbtlogic.hbt_updated,'hbt done')
+    kernellogic.bind_notification(hbtlogic.sigStop, 'hbt done')
     #kernellogic.bind_notification(hbtlogic.hbt_fit_updated,'psat fit done')
     kernellogic.bind_notification(hbtlogic.hbt_saved,'hbt saved')
 
