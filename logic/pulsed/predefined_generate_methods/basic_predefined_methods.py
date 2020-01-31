@@ -957,7 +957,7 @@ class BasicPredefinedGenerator(PredefinedGeneratorBase):
         created_ensembles.append(block_ensemble)
         return created_blocks, created_ensembles, created_sequences
 
-    def generate_xy8_tau(self, name='xy8 tau', tau_start=0.5e-6, tau_step=0.01e-6, num_of_points=50,
+    def generate_xy8_tau(self, name='xy8tau', tau_start=0.5e-6, tau_step=0.01e-6, num_of_points=50,
                          xy8_order=4, alternating=True):
         """
 
