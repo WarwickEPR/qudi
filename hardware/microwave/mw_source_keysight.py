@@ -348,6 +348,9 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
 
         try:
             self._connection.write(':LIST:TRIG:EXT:SOUR {0}'.format(self._trigger))
+            self._connection.write(':LIST:TRIG:SOURCE EXT')
+            self._connection.write(':INIT:CONT ON')
+            self._connection.write(':TRIG:SOUR IMM')
             self._connection.write(':LIST:TRIG:SLOP {0}'.format(edge))
         except:
             self.log.warning("Failed to configure Keysight external trigger")
