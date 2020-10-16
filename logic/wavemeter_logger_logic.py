@@ -322,7 +322,7 @@ class WavemeterLoggerLogic(GenericLogic):
         """
 
         if not self.module_state() == 'idle':
-            # self._wavemeter_device.stop_acqusition()
+            self._wavemeter_device.stop_acqusition()
             # stop the measurement thread
             self.sig_handle_timer.emit(False)
             # set status to idle again
