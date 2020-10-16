@@ -7,7 +7,6 @@ from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
-from google.protobuf import descriptor_pb2
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -19,63 +18,115 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='pulse_streamer.proto',
   package='pulse_streamer',
   syntax='proto3',
-  serialized_pb=_b('\n\x14pulse_streamer.proto\x12\x0epulse_streamer\"\r\n\x0bVoidMessage\"E\n\x0cPulseMessage\x12\r\n\x05ticks\x18\x01 \x01(\r\x12\x0c\n\x04\x64igi\x18\x02 \x01(\r\x12\x0b\n\x03\x61o0\x18\x03 \x01(\x05\x12\x0b\n\x03\x61o1\x18\x04 \x01(\x05\"\xc5\x02\n\x0fSequenceMessage\x12+\n\x05pulse\x18\x01 \x03(\x0b\x32\x1c.pulse_streamer.PulseMessage\x12\x0e\n\x06n_runs\x18\x02 \x01(\x03\x12-\n\x07initial\x18\x03 \x01(\x0b\x32\x1c.pulse_streamer.PulseMessage\x12+\n\x05\x66inal\x18\x04 \x01(\x0b\x32\x1c.pulse_streamer.PulseMessage\x12/\n\tunderflow\x18\x05 \x01(\x0b\x32\x1c.pulse_streamer.PulseMessage\x12\x34\n\x05start\x18\x06 \x01(\x0e\x32%.pulse_streamer.SequenceMessage.Start\"2\n\x05Start\x12\r\n\tIMMEDIATE\x10\x00\x12\x0c\n\x08SOFTWARE\x10\x01\x12\x0c\n\x08HARDWARE\x10\x02\"n\n\x0eTriggerMessage\x12\x31\n\x04\x65\x64ge\x18\x01 \x01(\x0e\x32#.pulse_streamer.TriggerMessage.Edge\")\n\x04\x45\x64ge\x12\n\n\x06RISING\x10\x00\x12\x0b\n\x07\x46\x41LLING\x10\x01\x12\x08\n\x04\x42OTH\x10\x02\"#\n\x12PulseStreamerReply\x12\r\n\x05value\x18\x01 \x01(\x05\x32\xc8\x04\n\rPulseStreamer\x12N\n\x08\x63onstant\x12\x1c.pulse_streamer.PulseMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12O\n\x06stream\x12\x1f.pulse_streamer.SequenceMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12M\n\x08startNow\x12\x1b.pulse_streamer.VoidMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12R\n\nsetTrigger\x12\x1e.pulse_streamer.TriggerMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12N\n\tisRunning\x12\x1b.pulse_streamer.VoidMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12P\n\x0bhasSequence\x12\x1b.pulse_streamer.VoidMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12Q\n\x0cgetUnderflow\x12\x1b.pulse_streamer.VoidMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x62\x06proto3')
+  serialized_options=None,
+  serialized_pb=_b('\n\x14pulse_streamer.proto\x12\x0epulse_streamer\"\r\n\x0bVoidMessage\"E\n\x0cPulseMessage\x12\r\n\x05ticks\x18\x01 \x01(\r\x12\x0c\n\x04\x64igi\x18\x02 \x01(\r\x12\x0b\n\x03\x61o0\x18\x03 \x01(\x05\x12\x0b\n\x03\x61o1\x18\x04 \x01(\x05\"{\n\x0fSequenceMessage\x12+\n\x05pulse\x18\x01 \x03(\x0b\x32\x1c.pulse_streamer.PulseMessage\x12\x0e\n\x06n_runs\x18\x02 \x01(\x03\x12+\n\x05\x66inal\x18\x03 \x01(\x0b\x32\x1c.pulse_streamer.PulseMessage\"\x8a\x02\n\x0eTriggerMessage\x12\x33\n\x05start\x18\x01 \x01(\x0e\x32$.pulse_streamer.TriggerMessage.Start\x12\x31\n\x04mode\x18\x02 \x01(\x0e\x32#.pulse_streamer.TriggerMessage.Mode\"p\n\x05Start\x12\r\n\tIMMEDIATE\x10\x00\x12\x0c\n\x08SOFTWARE\x10\x01\x12\x13\n\x0fHARDWARE_RISING\x10\x02\x12\x14\n\x10HARDWARE_FALLING\x10\x03\x12\x1f\n\x1bHARDWARE_RISING_AND_FALLING\x10\x04\"\x1e\n\x04Mode\x12\n\n\x06NORMAL\x10\x00\x12\n\n\x06SINGLE\x10\x01\"\x84\x01\n\x0c\x43lockMessage\x12;\n\x0c\x63lock_source\x18\x01 \x01(\x0e\x32%.pulse_streamer.ClockMessage.Clocking\"7\n\x08\x43locking\x12\x0c\n\x08INTERNAL\x10\x00\x12\x0e\n\nEXT_125MHZ\x10\x01\x12\r\n\tEXT_10MHZ\x10\x02\"f\n\x10GetSerialMessage\x12\x37\n\x06serial\x18\x01 \x01(\x0e\x32\'.pulse_streamer.GetSerialMessage.Serial\"\x19\n\x06Serial\x12\x06\n\x02ID\x10\x00\x12\x07\n\x03MAC\x10\x01\"#\n\x12PulseStreamerReply\x12\r\n\x05value\x18\x01 \x01(\r\"0\n\x18PulseStreamerStringReply\x12\x14\n\x0cstring_value\x18\x01 \x01(\t2\xbf\x08\n\rPulseStreamer\x12J\n\x05reset\x12\x1b.pulse_streamer.VoidMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12N\n\x08\x63onstant\x12\x1c.pulse_streamer.PulseMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12O\n\nforceFinal\x12\x1b.pulse_streamer.VoidMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12O\n\x06stream\x12\x1f.pulse_streamer.SequenceMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12M\n\x08startNow\x12\x1b.pulse_streamer.VoidMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12R\n\nsetTrigger\x12\x1e.pulse_streamer.TriggerMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12J\n\x05rearm\x12\x1b.pulse_streamer.VoidMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12Q\n\x0bselectClock\x12\x1c.pulse_streamer.ClockMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12P\n\x0bisStreaming\x12\x1b.pulse_streamer.VoidMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12P\n\x0bhasSequence\x12\x1b.pulse_streamer.VoidMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12P\n\x0bhasFinished\x12\x1b.pulse_streamer.VoidMessage\x1a\".pulse_streamer.PulseStreamerReply\"\x00\x12]\n\x12getFirmwareVersion\x12\x1b.pulse_streamer.VoidMessage\x1a(.pulse_streamer.PulseStreamerStringReply\"\x00\x12Y\n\tgetSerial\x12 .pulse_streamer.GetSerialMessage\x1a(.pulse_streamer.PulseStreamerStringReply\"\x00\x62\x06proto3')
 )
-_sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 
 
-_SEQUENCEMESSAGE_START = _descriptor.EnumDescriptor(
+_TRIGGERMESSAGE_START = _descriptor.EnumDescriptor(
   name='Start',
-  full_name='pulse_streamer.SequenceMessage.Start',
+  full_name='pulse_streamer.TriggerMessage.Start',
   filename=None,
   file=DESCRIPTOR,
   values=[
     _descriptor.EnumValueDescriptor(
       name='IMMEDIATE', index=0, number=0,
-      options=None,
+      serialized_options=None,
       type=None),
     _descriptor.EnumValueDescriptor(
       name='SOFTWARE', index=1, number=1,
-      options=None,
+      serialized_options=None,
       type=None),
     _descriptor.EnumValueDescriptor(
-      name='HARDWARE', index=2, number=2,
-      options=None,
+      name='HARDWARE_RISING', index=2, number=2,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='HARDWARE_FALLING', index=3, number=3,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='HARDWARE_RISING_AND_FALLING', index=4, number=4,
+      serialized_options=None,
       type=None),
   ],
   containing_type=None,
-  options=None,
-  serialized_start=402,
-  serialized_end=452,
+  serialized_options=None,
+  serialized_start=374,
+  serialized_end=486,
 )
-_sym_db.RegisterEnumDescriptor(_SEQUENCEMESSAGE_START)
+_sym_db.RegisterEnumDescriptor(_TRIGGERMESSAGE_START)
 
-_TRIGGERMESSAGE_EDGE = _descriptor.EnumDescriptor(
-  name='Edge',
-  full_name='pulse_streamer.TriggerMessage.Edge',
+_TRIGGERMESSAGE_MODE = _descriptor.EnumDescriptor(
+  name='Mode',
+  full_name='pulse_streamer.TriggerMessage.Mode',
   filename=None,
   file=DESCRIPTOR,
   values=[
     _descriptor.EnumValueDescriptor(
-      name='RISING', index=0, number=0,
-      options=None,
+      name='NORMAL', index=0, number=0,
+      serialized_options=None,
       type=None),
     _descriptor.EnumValueDescriptor(
-      name='FALLING', index=1, number=1,
-      options=None,
-      type=None),
-    _descriptor.EnumValueDescriptor(
-      name='BOTH', index=2, number=2,
-      options=None,
+      name='SINGLE', index=1, number=1,
+      serialized_options=None,
       type=None),
   ],
   containing_type=None,
-  options=None,
-  serialized_start=523,
-  serialized_end=564,
+  serialized_options=None,
+  serialized_start=488,
+  serialized_end=518,
 )
-_sym_db.RegisterEnumDescriptor(_TRIGGERMESSAGE_EDGE)
+_sym_db.RegisterEnumDescriptor(_TRIGGERMESSAGE_MODE)
+
+_CLOCKMESSAGE_CLOCKING = _descriptor.EnumDescriptor(
+  name='Clocking',
+  full_name='pulse_streamer.ClockMessage.Clocking',
+  filename=None,
+  file=DESCRIPTOR,
+  values=[
+    _descriptor.EnumValueDescriptor(
+      name='INTERNAL', index=0, number=0,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='EXT_125MHZ', index=1, number=1,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='EXT_10MHZ', index=2, number=2,
+      serialized_options=None,
+      type=None),
+  ],
+  containing_type=None,
+  serialized_options=None,
+  serialized_start=598,
+  serialized_end=653,
+)
+_sym_db.RegisterEnumDescriptor(_CLOCKMESSAGE_CLOCKING)
+
+_GETSERIALMESSAGE_SERIAL = _descriptor.EnumDescriptor(
+  name='Serial',
+  full_name='pulse_streamer.GetSerialMessage.Serial',
+  filename=None,
+  file=DESCRIPTOR,
+  values=[
+    _descriptor.EnumValueDescriptor(
+      name='ID', index=0, number=0,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='MAC', index=1, number=1,
+      serialized_options=None,
+      type=None),
+  ],
+  containing_type=None,
+  serialized_options=None,
+  serialized_start=732,
+  serialized_end=757,
+)
+_sym_db.RegisterEnumDescriptor(_GETSERIALMESSAGE_SERIAL)
 
 
 _VOIDMESSAGE = _descriptor.Descriptor(
@@ -91,7 +142,7 @@ _VOIDMESSAGE = _descriptor.Descriptor(
   nested_types=[],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -115,35 +166,35 @@ _PULSEMESSAGE = _descriptor.Descriptor(
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='digi', full_name='pulse_streamer.PulseMessage.digi', index=1,
       number=2, type=13, cpp_type=3, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='ao0', full_name='pulse_streamer.PulseMessage.ao0', index=2,
       number=3, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='ao1', full_name='pulse_streamer.PulseMessage.ao1', index=3,
       number=4, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
@@ -167,57 +218,35 @@ _SEQUENCEMESSAGE = _descriptor.Descriptor(
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='n_runs', full_name='pulse_streamer.SequenceMessage.n_runs', index=1,
       number=2, type=3, cpp_type=2, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='initial', full_name='pulse_streamer.SequenceMessage.initial', index=2,
+      name='final', full_name='pulse_streamer.SequenceMessage.final', index=2,
       number=3, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
-    _descriptor.FieldDescriptor(
-      name='final', full_name='pulse_streamer.SequenceMessage.final', index=3,
-      number=4, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None),
-    _descriptor.FieldDescriptor(
-      name='underflow', full_name='pulse_streamer.SequenceMessage.underflow', index=4,
-      number=5, type=11, cpp_type=10, label=1,
-      has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None),
-    _descriptor.FieldDescriptor(
-      name='start', full_name='pulse_streamer.SequenceMessage.start', index=5,
-      number=6, type=14, cpp_type=8, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
-    _SEQUENCEMESSAGE_START,
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=127,
-  serialized_end=452,
+  serialized_start=126,
+  serialized_end=249,
 )
 
 
@@ -229,27 +258,99 @@ _TRIGGERMESSAGE = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='edge', full_name='pulse_streamer.TriggerMessage.edge', index=0,
+      name='start', full_name='pulse_streamer.TriggerMessage.start', index=0,
       number=1, type=14, cpp_type=8, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='mode', full_name='pulse_streamer.TriggerMessage.mode', index=1,
+      number=2, type=14, cpp_type=8, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
-    _TRIGGERMESSAGE_EDGE,
+    _TRIGGERMESSAGE_START,
+    _TRIGGERMESSAGE_MODE,
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=454,
-  serialized_end=564,
+  serialized_start=252,
+  serialized_end=518,
+)
+
+
+_CLOCKMESSAGE = _descriptor.Descriptor(
+  name='ClockMessage',
+  full_name='pulse_streamer.ClockMessage',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='clock_source', full_name='pulse_streamer.ClockMessage.clock_source', index=0,
+      number=1, type=14, cpp_type=8, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+    _CLOCKMESSAGE_CLOCKING,
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=521,
+  serialized_end=653,
+)
+
+
+_GETSERIALMESSAGE = _descriptor.Descriptor(
+  name='GetSerialMessage',
+  full_name='pulse_streamer.GetSerialMessage',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='serial', full_name='pulse_streamer.GetSerialMessage.serial', index=0,
+      number=1, type=14, cpp_type=8, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+    _GETSERIALMESSAGE_SERIAL,
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=655,
+  serialized_end=757,
 )
 
 
@@ -262,40 +363,77 @@ _PULSESTREAMERREPLY = _descriptor.Descriptor(
   fields=[
     _descriptor.FieldDescriptor(
       name='value', full_name='pulse_streamer.PulseStreamerReply.value', index=0,
-      number=1, type=5, cpp_type=1, label=1,
+      number=1, type=13, cpp_type=3, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None),
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
   nested_types=[],
   enum_types=[
   ],
-  options=None,
+  serialized_options=None,
   is_extendable=False,
   syntax='proto3',
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=566,
-  serialized_end=601,
+  serialized_start=759,
+  serialized_end=794,
+)
+
+
+_PULSESTREAMERSTRINGREPLY = _descriptor.Descriptor(
+  name='PulseStreamerStringReply',
+  full_name='pulse_streamer.PulseStreamerStringReply',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='string_value', full_name='pulse_streamer.PulseStreamerStringReply.string_value', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=796,
+  serialized_end=844,
 )
 
 _SEQUENCEMESSAGE.fields_by_name['pulse'].message_type = _PULSEMESSAGE
-_SEQUENCEMESSAGE.fields_by_name['initial'].message_type = _PULSEMESSAGE
 _SEQUENCEMESSAGE.fields_by_name['final'].message_type = _PULSEMESSAGE
-_SEQUENCEMESSAGE.fields_by_name['underflow'].message_type = _PULSEMESSAGE
-_SEQUENCEMESSAGE.fields_by_name['start'].enum_type = _SEQUENCEMESSAGE_START
-_SEQUENCEMESSAGE_START.containing_type = _SEQUENCEMESSAGE
-_TRIGGERMESSAGE.fields_by_name['edge'].enum_type = _TRIGGERMESSAGE_EDGE
-_TRIGGERMESSAGE_EDGE.containing_type = _TRIGGERMESSAGE
+_TRIGGERMESSAGE.fields_by_name['start'].enum_type = _TRIGGERMESSAGE_START
+_TRIGGERMESSAGE.fields_by_name['mode'].enum_type = _TRIGGERMESSAGE_MODE
+_TRIGGERMESSAGE_START.containing_type = _TRIGGERMESSAGE
+_TRIGGERMESSAGE_MODE.containing_type = _TRIGGERMESSAGE
+_CLOCKMESSAGE.fields_by_name['clock_source'].enum_type = _CLOCKMESSAGE_CLOCKING
+_CLOCKMESSAGE_CLOCKING.containing_type = _CLOCKMESSAGE
+_GETSERIALMESSAGE.fields_by_name['serial'].enum_type = _GETSERIALMESSAGE_SERIAL
+_GETSERIALMESSAGE_SERIAL.containing_type = _GETSERIALMESSAGE
 DESCRIPTOR.message_types_by_name['VoidMessage'] = _VOIDMESSAGE
 DESCRIPTOR.message_types_by_name['PulseMessage'] = _PULSEMESSAGE
 DESCRIPTOR.message_types_by_name['SequenceMessage'] = _SEQUENCEMESSAGE
 DESCRIPTOR.message_types_by_name['TriggerMessage'] = _TRIGGERMESSAGE
+DESCRIPTOR.message_types_by_name['ClockMessage'] = _CLOCKMESSAGE
+DESCRIPTOR.message_types_by_name['GetSerialMessage'] = _GETSERIALMESSAGE
 DESCRIPTOR.message_types_by_name['PulseStreamerReply'] = _PULSESTREAMERREPLY
+DESCRIPTOR.message_types_by_name['PulseStreamerStringReply'] = _PULSESTREAMERSTRINGREPLY
+_sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 VoidMessage = _reflection.GeneratedProtocolMessageType('VoidMessage', (_message.Message,), dict(
   DESCRIPTOR = _VOIDMESSAGE,
@@ -325,6 +463,20 @@ TriggerMessage = _reflection.GeneratedProtocolMessageType('TriggerMessage', (_me
   ))
 _sym_db.RegisterMessage(TriggerMessage)
 
+ClockMessage = _reflection.GeneratedProtocolMessageType('ClockMessage', (_message.Message,), dict(
+  DESCRIPTOR = _CLOCKMESSAGE,
+  __module__ = 'pulse_streamer_pb2'
+  # @@protoc_insertion_point(class_scope:pulse_streamer.ClockMessage)
+  ))
+_sym_db.RegisterMessage(ClockMessage)
+
+GetSerialMessage = _reflection.GeneratedProtocolMessageType('GetSerialMessage', (_message.Message,), dict(
+  DESCRIPTOR = _GETSERIALMESSAGE,
+  __module__ = 'pulse_streamer_pb2'
+  # @@protoc_insertion_point(class_scope:pulse_streamer.GetSerialMessage)
+  ))
+_sym_db.RegisterMessage(GetSerialMessage)
+
 PulseStreamerReply = _reflection.GeneratedProtocolMessageType('PulseStreamerReply', (_message.Message,), dict(
   DESCRIPTOR = _PULSESTREAMERREPLY,
   __module__ = 'pulse_streamer_pb2'
@@ -332,266 +484,144 @@ PulseStreamerReply = _reflection.GeneratedProtocolMessageType('PulseStreamerRepl
   ))
 _sym_db.RegisterMessage(PulseStreamerReply)
 
-
-try:
-  # THESE ELEMENTS WILL BE DEPRECATED.
-  # Please use the generated *_pb2_grpc.py files instead.
-  import grpc
-  from grpc.framework.common import cardinality
-  from grpc.framework.interfaces.face import utilities as face_utilities
-  from grpc.beta import implementations as beta_implementations
-  from grpc.beta import interfaces as beta_interfaces
+PulseStreamerStringReply = _reflection.GeneratedProtocolMessageType('PulseStreamerStringReply', (_message.Message,), dict(
+  DESCRIPTOR = _PULSESTREAMERSTRINGREPLY,
+  __module__ = 'pulse_streamer_pb2'
+  # @@protoc_insertion_point(class_scope:pulse_streamer.PulseStreamerStringReply)
+  ))
+_sym_db.RegisterMessage(PulseStreamerStringReply)
 
 
-  class PulseStreamerStub(object):
 
-    def __init__(self, channel):
-      """Constructor.
+_PULSESTREAMER = _descriptor.ServiceDescriptor(
+  name='PulseStreamer',
+  full_name='pulse_streamer.PulseStreamer',
+  file=DESCRIPTOR,
+  index=0,
+  serialized_options=None,
+  serialized_start=847,
+  serialized_end=1934,
+  methods=[
+  _descriptor.MethodDescriptor(
+    name='reset',
+    full_name='pulse_streamer.PulseStreamer.reset',
+    index=0,
+    containing_service=None,
+    input_type=_VOIDMESSAGE,
+    output_type=_PULSESTREAMERREPLY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='constant',
+    full_name='pulse_streamer.PulseStreamer.constant',
+    index=1,
+    containing_service=None,
+    input_type=_PULSEMESSAGE,
+    output_type=_PULSESTREAMERREPLY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='forceFinal',
+    full_name='pulse_streamer.PulseStreamer.forceFinal',
+    index=2,
+    containing_service=None,
+    input_type=_VOIDMESSAGE,
+    output_type=_PULSESTREAMERREPLY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='stream',
+    full_name='pulse_streamer.PulseStreamer.stream',
+    index=3,
+    containing_service=None,
+    input_type=_SEQUENCEMESSAGE,
+    output_type=_PULSESTREAMERREPLY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='startNow',
+    full_name='pulse_streamer.PulseStreamer.startNow',
+    index=4,
+    containing_service=None,
+    input_type=_VOIDMESSAGE,
+    output_type=_PULSESTREAMERREPLY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='setTrigger',
+    full_name='pulse_streamer.PulseStreamer.setTrigger',
+    index=5,
+    containing_service=None,
+    input_type=_TRIGGERMESSAGE,
+    output_type=_PULSESTREAMERREPLY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='rearm',
+    full_name='pulse_streamer.PulseStreamer.rearm',
+    index=6,
+    containing_service=None,
+    input_type=_VOIDMESSAGE,
+    output_type=_PULSESTREAMERREPLY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='selectClock',
+    full_name='pulse_streamer.PulseStreamer.selectClock',
+    index=7,
+    containing_service=None,
+    input_type=_CLOCKMESSAGE,
+    output_type=_PULSESTREAMERREPLY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='isStreaming',
+    full_name='pulse_streamer.PulseStreamer.isStreaming',
+    index=8,
+    containing_service=None,
+    input_type=_VOIDMESSAGE,
+    output_type=_PULSESTREAMERREPLY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='hasSequence',
+    full_name='pulse_streamer.PulseStreamer.hasSequence',
+    index=9,
+    containing_service=None,
+    input_type=_VOIDMESSAGE,
+    output_type=_PULSESTREAMERREPLY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='hasFinished',
+    full_name='pulse_streamer.PulseStreamer.hasFinished',
+    index=10,
+    containing_service=None,
+    input_type=_VOIDMESSAGE,
+    output_type=_PULSESTREAMERREPLY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='getFirmwareVersion',
+    full_name='pulse_streamer.PulseStreamer.getFirmwareVersion',
+    index=11,
+    containing_service=None,
+    input_type=_VOIDMESSAGE,
+    output_type=_PULSESTREAMERSTRINGREPLY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='getSerial',
+    full_name='pulse_streamer.PulseStreamer.getSerial',
+    index=12,
+    containing_service=None,
+    input_type=_GETSERIALMESSAGE,
+    output_type=_PULSESTREAMERSTRINGREPLY,
+    serialized_options=None,
+  ),
+])
+_sym_db.RegisterServiceDescriptor(_PULSESTREAMER)
 
-      Args:
-        channel: A grpc.Channel.
-      """
-      self.constant = channel.unary_unary(
-          '/pulse_streamer.PulseStreamer/constant',
-          request_serializer=PulseMessage.SerializeToString,
-          response_deserializer=PulseStreamerReply.FromString,
-          )
-      self.stream = channel.unary_unary(
-          '/pulse_streamer.PulseStreamer/stream',
-          request_serializer=SequenceMessage.SerializeToString,
-          response_deserializer=PulseStreamerReply.FromString,
-          )
-      self.startNow = channel.unary_unary(
-          '/pulse_streamer.PulseStreamer/startNow',
-          request_serializer=VoidMessage.SerializeToString,
-          response_deserializer=PulseStreamerReply.FromString,
-          )
-      self.setTrigger = channel.unary_unary(
-          '/pulse_streamer.PulseStreamer/setTrigger',
-          request_serializer=TriggerMessage.SerializeToString,
-          response_deserializer=PulseStreamerReply.FromString,
-          )
-      self.isRunning = channel.unary_unary(
-          '/pulse_streamer.PulseStreamer/isRunning',
-          request_serializer=VoidMessage.SerializeToString,
-          response_deserializer=PulseStreamerReply.FromString,
-          )
-      self.hasSequence = channel.unary_unary(
-          '/pulse_streamer.PulseStreamer/hasSequence',
-          request_serializer=VoidMessage.SerializeToString,
-          response_deserializer=PulseStreamerReply.FromString,
-          )
-      self.getUnderflow = channel.unary_unary(
-          '/pulse_streamer.PulseStreamer/getUnderflow',
-          request_serializer=VoidMessage.SerializeToString,
-          response_deserializer=PulseStreamerReply.FromString,
-          )
+DESCRIPTOR.services_by_name['PulseStreamer'] = _PULSESTREAMER
 
-
-  class PulseStreamerServicer(object):
-
-    def constant(self, request, context):
-      context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-      context.set_details('Method not implemented!')
-      raise NotImplementedError('Method not implemented!')
-
-    def stream(self, request, context):
-      context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-      context.set_details('Method not implemented!')
-      raise NotImplementedError('Method not implemented!')
-
-    def startNow(self, request, context):
-      context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-      context.set_details('Method not implemented!')
-      raise NotImplementedError('Method not implemented!')
-
-    def setTrigger(self, request, context):
-      context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-      context.set_details('Method not implemented!')
-      raise NotImplementedError('Method not implemented!')
-
-    def isRunning(self, request, context):
-      context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-      context.set_details('Method not implemented!')
-      raise NotImplementedError('Method not implemented!')
-
-    def hasSequence(self, request, context):
-      context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-      context.set_details('Method not implemented!')
-      raise NotImplementedError('Method not implemented!')
-
-    def getUnderflow(self, request, context):
-      context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-      context.set_details('Method not implemented!')
-      raise NotImplementedError('Method not implemented!')
-
-
-  def add_PulseStreamerServicer_to_server(servicer, server):
-    rpc_method_handlers = {
-        'constant': grpc.unary_unary_rpc_method_handler(
-            servicer.constant,
-            request_deserializer=PulseMessage.FromString,
-            response_serializer=PulseStreamerReply.SerializeToString,
-        ),
-        'stream': grpc.unary_unary_rpc_method_handler(
-            servicer.stream,
-            request_deserializer=SequenceMessage.FromString,
-            response_serializer=PulseStreamerReply.SerializeToString,
-        ),
-        'startNow': grpc.unary_unary_rpc_method_handler(
-            servicer.startNow,
-            request_deserializer=VoidMessage.FromString,
-            response_serializer=PulseStreamerReply.SerializeToString,
-        ),
-        'setTrigger': grpc.unary_unary_rpc_method_handler(
-            servicer.setTrigger,
-            request_deserializer=TriggerMessage.FromString,
-            response_serializer=PulseStreamerReply.SerializeToString,
-        ),
-        'isRunning': grpc.unary_unary_rpc_method_handler(
-            servicer.isRunning,
-            request_deserializer=VoidMessage.FromString,
-            response_serializer=PulseStreamerReply.SerializeToString,
-        ),
-        'hasSequence': grpc.unary_unary_rpc_method_handler(
-            servicer.hasSequence,
-            request_deserializer=VoidMessage.FromString,
-            response_serializer=PulseStreamerReply.SerializeToString,
-        ),
-        'getUnderflow': grpc.unary_unary_rpc_method_handler(
-            servicer.getUnderflow,
-            request_deserializer=VoidMessage.FromString,
-            response_serializer=PulseStreamerReply.SerializeToString,
-        ),
-    }
-    generic_handler = grpc.method_handlers_generic_handler(
-        'pulse_streamer.PulseStreamer', rpc_method_handlers)
-    server.add_generic_rpc_handlers((generic_handler,))
-
-
-  class BetaPulseStreamerServicer(object):
-    """The Beta API is deprecated for 0.15.0 and later.
-
-    It is recommended to use the GA API (classes and functions in this
-    file not marked beta) for all further purposes. This class was generated
-    only to ease transition from grpcio<0.15.0 to grpcio>=0.15.0."""
-    def constant(self, request, context):
-      context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
-    def stream(self, request, context):
-      context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
-    def startNow(self, request, context):
-      context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
-    def setTrigger(self, request, context):
-      context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
-    def isRunning(self, request, context):
-      context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
-    def hasSequence(self, request, context):
-      context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
-    def getUnderflow(self, request, context):
-      context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
-
-
-  class BetaPulseStreamerStub(object):
-    """The Beta API is deprecated for 0.15.0 and later.
-
-    It is recommended to use the GA API (classes and functions in this
-    file not marked beta) for all further purposes. This class was generated
-    only to ease transition from grpcio<0.15.0 to grpcio>=0.15.0."""
-    def constant(self, request, timeout, metadata=None, with_call=False, protocol_options=None):
-      raise NotImplementedError()
-    constant.future = None
-    def stream(self, request, timeout, metadata=None, with_call=False, protocol_options=None):
-      raise NotImplementedError()
-    stream.future = None
-    def startNow(self, request, timeout, metadata=None, with_call=False, protocol_options=None):
-      raise NotImplementedError()
-    startNow.future = None
-    def setTrigger(self, request, timeout, metadata=None, with_call=False, protocol_options=None):
-      raise NotImplementedError()
-    setTrigger.future = None
-    def isRunning(self, request, timeout, metadata=None, with_call=False, protocol_options=None):
-      raise NotImplementedError()
-    isRunning.future = None
-    def hasSequence(self, request, timeout, metadata=None, with_call=False, protocol_options=None):
-      raise NotImplementedError()
-    hasSequence.future = None
-    def getUnderflow(self, request, timeout, metadata=None, with_call=False, protocol_options=None):
-      raise NotImplementedError()
-    getUnderflow.future = None
-
-
-  def beta_create_PulseStreamer_server(servicer, pool=None, pool_size=None, default_timeout=None, maximum_timeout=None):
-    """The Beta API is deprecated for 0.15.0 and later.
-
-    It is recommended to use the GA API (classes and functions in this
-    file not marked beta) for all further purposes. This function was
-    generated only to ease transition from grpcio<0.15.0 to grpcio>=0.15.0"""
-    request_deserializers = {
-      ('pulse_streamer.PulseStreamer', 'constant'): PulseMessage.FromString,
-      ('pulse_streamer.PulseStreamer', 'getUnderflow'): VoidMessage.FromString,
-      ('pulse_streamer.PulseStreamer', 'hasSequence'): VoidMessage.FromString,
-      ('pulse_streamer.PulseStreamer', 'isRunning'): VoidMessage.FromString,
-      ('pulse_streamer.PulseStreamer', 'setTrigger'): TriggerMessage.FromString,
-      ('pulse_streamer.PulseStreamer', 'startNow'): VoidMessage.FromString,
-      ('pulse_streamer.PulseStreamer', 'stream'): SequenceMessage.FromString,
-    }
-    response_serializers = {
-      ('pulse_streamer.PulseStreamer', 'constant'): PulseStreamerReply.SerializeToString,
-      ('pulse_streamer.PulseStreamer', 'getUnderflow'): PulseStreamerReply.SerializeToString,
-      ('pulse_streamer.PulseStreamer', 'hasSequence'): PulseStreamerReply.SerializeToString,
-      ('pulse_streamer.PulseStreamer', 'isRunning'): PulseStreamerReply.SerializeToString,
-      ('pulse_streamer.PulseStreamer', 'setTrigger'): PulseStreamerReply.SerializeToString,
-      ('pulse_streamer.PulseStreamer', 'startNow'): PulseStreamerReply.SerializeToString,
-      ('pulse_streamer.PulseStreamer', 'stream'): PulseStreamerReply.SerializeToString,
-    }
-    method_implementations = {
-      ('pulse_streamer.PulseStreamer', 'constant'): face_utilities.unary_unary_inline(servicer.constant),
-      ('pulse_streamer.PulseStreamer', 'getUnderflow'): face_utilities.unary_unary_inline(servicer.getUnderflow),
-      ('pulse_streamer.PulseStreamer', 'hasSequence'): face_utilities.unary_unary_inline(servicer.hasSequence),
-      ('pulse_streamer.PulseStreamer', 'isRunning'): face_utilities.unary_unary_inline(servicer.isRunning),
-      ('pulse_streamer.PulseStreamer', 'setTrigger'): face_utilities.unary_unary_inline(servicer.setTrigger),
-      ('pulse_streamer.PulseStreamer', 'startNow'): face_utilities.unary_unary_inline(servicer.startNow),
-      ('pulse_streamer.PulseStreamer', 'stream'): face_utilities.unary_unary_inline(servicer.stream),
-    }
-    server_options = beta_implementations.server_options(request_deserializers=request_deserializers, response_serializers=response_serializers, thread_pool=pool, thread_pool_size=pool_size, default_timeout=default_timeout, maximum_timeout=maximum_timeout)
-    return beta_implementations.server(method_implementations, options=server_options)
-
-
-  def beta_create_PulseStreamer_stub(channel, host=None, metadata_transformer=None, pool=None, pool_size=None):
-    """The Beta API is deprecated for 0.15.0 and later.
-
-    It is recommended to use the GA API (classes and functions in this
-    file not marked beta) for all further purposes. This function was
-    generated only to ease transition from grpcio<0.15.0 to grpcio>=0.15.0"""
-    request_serializers = {
-      ('pulse_streamer.PulseStreamer', 'constant'): PulseMessage.SerializeToString,
-      ('pulse_streamer.PulseStreamer', 'getUnderflow'): VoidMessage.SerializeToString,
-      ('pulse_streamer.PulseStreamer', 'hasSequence'): VoidMessage.SerializeToString,
-      ('pulse_streamer.PulseStreamer', 'isRunning'): VoidMessage.SerializeToString,
-      ('pulse_streamer.PulseStreamer', 'setTrigger'): TriggerMessage.SerializeToString,
-      ('pulse_streamer.PulseStreamer', 'startNow'): VoidMessage.SerializeToString,
-      ('pulse_streamer.PulseStreamer', 'stream'): SequenceMessage.SerializeToString,
-    }
-    response_deserializers = {
-      ('pulse_streamer.PulseStreamer', 'constant'): PulseStreamerReply.FromString,
-      ('pulse_streamer.PulseStreamer', 'getUnderflow'): PulseStreamerReply.FromString,
-      ('pulse_streamer.PulseStreamer', 'hasSequence'): PulseStreamerReply.FromString,
-      ('pulse_streamer.PulseStreamer', 'isRunning'): PulseStreamerReply.FromString,
-      ('pulse_streamer.PulseStreamer', 'setTrigger'): PulseStreamerReply.FromString,
-      ('pulse_streamer.PulseStreamer', 'startNow'): PulseStreamerReply.FromString,
-      ('pulse_streamer.PulseStreamer', 'stream'): PulseStreamerReply.FromString,
-    }
-    cardinalities = {
-      'constant': cardinality.Cardinality.UNARY_UNARY,
-      'getUnderflow': cardinality.Cardinality.UNARY_UNARY,
-      'hasSequence': cardinality.Cardinality.UNARY_UNARY,
-      'isRunning': cardinality.Cardinality.UNARY_UNARY,
-      'setTrigger': cardinality.Cardinality.UNARY_UNARY,
-      'startNow': cardinality.Cardinality.UNARY_UNARY,
-      'stream': cardinality.Cardinality.UNARY_UNARY,
-    }
-    stub_options = beta_implementations.stub_options(host=host, metadata_transformer=metadata_transformer, request_serializers=request_serializers, response_deserializers=response_deserializers, thread_pool=pool, thread_pool_size=pool_size)
-    return beta_implementations.dynamic_stub(channel, 'pulse_streamer.PulseStreamer', cardinalities, options=stub_options)
-except ImportError:
-  pass
 # @@protoc_insertion_point(module_scope)

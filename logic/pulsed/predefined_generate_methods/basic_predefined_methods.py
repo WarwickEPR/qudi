@@ -23,6 +23,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 import numpy as np
 from logic.pulsed.pulse_objects import PulseBlock, PulseBlockEnsemble, PulseSequence
 from logic.pulsed.pulse_objects import PredefinedGeneratorBase
+from core.util.helpers import csv_2_list
 
 """
 General Pulse Creation Procedure:
@@ -48,7 +49,7 @@ class BasicPredefinedGenerator(PredefinedGeneratorBase):
     ################################################################################################
     #                             Generation methods for waveforms                                 #
     ################################################################################################
-    def generate_laser_on(self, name='laser_on', length=3.0e-6):
+    def generate_laser_on(self, name='laser on', length=3.0e-6):
         """ Generates Laser on.
 
         @param str name: Name of the PulseBlockEnsemble
@@ -72,7 +73,7 @@ class BasicPredefinedGenerator(PredefinedGeneratorBase):
         created_ensembles.append(block_ensemble)
         return created_blocks, created_ensembles, created_sequences
 
-    def generate_laser_mw_on(self, name='laser_mw_on', length=3.0e-6):
+    def generate_laser_mw_on(self, name='laser mw on', length=3.0e-6):
         """ General generation method for laser on and microwave on generation.
 
         @param string name: Name of the PulseBlockEnsemble to be generated
@@ -100,7 +101,7 @@ class BasicPredefinedGenerator(PredefinedGeneratorBase):
         created_ensembles.append(block_ensemble)
         return created_blocks, created_ensembles, created_sequences
 
-    def generate_two_digital_high(self, name='digital_high', length=3.0e-6, digital_channel1='d_ch1', digital_channel2='d_ch1'):
+    def generate_two_digital_high(self, name='digital high', length=3.0e-6, digital_channel1='d_ch1', digital_channel2='d_ch1'):
         """ General generation method for laser on and microwave on generation.
 
         @param string name: Name of the PulseBlockEnsemble to be generated
@@ -335,17 +336,18 @@ class BasicPredefinedGenerator(PredefinedGeneratorBase):
         created_ensembles.append(block_ensemble)
         return created_blocks, created_ensembles, created_sequences
 
-    def generate_ramsey_from_list(self, name='ramsey', tau_list='[1e-6, 2e-6]', alternating = True):
+    def generate_ramsey_from_list(self, name='ramsey', tau_list='[1e-6, 2e-6]', alternating=True):
         """
-
         """
-
         created_blocks = list()
         created_ensembles = list()
         created_sequences = list()
 
         # get tau array for measurement ticks
-        tau_array = [n.strip() for n in tau_list]
+        try:
+            tau_array = csv_2_list(tau_list)
+        except TypeError:
+            tau_array = tau_list
 
         waiting_element = self._get_idle_element(length=self.wait_time,
                                                  increment=0)
@@ -416,7 +418,7 @@ class BasicPredefinedGenerator(PredefinedGeneratorBase):
         created_ensembles.append(block_ensemble)
         return created_blocks, created_ensembles, created_sequences
 
-    def generate_hahnecho(self, name='hahn_echo', tau_start=0.0e-6, tau_step=1.0e-6,
+    def generate_hahnecho(self, name='hahnecho', tau_start=0.0e-6, tau_step=1.0e-6,
                           num_of_points=50, alternating=True):
         """
 
@@ -502,7 +504,7 @@ class BasicPredefinedGenerator(PredefinedGeneratorBase):
         created_ensembles.append(block_ensemble)
         return created_blocks, created_ensembles, created_sequences
 
-    def generate_hahnecho_exp(self, name='hahn_echo', tau_start=1.0e-6, tau_end=1.0e-6,
+    def generate_hahnecho_exp(self, name='hahn echo exp', tau_start=1.0e-6, tau_end=1.0e-6,
                                  num_of_points=50, alternating=True):
         """
 
@@ -652,7 +654,7 @@ class BasicPredefinedGenerator(PredefinedGeneratorBase):
         created_ensembles.append(block_ensemble)
         return created_blocks, created_ensembles, created_sequences
 
-    def generate_t1_exponential(self, name='T1_exp', tau_start=1.0e-6, tau_end=1.0e-6,
+    def generate_t1_exponential(self, name='T1 exp', tau_start=1.0e-6, tau_end=1.0e-6,
                     num_of_points=50, alternating=False):
         """
 
@@ -716,7 +718,7 @@ class BasicPredefinedGenerator(PredefinedGeneratorBase):
         created_ensembles.append(block_ensemble)
         return created_blocks, created_ensembles, created_sequences
 
-    def generate_HHamp(self, name='hh_amp', spinlock_length=20e-6, amp_start=0.05, amp_step=0.01,
+    def generate_HHamp(self, name='hh amp', spinlock_length=20e-6, amp_start=0.05, amp_step=0.01,
                        num_of_points=50):
         """
 
@@ -795,7 +797,7 @@ class BasicPredefinedGenerator(PredefinedGeneratorBase):
         created_ensembles.append(block_ensemble)
         return created_blocks, created_ensembles, created_sequences
 
-    def generate_HHtau(self, name='hh_tau', spinlock_amp=0.1, tau_start=1e-6, tau_step=1e-6,
+    def generate_HHtau(self, name='hh tau', spinlock_amp=0.1, tau_start=1e-6, tau_step=1e-6,
                        num_of_points=50):
         """
 
@@ -873,7 +875,7 @@ class BasicPredefinedGenerator(PredefinedGeneratorBase):
         created_ensembles.append(block_ensemble)
         return created_blocks, created_ensembles, created_sequences
 
-    def generate_HHpol(self, name='hh_pol', spinlock_length=20.0e-6, spinlock_amp=0.1,
+    def generate_HHpol(self, name='hh pol', spinlock_length=20.0e-6, spinlock_amp=0.1,
                        polarization_steps=50):
         """
 
@@ -955,7 +957,7 @@ class BasicPredefinedGenerator(PredefinedGeneratorBase):
         created_ensembles.append(block_ensemble)
         return created_blocks, created_ensembles, created_sequences
 
-    def generate_xy8_tau(self, name='xy8_tau', tau_start=0.5e-6, tau_step=0.01e-6, num_of_points=50,
+    def generate_xy8_tau(self, name='xy8 tau', tau_start=0.5e-6, tau_step=0.01e-6, num_of_points=50,
                          xy8_order=4, alternating=True):
         """
 
@@ -1081,7 +1083,7 @@ class BasicPredefinedGenerator(PredefinedGeneratorBase):
         created_ensembles.append(block_ensemble)
         return created_blocks, created_ensembles, created_sequences
 
-    def generate_xy8_freq(self, name='xy8_freq', freq_start=0.1e6, freq_step=0.01e6,
+    def generate_xy8_freq(self, name='xy8 freq', freq_start=0.1e6, freq_step=0.01e6,
                           num_of_points=50, xy8_order=4, alternating=True):
         """
 
@@ -1216,7 +1218,7 @@ class BasicPredefinedGenerator(PredefinedGeneratorBase):
     ################################################################################################
     #                             Generation methods for sequences                                 #
     ################################################################################################
-    def generate_t1_sequencing(self, name='t1_seq', tau_start=1.0e-6, tau_max=1.0e-3,
+    def generate_t1_sequencing(self, name='t1 seq', tau_start=1.0e-6, tau_max=1.0e-3,
                                num_of_points=10):
         """
 

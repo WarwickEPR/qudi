@@ -23,9 +23,9 @@ import ctypes
 import numpy as np
 import time
 from qtpy import QtCore
-import os
 
-from core.module import Base, ConfigOption
+from core.module import Base
+from core.configoption import ConfigOption
 from core.util.modules import get_main_dir
 from core.util.mutex import Mutex
 from interface.slow_counter_interface import SlowCounterInterface
@@ -101,8 +101,6 @@ class PicoHarp300(Base, SlowCounterInterface, FastCounterInterface):
         mode: 0 # 0: histogram mode, 2: T2 mode, 3: T3 mode
         
     """
-    _modclass = 'PicoHarp300'
-    _modtype = 'hardware'
 
     _deviceID = ConfigOption('deviceID', 0, missing='warn') # a device index from 0 to 7.
     _mode = ConfigOption('mode', 0, missing='warn')
@@ -132,7 +130,7 @@ class PicoHarp300(Base, SlowCounterInterface, FastCounterInterface):
         self._record_length_ns = 100 *1e9
 
         self._photon_source2 = None #for compatibility reasons with second APD
-        self._count_channel = 0
+        self._count_channel = 1
 
         #locking for thread safety
         self.threadlock = Mutex()
@@ -286,6 +284,7 @@ class PicoHarp300(Base, SlowCounterInterface, FastCounterInterface):
 
     def open_connection(self):
         """ Open a connection to this device. """
+
 
         buf = ctypes.create_string_buffer(16)   # at least 8 byte
         ret = self.check(self._dll.PH_OpenDevice(self._deviceID, ctypes.byref(buf)))
@@ -643,7 +642,7 @@ class PicoHarp300(Base, SlowCounterInterface, FastCounterInterface):
         self.check(self._dll.PH_GetFlags(self._deviceID, ctypes.byref(flags)))
         return flags.value
 
-    def get_elepsed_meas_time(self):
+    def get_elepased_meas_time(self):
         """ Retrieve the elapsed measurement time in ms.
 
         @return double: the elapsed measurement time in ms.
@@ -985,7 +984,7 @@ class PicoHarp300(Base, SlowCounterInterface, FastCounterInterface):
 
         return 0
 
-    def set_up_counter(self, counter_channels=0, sources=None,
+    def set_up_counter(self, counter_channels=1, sources=None,
                        clock_channel = None):
         """ Ensure Interface compatibility. The counter allows no set up.
 
@@ -1018,10 +1017,10 @@ class PicoHarp300(Base, SlowCounterInterface, FastCounterInterface):
         FIXME: ask hardware for limits when module is loaded
         """
         constraints = SlowCounterConstraints()
-        constraints.max_detectors = 2
+        constraints.max_detectors = 1
         constraints.min_count_frequency = 1e-3
         constraints.max_count_frequency = 10e9
-        constraints.counting_mode = [CountingMode.CONTINUOUS]
+        conetraints.counting_mode = [CountingMode.CONTINUOUS]
         return constraints
 
     def get_counter(self, samples=None):

@@ -26,7 +26,8 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 import visa
 import time
 
-from core.module import Base, ConfigOption
+from core.module import Base
+from core.configoption import ConfigOption
 from interface.microwave_interface import MicrowaveInterface
 from interface.microwave_interface import MicrowaveLimits
 from interface.microwave_interface import MicrowaveMode
@@ -145,10 +146,10 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         @return str, bool: mode ['cw', 'list', 'sweep'], is_running [True, False]
         """
 
-        is_running = bool(int(float(self._connection.ask(":OUTP:STATe?"))))
+        is_running = bool(int(float(self._connection.query(":OUTP:STATe?"))))
 
-        if bool(int(float(self._connection.ask(":OUTP:STATe?")))):
-            if self._connection.ask(":LIST:TYPE?") == "STEP":
+        if bool(int(float(self._connection.query(":OUTP:STATe?")))):
+            if self._connection.query(":LIST:TYPE?") == "STEP":
                 mode = "sweep"
             else:
                 mode = "list"
@@ -197,11 +198,11 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         else:
             return -1
 
-    def set_cw(self, freq=None, power=None, useinterleave=None):
+    def set_cw(self, frequency=None, power=None, useinterleave=None):
         """ Sets the MW mode to cw and additionally frequency and power
         #For agilent device there is no CW mode, so just do nothing
 
-        @param float freq: frequency to set in Hz
+        @param float frequency: frequency to set in Hz
         @param float power: power to set in dBm
         @param bool useinterleave: If this mode exists you can choose it.
 
@@ -213,8 +214,8 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         if is_running:
             self.off()
 
-        if freq is not None:
-            self.set_frequency(freq)
+        if frequency is not None:
+            self.set_frequency(frequency)
         if power is not None:
             self.set_power(power)
         if useinterleave is not None:
@@ -226,19 +227,19 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         return actual_freq, actual_power, mode
 
 
-    def set_list(self, freq=None, power=None):
+    def set_list(self, frequency=None, power=None):
         """
-        @param list freq: list of frequencies in Hz
+        @param list frequency: list of frequencies in Hz
         @param float power: MW power of the frequency list in dBm
 
         """
         # put all frequencies into a string, first element is doubled
         # so there are n+1 list entries for scanning n frequencies
         # due to counter/trigger issues
-        freqstring = ' {0:f},'.format(freq[0])
-        for f in freq[:-1]:
+        freqstring = ' {0:f},'.format(frequency[0])
+        for f in frequency[:-1]:
             freqstring += ' {0:f},'.format(f)
-        freqstring += ' {0:f}'.format(freq[-1])
+        freqstring += ' {0:f}'.format(frequency[-1])
 
         freqcommand = ':LIST:FREQ' + freqstring
 
@@ -252,7 +253,7 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
 
         mode = "list"
 
-        return freq, freq_power, mode
+        return frequency, freq_power, mode
 
     def reset_listpos(self):
         """ Reset of MW List Mode position to start from first given frequency
@@ -294,9 +295,9 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
 
         time.sleep(0.2)
 
-        freq_start = float(self._connection.ask(':FREQ:STAR?'))
-        freq_stop = float(self._connection.ask(':FREQ:STOP?'))
-        num_of_points = int(self._connection.ask(':LIST:FREQ:POIN?'))
+        freq_start = float(self._connection.query(':FREQ:STAR?'))
+        freq_stop = float(self._connection.query(':FREQ:STOP?'))
+        num_of_points = int(self._connection.query(':LIST:FREQ:POIN?'))
         freq_range = freq_stop - freq_start
         freq_step = freq_range / (num_of_points -1)
         freq_power = self.get_power()
@@ -326,25 +327,30 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         return 1
 
 
-    def set_ext_trigger(self, pol=TriggerEdge.RISING):
+    def set_ext_trigger(self, pol, timing):
         """ Set the external trigger for this device with proper polarization.
 
         @param str source: channel name, where external trigger is expected.
         @param str pol: polarisation of the trigger (basically rising edge or
                         falling edge)
+        @param float timing: estimated time between triggers
 
-        @return int: error code (0:OK, -1:error)
+        @return object, float: current trigger polarity [TriggerEdge.RISING, TriggerEdge.FALLING], trigger timing
+
         """
         if pol == TriggerEdge.RISING:
             edge = 'POS'
         elif pol == TriggerEdge.FALLING:
             edge = 'NEG'
         else:
-            return -1
+            self.log.warning("Invalid trigger edge polarity")
+            return pol, timing
+
         try:
             self._connection.write(':LIST:TRIG:EXT:SOUR {0}'.format(self._trigger))
             self._connection.write(':LIST:TRIG:SLOP {0}'.format(edge))
-
         except:
-            return -1
-        return 0
+            self.log.warning("Failed to configure Keysight external trigger")
+            return pol, timing
+
+        return pol, timing

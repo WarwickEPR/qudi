@@ -25,7 +25,8 @@ import numpy as np
 import time
 
 from collections import OrderedDict
-from core.module import Connector, ConfigOption, StatusVar
+from core.connector import Connector
+from core.statusvariable import StatusVar
 from logic.generic_logic import GenericLogic
 from qtpy import QtCore
 from interface.slow_counter_interface import CountingMode
@@ -63,18 +64,15 @@ class MagnetLogic(GenericLogic):
     ---
     """
 
-    _modclass = 'MagnetLogic'
-    _modtype = 'logic'
-
-    ## declare connectors
+    # declare connectors
     magnetstage = Connector(interface='MagnetInterface')
     optimizerlogic = Connector(interface='OptimizerLogic')
     counterlogic = Connector(interface='CounterLogic')
     odmrlogic = Connector(interface='ODMRLogic')
     savelogic = Connector(interface='SaveLogic')
-    scannerlogic = Connector(interface='ScannerLogic')
+    scannerlogic = Connector(interface='ConfocalLogic')
     traceanalysis = Connector(interface='TraceAnalysisLogic')
-    gatedcounterlogic = Connector(interface='GatedCounterLogic')
+    gatedcounterlogic = Connector(interface='CounterLogic')
     sequencegeneratorlogic = Connector(interface='SequenceGeneratorLogic')
 
     align_2d_axis0_range = StatusVar('align_2d_axis0_range', 10e-3)
@@ -1004,11 +1002,11 @@ class MagnetLogic(GenericLogic):
 
         @return bool: True indicates the magnet is moving, False the magnet stopped movement
         """
-        # get axis names
-        axes = [i for i in self._magnet_device.get_constraints()]
-        state = self._magnet_device.get_status()
-
-        return (state[axes[0]] or state[axes[1]] or state[axes[2]]) is (1 or -1)
+        moving = False
+        for axis, code in self._magnet_device.get_status().items():
+            if code != 0:
+                moving = True
+        return not moving
 
     def _set_meas_point(self, meas_val, add_meas_val, pathway_index, back_map):
 

@@ -12,9 +12,7 @@
 *.rej
 *~
 *.#*
-*.ipynb_checkpoints
 .*.swp
-*.ipynb_checkpoints
 .DS_store
 
 # Local config directories

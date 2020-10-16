@@ -1,0 +1,131 @@
+Recreated by scanning a large image and rapidly toggling the
+colorbar between manual and percentile but I've had it happen
+twice during real scans when adjusting the CB range for contrast.
+Should che
+
+
+
+Windows fatal exception: code 0xc0000374
+
+Thread 0x000036ac (most recent call first):
+  File "C:\Anaconda\envs\qudi\lib\site-packages\PyDAQmx\DAQmxFunctions.py", line 57 in mafunction
+  File "<string>", line 2 in function
+  File "C:\Users\Confocal\Documents\qudi\hardware\national_instruments_x_series.py", line 1349 in scan_line
+  File "C:\Users\Confocal\Documents\qudi\logic\confocal_logic.py", line 794 in _scan_line
+
+Thread 0x0000084c (most recent call first):
+  File "C:\Users\Confocal\Documents\qudi\core\parentpoller.py", line 132 in run
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 916 in _bootstrap_inner
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 884 in _bootstrap
+
+Thread 0x00000354 (most recent call first):
+  File "C:\Anaconda\envs\qudi\lib\site-packages\tornado\platform\select.py", line 63 in poll
+  File "C:\Anaconda\envs\qudi\lib\site-packages\tornado\ioloop.py", line 863 in start
+  File "C:\Anaconda\envs\qudi\lib\site-packages\ipykernel\iostream.py", line 78 in _thread_main
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 864 in run
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 916 in _bootstrap_inner
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 884 in _bootstrap
+
+Thread 0x0000215c (most recent call first):
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 295 in wait
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 551 in wait
+  File "C:\Anaconda\envs\qudi\lib\site-packages\IPython\core\history.py", line 829 in run
+  File "C:\Anaconda\envs\qudi\lib\site-packages\IPython\core\history.py", line 58 in needs_sqlite
+  File "<decorator-gen-24>", line 2 in run
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 916 in _bootstrap_inner
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 884 in _bootstrap
+
+Thread 0x00002814 (most recent call first):
+  File "C:\Anaconda\envs\qudi\lib\socket.py", line 205 in accept
+  File "C:\Anaconda\envs\qudi\lib\site-packages\rpyc\utils\server.py", line 139 in accept
+  File "C:\Anaconda\envs\qudi\lib\site-packages\rpyc\utils\server.py", line 263 in start
+  File "C:\Users\Confocal\Documents\qudi\core\remote.py", line 210 in run
+
+Current thread 0x00002774 (most recent call first):
+  File "C:\Users\Confocal\Documents\qudi\gui\confocal\confocalgui.py", line 714 in get_xy_cb_range
+  File "C:\Users\Confocal\Documents\qudi\gui\confocal\confocalgui.py", line 758 in refresh_xy_colorbar
+  File "C:\Users\Confocal\Documents\qudi\gui\confocal\confocalgui.py", line 1373 in update_xy_cb_range
+  File "C:\Users\Confocal\Documents\qudi\core\__main__.py", line 311 in <module>
+  File "C:\Anaconda\envs\qudi\lib\runpy.py", line 85 in _run_code
+  File "C:\Anaconda\envs\qudi\lib\runpy.py", line 193 in _run_module_as_main
+Unexpected return value 3221226356. Exiting.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Another example, just a 400x400 scan and changing color range by 1%
+
+Windows fatal exception: code 0xc0000374
+
+Thread 0x00003388 (most recent call first):
+  File "C:\Anaconda\envs\qudi\lib\site-packages\PyDAQmx\DAQmxFunctions.py", line 57 in mafunction
+  File "<string>", line 2 in function
+  File "C:\Users\Confocal\Documents\qudi\hardware\national_instruments_x_series.py", line 1133 in _write_scanner_ao
+  File "C:\Users\Confocal\Documents\qudi\hardware\national_instruments_x_series.py", line 1326 in scan_line
+  File "C:\Users\Confocal\Documents\qudi\logic\confocal_logic.py", line 794 in _scan_line
+
+Thread 0x00003144 (most recent call first):
+  File "C:\Anaconda\envs\qudi\lib\site-packages\PyDAQmx\DAQmxFunctions.py", line 57 in mafunction
+  File "<string>", line 2 in function
+  File "C:\Users\Confocal\Documents\qudi\hardware\national_instruments_x_series.py", line 567 in get_counter
+  File "C:\Users\Confocal\Documents\qudi\logic\counter_logic.py", line 471 in count_loop_body
+
+Thread 0x000018b4 (most recent call first):
+  File "C:\Users\Confocal\Documents\qudi\core\parentpoller.py", line 132 in run
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 916 in _bootstrap_inner
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 884 in _bootstrap
+
+Thread 0x00003124 (most recent call first):
+  File "C:\Anaconda\envs\qudi\lib\site-packages\tornado\platform\select.py", line 63 in poll
+  File "C:\Anaconda\envs\qudi\lib\site-packages\tornado\ioloop.py", line 863 in start
+  File "C:\Anaconda\envs\qudi\lib\site-packages\ipykernel\iostream.py", line 78 in _thread_main
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 864 in run
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 916 in _bootstrap_inner
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 884 in _bootstrap
+
+Thread 0x00001f60 (most recent call first):
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 295 in wait
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 551 in wait
+  File "C:\Anaconda\envs\qudi\lib\site-packages\IPython\core\history.py", line 829 in run
+  File "C:\Anaconda\envs\qudi\lib\site-packages\IPython\core\history.py", line 58 in needs_sqlite
+  File "<decorator-gen-24>", line 2 in run
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 916 in _bootstrap_inner
+  File "C:\Anaconda\envs\qudi\lib\threading.py", line 884 in _bootstrap
+
+Thread 0x000021b4 (most recent call first):
+  File "C:\Anaconda\envs\qudi\lib\socket.py", line 205 in accept
+  File "C:\Anaconda\envs\qudi\lib\site-packages\rpyc\utils\server.py", line 139 in accept
+  File "C:\Anaconda\envs\qudi\lib\site-packages\rpyc\utils\server.py", line 263 in start
+  File "C:\Users\Confocal\Documents\qudi\core\remote.py", line 210 in run
+
+Current thread 0x0000106c (most recent call first):
+  File "C:\Users\Confocal\Documents\qudi\gui\confocal\confocalgui.py", line 708 in get_xy_cb_range
+  File "C:\Users\Confocal\Documents\qudi\gui\confocal\confocalgui.py", line 751 in refresh_xy_colorbar
+  File "C:\Users\Confocal\Documents\qudi\gui\confocal\confocalgui.py", line 1385 in refresh_xy_image
+  File "C:\Users\Confocal\Documents\qudi\gui\confocal\confocalgui.py", line 1364 in update_xy_cb_range
+  File "C:\Users\Confocal\Documents\qudi\gui\confocal\confocalgui.py", line 1347 in shortcut_to_xy_cb_centiles
+  File "C:\Users\Confocal\Documents\qudi\qtwidgets\scientific_spinbox.py", line 399 in setValue
+  File "C:\Users\Confocal\Documents\qudi\qtwidgets\scientific_spinbox.py", line 960 in stepBy
+  File "C:\Users\Confocal\Documents\qudi\core\__main__.py", line 311 in <module>
+  File "C:\Anaconda\envs\qudi\lib\runpy.py", line 85 in _run_code
+  File "C:\Anaconda\envs\qudi\lib\runpy.py", line 193 in _run_module_as_main
+Unexpected return value 3221226356. Exiting.
+
+

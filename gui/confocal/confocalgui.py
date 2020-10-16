@@ -25,11 +25,13 @@ import os
 import pyqtgraph as pg
 import time
 
-from core.module import Connector, ConfigOption, StatusVar
+from core.connector import Connector
+from core.configoption import ConfigOption
+from core.statusvariable import StatusVar
 from qtwidgets.scan_plotwidget import ScanImageItem
 from gui.guibase import GUIBase
 from gui.guiutils import ColorBar
-from gui.colordefs import ColorScaleInferno
+from gui.colordefs import ColorScaleInferno, ColorScaleMagma, ColorScaleViridis, ColorScalePlasma, GreyScale
 from gui.colordefs import QudiPalettePale as palette
 from gui.fitsettings import FitParametersWidget
 from qtpy import QtCore
@@ -93,8 +95,6 @@ class OptimizerSettingDialog(QtWidgets.QDialog):
 class ConfocalGui(GUIBase):
     """ Main Confocal Class for xy and depth scans.
     """
-    _modclass = 'ConfocalGui'
-    _modtype = 'gui'
 
     # declare connectors
     confocallogic1 = Connector(interface='ConfocalLogic')
@@ -418,20 +418,20 @@ class ConfocalGui(GUIBase):
         self._scanning_logic.signal_history_event.connect(self.change_z_image_range)
 
         # Get initial tilt correction values
-        self._mw.action_TiltCorrection.setChecked(
-            self._scanning_logic._scanning_device.tiltcorrection)
+        if hasattr(self._scanning_logic._scanning_device, 'tiltcorrection'):
+            self._mw.action_TiltCorrection.setChecked(self._scanning_logic._scanning_device.tiltcorrection)
 
-        self._mw.tilt_01_x_pos_doubleSpinBox.setValue(self._scanning_logic.point1[0])
-        self._mw.tilt_01_y_pos_doubleSpinBox.setValue(self._scanning_logic.point1[1])
-        self._mw.tilt_01_z_pos_doubleSpinBox.setValue(self._scanning_logic.point1[2])
+            self._mw.tilt_01_x_pos_doubleSpinBox.setValue(self._scanning_logic.point1[0])
+            self._mw.tilt_01_y_pos_doubleSpinBox.setValue(self._scanning_logic.point1[1])
+            self._mw.tilt_01_z_pos_doubleSpinBox.setValue(self._scanning_logic.point1[2])
 
-        self._mw.tilt_02_x_pos_doubleSpinBox.setValue(self._scanning_logic.point2[0])
-        self._mw.tilt_02_y_pos_doubleSpinBox.setValue(self._scanning_logic.point2[1])
-        self._mw.tilt_02_z_pos_doubleSpinBox.setValue(self._scanning_logic.point2[2])
+            self._mw.tilt_02_x_pos_doubleSpinBox.setValue(self._scanning_logic.point2[0])
+            self._mw.tilt_02_y_pos_doubleSpinBox.setValue(self._scanning_logic.point2[1])
+            self._mw.tilt_02_z_pos_doubleSpinBox.setValue(self._scanning_logic.point2[2])
 
-        self._mw.tilt_03_x_pos_doubleSpinBox.setValue(self._scanning_logic.point3[0])
-        self._mw.tilt_03_y_pos_doubleSpinBox.setValue(self._scanning_logic.point3[1])
-        self._mw.tilt_03_z_pos_doubleSpinBox.setValue(self._scanning_logic.point3[2])
+            self._mw.tilt_03_x_pos_doubleSpinBox.setValue(self._scanning_logic.point3[0])
+            self._mw.tilt_03_y_pos_doubleSpinBox.setValue(self._scanning_logic.point3[1])
+            self._mw.tilt_03_z_pos_doubleSpinBox.setValue(self._scanning_logic.point3[2])
 
         # Connect tilt correction buttons
         self._mw.action_TiltCorrection.triggered.connect(self._scanning_logic.set_tilt_correction)
@@ -440,8 +440,7 @@ class ConfocalGui(GUIBase):
         self._mw.tilt_set_03_pushButton.clicked.connect(self._scanning_logic.set_tilt_point3)
         self._mw.calc_tilt_pushButton.clicked.connect(self._scanning_logic.calc_tilt_correction)
         self._scanning_logic.signal_tilt_correction_update.connect(self.update_tilt_correction)
-        self._scanning_logic.signal_tilt_correction_active.connect(
-            self._mw.action_TiltCorrection.setChecked)
+        self._scanning_logic.signal_tilt_correction_active.connect(self._mw.action_TiltCorrection.setChecked)
 
         # Connect the default view action
         self._mw.restore_default_view_Action.triggered.connect(self.restore_default_view)
@@ -545,6 +544,7 @@ class ConfocalGui(GUIBase):
         #################################################################
         #           Connect the colorbar and their actions              #
         #################################################################
+
         # Get the colorscale and set the LUTs
         self.my_colors = ColorScaleInferno()
 
@@ -679,6 +679,19 @@ class ConfocalGui(GUIBase):
                 self.update_from_key(z=float(round(z_pos - self.slider_small_step, 10)))
             else:
                 event.ignore()
+
+    def set_colormap(self, colors):
+        # Get the colorscale and set the LUTs
+        self.my_colors = colors
+
+        self.xy_image.setLookupTable(colors.lut)
+        self.depth_image.setLookupTable(colors.lut)
+        self.xy_refocus_image.setLookupTable(colors.lut)
+
+        self.xy_cb.set_colormap(colors.cmap_normed)
+        self.depth_cb.set_colormap(colors.cmap_normed)
+        self.refresh_depth_colorbar()
+        self.refresh_xy_colorbar()
 
     def get_xy_cb_range(self):
         """ Determines the cb_min and cb_max values for the xy scan image
@@ -1263,31 +1276,34 @@ class ConfocalGui(GUIBase):
     def change_xy_resolution(self):
         """ Update the xy resolution in the logic according to the GUI.
         """
-        self._scanning_logic.xy_resolution = self._mw.xy_res_InputWidget.value()
+        self._scanning_logic.set_xy_resolution(self._mw.xy_res_InputWidget.value())
+        self.log.debug('Updated xy_resolution to {}'.format(self._scanning_logic.xy_resolution))
 
     def change_z_resolution(self):
         """ Update the z resolution in the logic according to the GUI.
         """
-        self._scanning_logic.z_resolution = self._mw.z_res_InputWidget.value()
+        self._scanning_logic.set_z_resolution(self._mw.z_res_InputWidget.value())
+        self.log.debug('Updated z_resolution to {}'.format(self._scanning_logic.z_resolution))
+
 
     def change_x_image_range(self):
-        """ Adjust the image range for x in the logic. """
-        self._scanning_logic.image_x_range = [
-            self._mw.x_min_InputWidget.value(),
-            self._mw.x_max_InputWidget.value()]
+        self._scanning_logic.image_x_range[0] = self._mw.x_min_InputWidget.value()
+        self._scanning_logic.image_x_range[1] = self._mw.x_max_InputWidget.value()
+        self.log.debug('Updated image_x_range to {}'.format(self._scanning_logic.image_x_range))
 
     def change_y_image_range(self):
         """ Adjust the image range for y in the logic.
         """
-        self._scanning_logic.image_y_range = [
-            self._mw.y_min_InputWidget.value(),
-            self._mw.y_max_InputWidget.value()]
+        self._scanning_logic.image_y_range[0] = self._mw.y_min_InputWidget.value()
+        self._scanning_logic.image_y_range[1] = self._mw.y_max_InputWidget.value()
+        self.log.debug('Updated image_y_range to {}'.format(self._scanning_logic.image_y_range))
+
 
     def change_z_image_range(self):
         """ Adjust the image range for z in the logic. """
-        self._scanning_logic.image_z_range = [
-            self._mw.z_min_InputWidget.value(),
-            self._mw.z_max_InputWidget.value()]
+        self._scanning_logic.image_z_range[0] = self._mw.z_min_InputWidget.value()
+        self._scanning_logic.image_z_range[1] = self._mw.z_max_InputWidget.value()
+        self.log.debug('Updated image_z_range to {}'.format(self._scanning_logic.image_z_range))
 
     def update_tilt_correction(self):
         """ Update all tilt points from the scanner logic. """

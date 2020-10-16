@@ -29,7 +29,9 @@ import traceback
 
 from qtpy import QtCore
 from collections import OrderedDict
-from core.module import StatusVar, Connector, ConfigOption
+from core.statusvariable import StatusVar
+from core.connector import Connector
+from core.configoption import ConfigOption
 from core.util.modules import get_main_dir, get_home_dir
 from core.util.helpers import natural_sort
 from core.util.network import netobtain
@@ -54,9 +56,6 @@ class SequenceGeneratorLogic(GenericLogic):
     This logic is also responsible to manipulate and read back hardware settings for
     waveform/sequence playback (pp-amplitude, sample rate, active channels etc.).
     """
-
-    _modclass = 'sequencegeneratorlogic'
-    _modtype = 'logic'
 
     # declare connectors
     pulsegenerator = Connector(interface='PulserInterface')
@@ -1089,6 +1088,12 @@ class SequenceGeneratorLogic(GenericLogic):
         """
         gen_method = self.generate_methods[predefined_sequence_name]
         gen_params = self.generate_method_params[predefined_sequence_name]
+        if 'name' not in gen_params:
+            self.log.error('Mandatory generation parameter "name" not found in generate method '
+                           '"{0}" arguments. Generation failed.'.format(predefined_sequence_name))
+            self.sigPredefinedSequenceGenerated.emit(None, False)
+            return
+
         # match parameters to method and throw out unwanted ones
         thrown_out_params = [param for param in kwargs_dict if param not in gen_params]
         for param in thrown_out_params:
@@ -1096,13 +1101,15 @@ class SequenceGeneratorLogic(GenericLogic):
         if thrown_out_params:
             self.log.debug('Unused params during predefined sequence generation "{0}":\n'
                            '{1}'.format(predefined_sequence_name, thrown_out_params))
+
         try:
             blocks, ensembles, sequences = gen_method(**kwargs_dict)
         except:
-            self.log.error('Generation of predefined sequence "{0}" failed.'
-                           ''.format(predefined_sequence_name))
+            self.log.exception('Generation of predefined sequence "{0}" failed with exception:'
+                               ''.format(predefined_sequence_name))
             self.sigPredefinedSequenceGenerated.emit(None, False)
-            raise
+            return
+
         # Save objects
         for block in blocks:
             self.save_block(block)
@@ -1111,14 +1118,18 @@ class SequenceGeneratorLogic(GenericLogic):
             self.save_ensemble(ensemble)
 
         if self.pulse_generator_constraints.sequence_option == SequenceOption.FORCED and len(sequences) < 1:
-            self.log.info('Adding default sequence for: {0:s}'.format(kwargs_dict.get('name')))
+            self.log.info('Adding default sequence for: {0:s}'.format(predefined_sequence_name))
             self._add_default_sequence(ensembles, sequences)
-            self.log.debug('New default PulseSequence is: {0:s} length {1:d}'.format(sequences[0].name, len(sequences)))
+            if len(sequences) > 0:
+                self.log.debug('New default PulseSequence is: {0:s} length {1:d}'
+                               ''.format(sequences[0].name, len(sequences)))
 
         for sequence in sequences:
             sequence.sampling_information = dict()
             self.save_sequence(sequence)
-        self.sigPredefinedSequenceGenerated.emit(kwargs_dict.get('name'), len(sequences) > 0)
+
+        created_name = gen_params.get('name') if 'name' not in kwargs_dict else kwargs_dict['name']
+        self.sigPredefinedSequenceGenerated.emit(created_name, len(sequences) > 0)
         return
 
     def _add_default_sequence(self, ensembles, sequences):
@@ -1726,6 +1737,12 @@ class SequenceGeneratorLogic(GenericLogic):
             else:
                 self.log.warn('Extending waveform {0} by {2} bins. New length {1}.'.format(
                     ensemble.name, ensemble_info['number_of_samples'], extension_samples))
+
+        # Non-sampling pulsers may have all they need to generate the pulse pattern at this point
+        if self.pulsegenerator().set_pulse_ensemble(ensemble.name, ensemble_info):
+            self.sigLoadedAssetUpdated.emit(*self.loaded_asset)
+            self.log.info("Successfully loaded pulse sequence '{}'".format(ensemble.name))
+            # let the rest of the loading continue so that measurement etc are set up
 
         # Calculate the byte size per sample.
         # One analog sample per channel is 4 bytes (np.float32) and one digital sample per channel
