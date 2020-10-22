@@ -64,7 +64,7 @@ class HardwarePull(QtCore.QObject):
         if self._parentclass.module_state() == 'running':
             # get the current wavelength from the wavemeter
 
-            temp=self._parentclass.get_wavelength()
+            temp=self._parentclass._get_wavelength()
 
             # send the data to the parent via a signal
             self.sig_wavelength.emit(temp)
@@ -75,7 +75,7 @@ class MOGLabsMWMWavemeter(Base,WavemeterInterface):
     Example config for copy-paste:
 
     moglabs_wavemeter:
-        module.Class: 'moglabs_mwm.MOGLABsMWMWavemeter'
+        module.Class: 'moglabs_mwm.MOGLabsMWMWavemeter'
         measurement_timing: 10.0 # in seconds
     """
 
@@ -192,6 +192,9 @@ class MOGLabsMWMWavemeter(Base,WavemeterInterface):
             return float(self._current_wavelength)
         return -2.0
 
+    def get_current_wavelength2(self, kind="air"):
+        return -2.0
+
     def get_timing(self):
         """ Get the timing of the internal measurement thread.
 
@@ -219,7 +222,7 @@ class MOGLabsMWMWavemeter(Base,WavemeterInterface):
 
     def _get_wavelength(self):
         """ Get the current wavelength measurement, in vac nm"""
-        temp = self._strip_response(self._dev.ask("wave,nm vac"))
+        temp = self._strip_response(self._dev.ask(b"wave,nm vac"))
         temp1 = temp.split(sep=' ')
         return float(temp1[1])
 
