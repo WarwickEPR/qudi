@@ -34,3 +34,17 @@ pip install <X>
 
 and manually add to the yml file
 
+
+
+Updating beyond upstream
+------------------------
+
+If you need newer libraries or a newer python you can update with
+
+conda update --all python=3.7
+
+(The python argument constrains the version - otherwise this would go straight to 3.8)
+
+You then need to export and check in another yml file to allow this to be replicated
+
+conda-env export > pkg.yml

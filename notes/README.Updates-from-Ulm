@@ -1,15 +1,22 @@
-To update the master branch (or any branch) from "upstream", whether that's WarwickEPR, Ulm or MacQuarrie the cleanest way is with rebase (rather than merge)
 
-The result should be the same but the rebasing is cleaner for the situation where we are maintaining "Ulm+" as opposed to a divergent version.
+MERGING FROM UPSTREAM
 
-All rebasing means is that a _clean_ branch with no pending changes is updated with all the "upstream" changes since the local branch was split off. You're left with a change that is close to current rather than catching up. Handy for our stop-start development (although stil check in changes you make asap)
+To get all the history correct, the simplest way is to merge:
+
+git fetch
+git merge ulm/master
+
+
+REBASING - fast forwarding so that the repo looks like it was branched from upstream later. So e.g. if changes have occurred on the base version that don't conflict with yours and it would be neater to pretend you branched from that point.
+
+Rebasing means is that a _clean_ branch with no pending changes is updated with all the "upstream" changes since the local branch was split off. You're left with a change that is close to current rather than catching up. Handy for our stop-start development (although stil check in changes you make asap)
 
 If you have pending changes, they can be "stashed" with git stash and restored with "git stash pop" after the rebase - or just committed if they can be.
 
 e.g.
 
-git fetch ulm
-git rebase ulm/master
+git fetch warwick
+git rebase warwick/master
 
 Git tracks "where the local copy was up to" and should be simple as that. 
 Same goes for branches of our own work. They can be "fast forwarded" to be
