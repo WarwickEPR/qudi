@@ -114,6 +114,7 @@ dependencies:
     - asteval==0.9.12
     - fysom==2.1.5
     - lmfit==0.9.10
+    - nidaqmx==0.5.7
     - plumbum==1.6.6
     - pydaqmx==1.4.1
     - pyflowgraph-qo==0.0.3.1
