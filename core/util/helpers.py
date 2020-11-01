@@ -126,7 +126,7 @@ def import_check():
     missing. Make a warning about missing packages. Check versions.
     """
     # encode like: (python-package-name, repository-name, version)
-    vital_pkg = [('ruamel.yaml', 'ruamel.yaml', None),
+    vital_pkg = [('ruamel_yaml', 'ruamel_yaml', None),
                  ('fysom', 'fysom', '2.1.4')]
     opt_pkg = [('rpyc', 'rpyc', '4.0.2'),
                ('pyqtgraph', 'pyqtgraph', None),
