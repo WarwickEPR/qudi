@@ -73,7 +73,8 @@ class AttocubeControllerDummy(Base, MotorInterface):
         'voltage': 30,
         'capacitance': None,
         'busy': False,
-        'dci' : False
+        'dci' : False,
+        'grounded': False
     }
     _connected = False
 
@@ -320,7 +321,7 @@ class AttocubeControllerDummy(Base, MotorInterface):
 
     def stop(self, axis=None):
         """ Stop all movement on one, several or all (if None) axis"""
-        self.log.info("All axis stopped")
+        self.log.info("All axes stopped")
 
 # Motor interface
 
@@ -340,7 +341,7 @@ class AttocubeControllerDummy(Base, MotorInterface):
         axis_x['vel_max'] = self.frequency_range('x')[1]
         axis_x['vel_step'] = 1
         axis_x['acc_min'] = self.voltage_range('x')[0]
-        axis_x['acc_max'] = self.voltage_range('x')[0]
+        axis_x['acc_max'] = self.voltage_range('x')[1]
         axis_x['acc_step'] = 1
 
         axis_y = {}
@@ -354,7 +355,7 @@ class AttocubeControllerDummy(Base, MotorInterface):
         axis_y['vel_max'] = self.frequency_range('y')[1]
         axis_y['vel_step'] = 1
         axis_y['acc_min'] = self.voltage_range('y')[0]
-        axis_y['acc_max'] = self.voltage_range('y')[0]
+        axis_y['acc_max'] = self.voltage_range('y')[1]
         axis_y['acc_step'] = 1
 
         axis_z = {}
@@ -368,7 +369,7 @@ class AttocubeControllerDummy(Base, MotorInterface):
         axis_z['vel_max'] = self.frequency_range('z')[1]
         axis_z['vel_step'] = 1
         axis_z['acc_min'] = self.voltage_range('z')[0]
-        axis_z['acc_max'] = self.voltage_range('z')[0]
+        axis_z['acc_max'] = self.voltage_range('z')[1]
         axis_z['acc_step'] = 1
 
         constraints['x'] = axis_x

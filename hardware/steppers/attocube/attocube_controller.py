@@ -130,7 +130,8 @@ class AttocubeController(Base, MotorInterface):
     def _initialize_axis(self):
         """ Initialize axis with the values from the config """
         for name in self._axis_config:
-            self.capacitance(name)  # capacitance leaves axis in step mode
+            self.capacitance(name)
+            self.unground()
             self.frequency(name, self._axis_config[name]['frequency'])
             self.voltage(name, self._axis_config[name]['voltage'])
 
@@ -385,7 +386,7 @@ class AttocubeController(Base, MotorInterface):
         """ Set all axes to step mode """
         parsed_axis = self._parse_axis(axis)
         for ax in parsed_axis:
-            self.capacitance(ax)  # capacitance leaves axis in step mode
+            self._send_cmd("setm {} stp".format(self._axis_config[ax]['id']))
             result = self.get_grounding_status(ax)
             if result is True:
                 self.log.warn("Couldn't unground axis {}.".format(ax))
@@ -488,13 +489,17 @@ class AttocubeController(Base, MotorInterface):
         parsed_axis = self._parse_axis(axis)
         if not buffered:
             for ax in parsed_axis:
+                was_grounded = self.get_grounding_status(ax)
                 self._axis_config[ax]['busy'] = True
                 self._send_cmd("setm {} cap".format(self._axis_config[ax]['id']))
                 self._send_cmd("capw {}".format(self._axis_config[ax]['id']))
                 commmand = "getc {}".format(self._axis_config[ax]['id'])
                 regex = 'capacitance = ([-+]?\d*\.\d+) (mF|µF|nF)'
                 result = self._send_cmd(commmand, True, regex)
-                self._send_cmd("setm {} stp".format(self._axis_config[ax]['id']))
+                if was_grounded is True:
+                    self.ground(ax)
+                else:
+                    self.unground(ax)
                 self._axis_config[ax]['busy'] = False
                 if len(result) == 0:
                     self.log.error('Capacitance of axis {} could not be read : {}'.format(ax, result))
@@ -550,7 +555,7 @@ class AttocubeController(Base, MotorInterface):
         axis_x['vel_max'] = self.frequency_range('x')[1]
         axis_x['vel_step'] = 1
         axis_x['acc_min'] = self.voltage_range('x')[0]
-        axis_x['acc_max'] = self.voltage_range('x')[0]
+        axis_x['acc_max'] = self.voltage_range('x')[1]
         axis_x['acc_step'] = 1
 
         axis_y = {}
@@ -564,7 +569,7 @@ class AttocubeController(Base, MotorInterface):
         axis_y['vel_max'] = self.frequency_range('y')[1]
         axis_y['vel_step'] = 1
         axis_y['acc_min'] = self.voltage_range('y')[0]
-        axis_y['acc_max'] = self.voltage_range('y')[0]
+        axis_y['acc_max'] = self.voltage_range('y')[1]
         axis_y['acc_step'] = 1
 
         axis_z = {}
@@ -578,7 +583,7 @@ class AttocubeController(Base, MotorInterface):
         axis_z['vel_max'] = self.frequency_range('z')[1]
         axis_z['vel_step'] = 1
         axis_z['acc_min'] = self.voltage_range('z')[0]
-        axis_z['acc_max'] = self.voltage_range('z')[0]
+        axis_z['acc_max'] = self.voltage_range('z')[1]
         axis_z['acc_step'] = 1
 
         constraints['x'] = axis_x
