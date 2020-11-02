@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-This module contains the Qudi Hardware module attocube ANC300 .
+This module contains the dummy Qudi Hardware module attocube ANC300 .
 
 ---
 
@@ -22,25 +22,21 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
 
-import telnetlib
 import time
-import re
-import visa
+import random
 
 from core.module import Base
 from core.configoption import ConfigOption
 from interface.motor_interface import MotorInterface
 
 
-class AttocubeController(Base, MotorInterface):
+class AttocubeControllerDummy(Base, MotorInterface):
     """ Module to interface the attocube ANC300 hardware, that controls steppers used to position samples or
     devices.
 
     Example config :
-        attocube:
-        module.Class: 'steppers.attocube.attocube_controller.AttocubeController'
-        host: '192.168.1.1'
-        interface_type: 'telnet'
+    attocubedummy:
+        module.Class: 'steppers.attocube.attocube_controller_dummy.AttocubeControllerDummy'
         axis:
             x:
                 id: 1
@@ -68,15 +64,6 @@ class AttocubeController(Base, MotorInterface):
                 'voltage': 30
     """
 
-    _interface_type = ConfigOption('interface_type', missing='error')  # 'visa'|'telnet'|'dummy'
-    # TODO: visa has not been properly tested
-
-    _host = ConfigOption('host', None)
-    _password = ConfigOption('password', "123456")
-    _port = ConfigOption('port', 7230)
-    _visa_address = ConfigOption('visa_address', None)
-    _timeout = ConfigOption('timeout', 10)
-
     _default_axis = {
         'voltage_range': [0, 60],
         'frequency_range': [0, 10000],
@@ -86,8 +73,7 @@ class AttocubeController(Base, MotorInterface):
         'voltage': 30,
         'capacitance': None,
         'busy': False,
-        'dci': False,
-        'grounded': False
+        'dci' : False
     }
     _connected = False
 
@@ -97,11 +83,8 @@ class AttocubeController(Base, MotorInterface):
     def on_activate(self):
         """ Initialisation performed during activation of the module """
         self._check_axis()
-        self._check_connection()
-        self._connect(attempt=1)
 
-        if self.connected:
-            self._initialize_axis()
+        self._initialize_axis()
         self.calibrate()
 
     def _check_axis(self):
@@ -114,19 +97,6 @@ class AttocubeController(Base, MotorInterface):
                 if key not in self._axis_config[name]:
                     self._axis_config[name][key] = self._default_axis[key]
 
-    def _check_connection(self):
-        """ Check the connection config is ok """
-        if self._interface_type == 'telnet':
-            if self._host is None:
-                self.log.error('telnet connection required but no host have not been specified')
-        elif self._interface_type == 'visa':
-            if self._visa_address is None:
-                self.log.error('Visa connection required but interface have not been specified. (ex: COM2)')
-        elif self._interface_type == 'dummy':
-            pass
-        else:
-            self.log.error("Wrong interface type, option are 'telnet' or 'visa'")
-
     def _initialize_axis(self):
         """ Initialize axis with the values from the config """
         for name in self._axis_config:
@@ -136,110 +106,7 @@ class AttocubeController(Base, MotorInterface):
 
     def on_deactivate(self):
         """ Deinitialisation performed during deactivation of the module. """
-        self._disconnect()
-
-    def _connect(self, attempt=7):
-        """ Try to connect to the ANC300 controller """
-        self.connected = False
-
-        if self._interface_type == 'telnet':
-
-            self.tn = telnetlib.Telnet(self._host, self._port, 3)
-            self.tn.open(self._host, self._port)
-            password = str(self._password).encode('ascii')
-            counter = 0
-            while not self.connected:
-                if counter > attempt:
-                    self.log.error('Connection to ANC300 could not be established.\n'
-                                   'Check password, physical connection, host etc. and try again.')
-                    break
-                self.tn.read_until(b"Authorization code: ")
-                self.tn.write(password + b"\n")
-                time.sleep(0.1)  # the ANC300 needs time to answer
-                value_binary = self.tn.read_very_eager()
-                value = value_binary.decode().split()
-                if value[2] == 'success':
-                    self.connected = True
-                    self.log.info("Connection to ANC300 was established")
-                else:
-                    counter += 1
-            self.tn.read_very_eager()  # clear the buffer
-
-        elif self._interface_type == 'visa':
-            self.rm = visa.ResourceManager()
-            try:
-                self._visa_connection = self.rm.open_resource(
-                    self._visa_address,
-                    timeout=self._timeout * 1000)
-            except:
-                self.log.error('Could not connect to the controller '
-                               'address >>{}<<.'.format(self._visa_address))
-                raise
-            self.connected = True
-            self.log.info("Connection to ANC300 was established")
-        elif self._interface_type == 'dummy':
-            self.log.debug('Hello world!')
-
-    def _disconnect(self, keep_active=False):
-        """ Close connection with the controller after setting all axis to ground (except if keep_active is true) """
-        if not keep_active:
-            for name in self._axis_config:
-                self._send_cmd("setm {} gnd".format(self._axis_config[name]['id']))
-
-        if self._interface_type == 'telnet':
-            self.tn.close()
-        elif self._interface_type == 'visa':
-            self._visa_connection.close()
-            self.rm.close()
-
-    def _send_cmd(self, cmd, read=True, regex=None, timeout=1):
-        """Sends a command to the attocube controller and parse the response
-
-        @param (str) cmd: command to send
-        @param (bool) read: if True, try reading the message, otherwise do not read (saves at least 30ms per call)
-        @param (str) regex: regular expression used to parse expected response
-
-        @return (int): return None for silent, False for error, true if OK and array or match for regular expression
-        """
-        full_cmd = cmd.encode('ascii') + b"\r\n"  # converting to binary
-
-        if self._interface_type == 'telnet':
-            self.tn.read_eager()  # disregard old print outs
-            self.tn.write(full_cmd)  # send command
-            # any response ends with ">" from the attocube. Therefore connection waits until this happened
-            if not read:
-                return None  # stop here and do not read
-            else:
-                try:
-                    value_binary = self.tn.read_until(b">", timeout=timeout)
-                    response = value_binary.decode()
-                except:
-                    self.log.error("Attocube ANC300 controller telnet timed out ({} second)".format(timeout))
-                    return False
-        elif self._interface_type == 'usb':
-            try:
-                response = self._visa_connection.query(full_cmd)
-            except:
-                self.log.error("Attocube ANC300 controller telnet timed out ({} second)".format(self._timeout))
-                return False
-            return None
-        elif self._interface_type == 'dummy':
-            self.log.debug(cmd)
-            response = 'OK'
-
-        # check for error
-        error_search = re.search("ERROR", response)
-        if error_search:
-            self.log.error('Attocube ANC300 controller returned an error message : {}'.format(response))
-            return False
-
-        if regex is None:
-            if bool(re.search("OK", response)):
-                return True
-            else:
-                self.log.error('Attocube ANC300 controller did not return "OK" : {}'.format(response))
-        else:
-            return re.findall(regex, response)
+        pass
 
     def _parse_axis(self, axis):
         """ Take a valid axis or list/tuple of axis and return a list with valid axis name.
@@ -344,62 +211,32 @@ class AttocubeController(Base, MotorInterface):
         """ Enables the DC input for the given axis """
         parsed_axis = self._parse_axis(axis)
         for ax in parsed_axis:
-            self._send_cmd("setdci {} on".format(self._axis_config[ax]['id']))
-            time.sleep(0.1)
-            result = self.get_DC_input_status(ax)
-            if result is not True:
-                self.log.warn("Couldn't enable DC input for axis {}.".format(ax))
+            self._axis_config[ax]['dci'] = True
 
     def disable_DC_input(self, axis):
         """ Disables the DC input for the given axis """
         parsed_axis = self._parse_axis(axis)
         for ax in parsed_axis:
-            self._send_cmd("setdci {} off".format(self._axis_config[ax]['id']))
-            time.sleep(0.1)
-            result = self.get_DC_input_status(ax)
-            if result is True:
-                self.log.warn("Couldn't disable DC input for axis {}.".format(ax))
+            self._axis_config[ax]['dci'] = False
 
     def get_DC_input_status(self, axis):
         """ Gets the status of the DC input for the given axis """
-        parsed_axis = self._parse_axis(axis)
-        for ax in parsed_axis:
-            result = self._send_cmd('getdci {}'.format(self._axis_config[ax]['id']), regex=".*dcin = ([a-z]*)")
-            if result[0] == 'off':
-                self._axis_config[ax]['dci'] = False
-            else:
-                self._axis_config[ax]['dci'] = True
-
         return self._get_config(axis, 'dci')
 
-    def ground(self, axis):
-        """ Set specified axes to ground """
-        parsed_axis = self._parse_axis(axis)
-        for ax in parsed_axis:
-            self._send_cmd("setm {} gnd".format(self._axis_config[ax]['id']))
-            result = self.get_grounding_status(ax)
-            if result is not True:
-                self.log.warn("Couldn't ground axis {}.".format(ax))
+    def ground(self):
+        """ Set all axes to ground """
+         parsed_axis = self._parse_axis(axis)
+         for ax in parsed_axis:
+            self._axis_config[ax]['grounded'] = True
 
-    def unground(self, axis):
+    def unground(self):
         """ Set all axes to step mode """
         parsed_axis = self._parse_axis(axis)
         for ax in parsed_axis:
-            self.capacitance(ax)  # capacitance leaves axis in step mode
-            result = self.get_grounding_status(ax)
-            if result is True:
-                self.log.warn("Couldn't unground axis {}.".format(ax))
-
+            self._axis_config[ax]['grounded'] = True
+            
     def get_grounding_status(self, axis):
         """ Check whether the specified axes are grounded """
-        parsed_axis = self._parse_axis(axis)
-        for ax in parsed_axis:
-            result = self._send_cmd('getm {}'.format(self._axis_config[ax]['id']), regex=".*mode = ([a-z]*)")
-            if result[0] == 'gnd':
-                self._axis_config[ax]['grounded'] = True
-            else:
-                self._axis_config[ax]['grounded'] = False
-
         return self._get_config(axis, 'grounded')
 
     def axis(self):
@@ -432,19 +269,7 @@ class AttocubeController(Base, MotorInterface):
             for ax in parsed_axis:
                 new_value = self._parse_value(axis, ax, value)
                 if self._in_range(new_value, self.voltage_range(ax), 'Voltage out of range'):
-                    command = "setv {} {}".format(self._axis_config[ax]['id'], new_value)
-                    self._send_cmd(command)
-
-        if not buffered:
-            for ax in parsed_axis:
-                commmand = "getv {}".format(self._axis_config[ax]['id'])
-                regex = 'voltage = ([-+]?\d*\.\d+) V'  # voltage = 0.000000 V
-                result = self._send_cmd(commmand, True, regex)
-                if len(result) == 0:
-                    self.log.error('Voltage of axis {} could not be read : {}'.format(ax, result))
-                self._axis_config[ax]['voltage'] = float(result[0])
-                if not self._in_range(self._axis_config[ax]['voltage'], self._axis_config[ax]['voltage_range']):
-                    self.log.warning('Current voltage of axis {} is out of range.'.format(ax))
+                    self._axis_config[ax]['voltage'] = new_value
 
         return self._get_config(axis, 'voltage')
 
@@ -462,19 +287,7 @@ class AttocubeController(Base, MotorInterface):
             for ax in parsed_axis:
                 new_value = int(self._parse_value(axis, ax, value))
                 if self._in_range(new_value, self.frequency_range(ax), 'Frequency out of range'):
-                    command = "setf {} {}".format(self._axis_config[ax]['id'], new_value)
-                    self._send_cmd(command)
-
-        if not buffered:
-            for ax in parsed_axis:
-                commmand = "getf {}".format(self._axis_config[ax]['id'])
-                regex = 'frequency = (\d+) Hz'  # frequency = 1000 Hz
-                result = self._send_cmd(commmand, True, regex)
-                if len(result) == 0:
-                    self.log.error('Frequency of axis {} could not be read : {}'.format(ax, result))
-                self._axis_config[ax]['frequency'] = int(result[0])
-                if not self._in_range(self._axis_config[ax]['frequency'], self._axis_config[ax]['frequency_range']):
-                    self.log.warning('Current frequency of axis {} is out of range.'.format(ax))
+                    self._axis_config[ax]['frequency'] = new_value
 
         return self._get_config(axis, 'frequency')
 
@@ -488,19 +301,7 @@ class AttocubeController(Base, MotorInterface):
         parsed_axis = self._parse_axis(axis)
         if not buffered:
             for ax in parsed_axis:
-                self._axis_config[ax]['busy'] = True
-                self._send_cmd("setm {} cap".format(self._axis_config[ax]['id']))
-                self._send_cmd("capw {}".format(self._axis_config[ax]['id']))
-                commmand = "getc {}".format(self._axis_config[ax]['id'])
-                regex = 'capacitance = ([-+]?\d*\.\d+) (mF|µF|nF)'
-                result = self._send_cmd(commmand, True, regex)
-                self._send_cmd("setm {} stp".format(self._axis_config[ax]['id']))
-                self._axis_config[ax]['busy'] = False
-                if len(result) == 0:
-                    self.log.error('Capacitance of axis {} could not be read : {}'.format(ax, result))
-                factor = {'mF': 1e-3, 'µF': 1e-6, 'nF': 1e-9}
-                result = result[0]  # before : [('1198.847778', 'nF')]
-                self._axis_config[ax]['capacitance'] = float(result[0])*factor[result[1]]
+                self._axis_config[ax]['capacitance'] = 800e-9 + random.randrange(-100, 100) * 1e-9
 
         return self._get_config(axis, 'capacitance')
 
@@ -513,23 +314,12 @@ class AttocubeController(Base, MotorInterface):
         parsed_axis = self._parse_axis(axis)
         for ax in parsed_axis:
             self.disable_DC_input(ax)
-            if self._axis_config[ax]['busy']:
-                self.warning('Stepping might not work while axis {} in capacitance measurement'.format(ax))
             number_step_axis = int(self._parse_value(axis, ax, number))
-            if number_step_axis > 0:
-                self._send_cmd("stepu {} {}".format(self._axis_config[ax]['id'], number_step_axis))
-            elif number_step_axis < 0:
-                self._send_cmd("stepd {} {}".format(self._axis_config[ax]['id'], -number_step_axis))
             if ax in ['x', 'y', 'z']:
                 self._current_position[ax] += number_step_axis
 
     def stop(self, axis=None):
         """ Stop all movement on one, several or all (if None) axis"""
-        if axis is None:
-            axis = list(self._axis_config.keys())
-        parsed_axis = self._parse_axis(axis)
-        for ax in parsed_axis:
-            self._send_cmd("stop {}".format(self._axis_config[ax]['id']))
         self.log.info("All axis stopped")
 
 # Motor interface
