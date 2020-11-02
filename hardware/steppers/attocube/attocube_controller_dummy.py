@@ -223,13 +223,13 @@ class AttocubeControllerDummy(Base, MotorInterface):
         """ Gets the status of the DC input for the given axis """
         return self._get_config(axis, 'dci')
 
-    def ground(self):
+    def ground(self, axis):
         """ Set all axes to ground """
-         parsed_axis = self._parse_axis(axis)
-         for ax in parsed_axis:
-            self._axis_config[ax]['grounded'] = True
+        parsed_axis = self._parse_axis(axis)
+        for ax in parsed_axis:
+           self._axis_config[ax]['grounded'] = True
 
-    def unground(self):
+    def unground(self, axis):
         """ Set all axes to step mode """
         parsed_axis = self._parse_axis(axis)
         for ax in parsed_axis:
