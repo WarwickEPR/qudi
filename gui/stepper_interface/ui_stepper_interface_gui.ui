@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>508</width>
-    <height>590</height>
+    <width>464</width>
+    <height>546</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -17,1451 +17,1123 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>qudi: Confocal Stepper</string>
+   <string>qudi: Stepper Interface</string>
   </property>
-  <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout_3">
-    <item>
-     <widget class="QSplitter" name="splitter">
-      <property name="orientation">
-       <enum>Qt::Horizontal</enum>
-      </property>
-      <widget class="QDockWidget" name="dockWidget_5">
-       <property name="minimumSize">
-        <size>
-         <width>320</width>
-         <height>345</height>
-        </size>
+  <widget class="QWidget" name="centralwidget"/>
+  <widget class="QDockWidget" name="dockWidget_5">
+   <property name="minimumSize">
+    <size>
+     <width>320</width>
+     <height>345</height>
+    </size>
+   </property>
+   <property name="maximumSize">
+    <size>
+     <width>320</width>
+     <height>524287</height>
+    </size>
+   </property>
+   <property name="features">
+    <set>QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
+   </property>
+   <property name="windowTitle">
+    <string>XY control</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="QWidget" name="dockWidgetContents_12">
+    <widget class="QPushButton" name="move_up_button">
+     <property name="geometry">
+      <rect>
+       <x>120</x>
+       <y>20</y>
+       <width>80</width>
+       <height>80</height>
+      </rect>
+     </property>
+     <property name="focusPolicy">
+      <enum>Qt::NoFocus</enum>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+     <property name="icon">
+      <iconset>
+       <normaloff>up.png</normaloff>up.png</iconset>
+     </property>
+     <property name="iconSize">
+      <size>
+       <width>80</width>
+       <height>80</height>
+      </size>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="move_down_button">
+     <property name="geometry">
+      <rect>
+       <x>120</x>
+       <y>220</y>
+       <width>80</width>
+       <height>80</height>
+      </rect>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>80</width>
+       <height>80</height>
+      </size>
+     </property>
+     <property name="focusPolicy">
+      <enum>Qt::NoFocus</enum>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+     <property name="icon">
+      <iconset>
+       <normaloff>down.png</normaloff>down.png</iconset>
+     </property>
+     <property name="iconSize">
+      <size>
+       <width>40</width>
+       <height>40</height>
+      </size>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="move_left_button">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>120</y>
+       <width>80</width>
+       <height>80</height>
+      </rect>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>80</width>
+       <height>80</height>
+      </size>
+     </property>
+     <property name="focusPolicy">
+      <enum>Qt::NoFocus</enum>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+     <property name="icon">
+      <iconset>
+       <normaloff>../../artwork/icons/oxygen/22x22/go-previous.png</normaloff>../../artwork/icons/oxygen/22x22/go-previous.png</iconset>
+     </property>
+     <property name="iconSize">
+      <size>
+       <width>40</width>
+       <height>40</height>
+      </size>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="stop_button">
+     <property name="geometry">
+      <rect>
+       <x>220</x>
+       <y>220</y>
+       <width>80</width>
+       <height>80</height>
+      </rect>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>80</width>
+       <height>80</height>
+      </size>
+     </property>
+     <property name="focusPolicy">
+      <enum>Qt::NoFocus</enum>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+     <property name="icon">
+      <iconset>
+       <normaloff>../../artwork/icons/qudiTheme/22x22/stop-scan.png</normaloff>../../artwork/icons/qudiTheme/22x22/stop-scan.png</iconset>
+     </property>
+     <property name="iconSize">
+      <size>
+       <width>80</width>
+       <height>80</height>
+      </size>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="move_right_button">
+     <property name="geometry">
+      <rect>
+       <x>220</x>
+       <y>120</y>
+       <width>80</width>
+       <height>80</height>
+      </rect>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>80</width>
+       <height>80</height>
+      </size>
+     </property>
+     <property name="focusPolicy">
+      <enum>Qt::NoFocus</enum>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+     <property name="icon">
+      <iconset>
+       <normaloff>../../artwork/icons/oxygen/22x22/go-next.png</normaloff>../../artwork/icons/oxygen/22x22/go-next.png</iconset>
+     </property>
+     <property name="iconSize">
+      <size>
+       <width>80</width>
+       <height>80</height>
+      </size>
+     </property>
+    </widget>
+    <widget class="QSpinBox" name="y_steps_spinbox">
+     <property name="geometry">
+      <rect>
+       <x>32</x>
+       <y>40</y>
+       <width>80</width>
+       <height>17</height>
+      </rect>
+     </property>
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>80</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <property name="focusPolicy">
+      <enum>Qt::ClickFocus</enum>
+     </property>
+     <property name="layoutDirection">
+      <enum>Qt::LeftToRight</enum>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+     <property name="buttonSymbols">
+      <enum>QAbstractSpinBox::NoButtons</enum>
+     </property>
+     <property name="maximum">
+      <number>500</number>
+     </property>
+     <property name="value">
+      <number>100</number>
+     </property>
+    </widget>
+    <widget class="QSpinBox" name="x_steps_spinbox">
+     <property name="geometry">
+      <rect>
+       <x>220</x>
+       <y>95</y>
+       <width>80</width>
+       <height>17</height>
+      </rect>
+     </property>
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>80</width>
+       <height>17</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>100</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <property name="focusPolicy">
+      <enum>Qt::ClickFocus</enum>
+     </property>
+     <property name="layoutDirection">
+      <enum>Qt::LeftToRight</enum>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+     <property name="buttonSymbols">
+      <enum>QAbstractSpinBox::NoButtons</enum>
+     </property>
+     <property name="maximum">
+      <number>500</number>
+     </property>
+     <property name="value">
+      <number>100</number>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_29">
+     <property name="geometry">
+      <rect>
+       <x>32</x>
+       <y>20</y>
+       <width>80</width>
+       <height>17</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Y steps / pulse</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_30">
+     <property name="geometry">
+      <rect>
+       <x>220</x>
+       <y>75</y>
+       <width>80</width>
+       <height>17</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>X steps / pulse</string>
+     </property>
+    </widget>
+   </widget>
+  </widget>
+  <widget class="QDockWidget" name="dockWidget_4">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
+   <property name="minimumSize">
+    <size>
+     <width>120</width>
+     <height>345</height>
+    </size>
+   </property>
+   <property name="maximumSize">
+    <size>
+     <width>200</width>
+     <height>524287</height>
+    </size>
+   </property>
+   <property name="features">
+    <set>QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
+   </property>
+   <property name="windowTitle">
+    <string>Z control</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>2</number>
+   </attribute>
+   <widget class="QWidget" name="dockWidgetContents_11">
+    <widget class="QPushButton" name="raise_button">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>70</y>
+       <width>80</width>
+       <height>80</height>
+      </rect>
+     </property>
+     <property name="focusPolicy">
+      <enum>Qt::NoFocus</enum>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+     <property name="icon">
+      <iconset>
+       <normaloff>up.png</normaloff>up.png</iconset>
+     </property>
+     <property name="iconSize">
+      <size>
+       <width>80</width>
+       <height>80</height>
+      </size>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="lower_button">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>170</y>
+       <width>80</width>
+       <height>80</height>
+      </rect>
+     </property>
+     <property name="focusPolicy">
+      <enum>Qt::NoFocus</enum>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+     <property name="icon">
+      <iconset>
+       <normaloff>down.png</normaloff>down.png</iconset>
+     </property>
+     <property name="iconSize">
+      <size>
+       <width>80</width>
+       <height>80</height>
+      </size>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_28">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>25</y>
+       <width>80</width>
+       <height>17</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Z steps / pulse</string>
+     </property>
+    </widget>
+    <widget class="QSpinBox" name="z_steps_spinbox">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>45</y>
+       <width>80</width>
+       <height>17</height>
+      </rect>
+     </property>
+     <property name="focusPolicy">
+      <enum>Qt::ClickFocus</enum>
+     </property>
+     <property name="frame">
+      <bool>true</bool>
+     </property>
+     <property name="buttonSymbols">
+      <enum>QAbstractSpinBox::NoButtons</enum>
+     </property>
+     <property name="maximum">
+      <number>100</number>
+     </property>
+     <property name="value">
+      <number>20</number>
+     </property>
+    </widget>
+   </widget>
+  </widget>
+  <widget class="QDockWidget" name="hardware_dockWidget">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
+   <property name="minimumSize">
+    <size>
+     <width>200</width>
+     <height>180</height>
+    </size>
+   </property>
+   <property name="maximumSize">
+    <size>
+     <width>600</width>
+     <height>180</height>
+    </size>
+   </property>
+   <property name="features">
+    <set>QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
+   </property>
+   <property name="windowTitle">
+    <string>Hardware Parameters</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>8</number>
+   </attribute>
+   <widget class="QWidget" name="dockWidgetContents_13">
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+    <property name="minimumSize">
+     <size>
+      <width>200</width>
+      <height>0</height>
+     </size>
+    </property>
+    <layout class="QGridLayout" name="gridLayout_8">
+     <item row="4" column="7">
+      <widget class="QLabel" name="z_pos_label">
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
        </property>
-       <property name="maximumSize">
-        <size>
-         <width>320</width>
-         <height>524287</height>
-        </size>
+       <property name="text">
+        <string>0</string>
        </property>
-       <property name="windowTitle">
-        <string>XY control</string>
+       <property name="alignment">
+        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
        </property>
-       <widget class="QWidget" name="dockWidgetContents_12">
-        <widget class="QPushButton" name="move_up_button">
-         <property name="geometry">
-          <rect>
-           <x>120</x>
-           <y>20</y>
-           <width>80</width>
-           <height>80</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string/>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>up.png</normaloff>up.png</iconset>
-         </property>
-         <property name="iconSize">
-          <size>
-           <width>80</width>
-           <height>80</height>
-          </size>
-         </property>
-        </widget>
-        <widget class="QPushButton" name="move_down_button">
-         <property name="geometry">
-          <rect>
-           <x>120</x>
-           <y>220</y>
-           <width>80</width>
-           <height>80</height>
-          </rect>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>80</width>
-           <height>80</height>
-          </size>
-         </property>
-         <property name="text">
-          <string/>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>down.png</normaloff>down.png</iconset>
-         </property>
-         <property name="iconSize">
-          <size>
-           <width>40</width>
-           <height>40</height>
-          </size>
-         </property>
-        </widget>
-        <widget class="QPushButton" name="move_left_button">
-         <property name="geometry">
-          <rect>
-           <x>20</x>
-           <y>120</y>
-           <width>80</width>
-           <height>80</height>
-          </rect>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>80</width>
-           <height>80</height>
-          </size>
-         </property>
-         <property name="text">
-          <string/>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>../../artwork/icons/oxygen/22x22/go-previous.png</normaloff>../../artwork/icons/oxygen/22x22/go-previous.png</iconset>
-         </property>
-         <property name="iconSize">
-          <size>
-           <width>40</width>
-           <height>40</height>
-          </size>
-         </property>
-        </widget>
-        <widget class="QPushButton" name="stop_button">
-         <property name="geometry">
-          <rect>
-           <x>220</x>
-           <y>220</y>
-           <width>80</width>
-           <height>80</height>
-          </rect>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>80</width>
-           <height>80</height>
-          </size>
-         </property>
-         <property name="text">
-          <string/>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>../../artwork/icons/qudiTheme/22x22/stop-scan.png</normaloff>../../artwork/icons/qudiTheme/22x22/stop-scan.png</iconset>
-         </property>
-         <property name="iconSize">
-          <size>
-           <width>80</width>
-           <height>80</height>
-          </size>
-         </property>
-        </widget>
-        <widget class="QPushButton" name="move_right_button">
-         <property name="geometry">
-          <rect>
-           <x>220</x>
-           <y>120</y>
-           <width>80</width>
-           <height>80</height>
-          </rect>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>80</width>
-           <height>80</height>
-          </size>
-         </property>
-         <property name="text">
-          <string/>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>../../artwork/icons/oxygen/22x22/go-next.png</normaloff>../../artwork/icons/oxygen/22x22/go-next.png</iconset>
-         </property>
-         <property name="iconSize">
-          <size>
-           <width>80</width>
-           <height>80</height>
-          </size>
-         </property>
-        </widget>
-        <widget class="QSpinBox" name="y_steps_spinbox">
-         <property name="geometry">
-          <rect>
-           <x>32</x>
-           <y>40</y>
-           <width>80</width>
-           <height>17</height>
-          </rect>
-         </property>
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>80</width>
-           <height>16777215</height>
-          </size>
-         </property>
-         <property name="layoutDirection">
-          <enum>Qt::LeftToRight</enum>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-         <property name="buttonSymbols">
-          <enum>QAbstractSpinBox::NoButtons</enum>
-         </property>
-         <property name="maximum">
-          <number>500</number>
-         </property>
-         <property name="value">
-          <number>100</number>
-         </property>
-        </widget>
-        <widget class="QSpinBox" name="x_steps_spinbox">
-         <property name="geometry">
-          <rect>
-           <x>220</x>
-           <y>95</y>
-           <width>80</width>
-           <height>17</height>
-          </rect>
-         </property>
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>80</width>
-           <height>17</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>100</width>
-           <height>16777215</height>
-          </size>
-         </property>
-         <property name="layoutDirection">
-          <enum>Qt::LeftToRight</enum>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-         <property name="buttonSymbols">
-          <enum>QAbstractSpinBox::NoButtons</enum>
-         </property>
-         <property name="maximum">
-          <number>500</number>
-         </property>
-         <property name="value">
-          <number>100</number>
-         </property>
-        </widget>
-        <widget class="QLabel" name="label_29">
-         <property name="geometry">
-          <rect>
-           <x>32</x>
-           <y>20</y>
-           <width>80</width>
-           <height>17</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>Y steps / pulse</string>
-         </property>
-        </widget>
-        <widget class="QLabel" name="label_30">
-         <property name="geometry">
-          <rect>
-           <x>220</x>
-           <y>75</y>
-           <width>80</width>
-           <height>17</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>X steps / pulse</string>
-         </property>
-        </widget>
-       </widget>
       </widget>
-      <widget class="QDockWidget" name="dockWidget_4">
+     </item>
+     <item row="0" column="3">
+      <widget class="QLabel" name="Voltage_label">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
-       <property name="minimumSize">
+       <property name="maximumSize">
         <size>
-         <width>120</width>
-         <height>345</height>
+         <width>100</width>
+         <height>16777215</height>
         </size>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>Voltage</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="5">
+      <widget class="QCheckBox" name="z_dcin_checkBox">
+       <property name="maximumSize">
+        <size>
+         <width>40</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::ClickFocus</enum>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="4">
+      <widget class="QLabel" name="frequency_label">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
        </property>
        <property name="maximumSize">
         <size>
-         <width>200</width>
-         <height>524287</height>
+         <width>100</width>
+         <height>16777215</height>
         </size>
        </property>
-       <property name="windowTitle">
-        <string>Z control</string>
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
        </property>
-       <widget class="QWidget" name="dockWidgetContents_11">
-        <widget class="QPushButton" name="raise_button">
-         <property name="geometry">
-          <rect>
-           <x>20</x>
-           <y>70</y>
-           <width>80</width>
-           <height>80</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string/>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>up.png</normaloff>up.png</iconset>
-         </property>
-         <property name="iconSize">
-          <size>
-           <width>80</width>
-           <height>80</height>
-          </size>
-         </property>
-        </widget>
-        <widget class="QPushButton" name="lower_button">
-         <property name="geometry">
-          <rect>
-           <x>20</x>
-           <y>170</y>
-           <width>80</width>
-           <height>80</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string/>
-         </property>
-         <property name="icon">
-          <iconset>
-           <normaloff>down.png</normaloff>down.png</iconset>
-         </property>
-         <property name="iconSize">
-          <size>
-           <width>80</width>
-           <height>80</height>
-          </size>
-         </property>
-        </widget>
-        <widget class="QLabel" name="label_28">
-         <property name="geometry">
-          <rect>
-           <x>20</x>
-           <y>25</y>
-           <width>80</width>
-           <height>17</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>Z steps / pulse</string>
-         </property>
-        </widget>
-        <widget class="QSpinBox" name="z_steps_spinbox">
-         <property name="geometry">
-          <rect>
-           <x>20</x>
-           <y>45</y>
-           <width>80</width>
-           <height>17</height>
-          </rect>
-         </property>
-         <property name="frame">
-          <bool>true</bool>
-         </property>
-         <property name="buttonSymbols">
-          <enum>QAbstractSpinBox::NoButtons</enum>
-         </property>
-         <property name="maximum">
-          <number>100</number>
-         </property>
-         <property name="value">
-          <number>20</number>
-         </property>
-        </widget>
-       </widget>
+       <property name="text">
+        <string>Freq. (Hz)</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
       </widget>
-     </widget>
-    </item>
-    <item>
-     <widget class="QDockWidget" name="hardware_dockWidget">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>200</width>
-        <height>180</height>
-       </size>
-      </property>
-      <property name="maximumSize">
-       <size>
-        <width>600</width>
-        <height>180</height>
-       </size>
-      </property>
-      <property name="windowTitle">
-       <string>Hardware Parameters</string>
-      </property>
-      <widget class="QWidget" name="dockWidgetContents_13">
+     </item>
+     <item row="6" column="7" rowspan="2" colspan="2">
+      <widget class="QPushButton" name="set_origin_button">
+       <property name="font">
+        <font>
+         <pointsize>9</pointsize>
+        </font>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::NoFocus</enum>
+       </property>
+       <property name="text">
+        <string>Set origin</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="4">
+      <widget class="QSpinBox" name="y_frequency_spinBox">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+        <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
        <property name="minimumSize">
         <size>
-         <width>200</width>
+         <width>60</width>
          <height>0</height>
         </size>
        </property>
-       <layout class="QGridLayout" name="gridLayout_8">
-        <item row="2" column="4">
-         <widget class="QSpinBox" name="x_frequency_spinBox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>60</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>60</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="layoutDirection">
-           <enum>Qt::LeftToRight</enum>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-          <property name="buttonSymbols">
-           <enum>QAbstractSpinBox::NoButtons</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="4">
-         <widget class="QSpinBox" name="y_frequency_spinBox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>60</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>60</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-          <property name="buttonSymbols">
-           <enum>QAbstractSpinBox::NoButtons</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="1">
-         <widget class="QLabel" name="x_axis_hardware_label">
-          <property name="enabled">
-           <bool>true</bool>
-          </property>
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>20</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string>X:</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="3">
-         <widget class="ScienDSpinBox" name="x_amplitude_doubleSpinBox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>80</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-          <property name="buttonSymbols">
-           <enum>QAbstractSpinBox::NoButtons</enum>
-          </property>
-          <property name="decimals">
-           <number>4</number>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="1">
-         <widget class="QLabel" name="y_axis_hardware_label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>20</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string>Y:</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="6" column="3" rowspan="2">
-         <widget class="QPushButton" name="read_hardware_pushButton">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>10</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>150</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>9</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string extracomment="Reads the hardware values saved in the computer">Get Hardware Values</string>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="1">
-         <widget class="QLabel" name="z_axis_hardware_label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>20</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="text">
-           <string>Z:</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="3">
-         <widget class="ScienDSpinBox" name="z_amplitude_doubleSpinBox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>80</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-          <property name="buttonSymbols">
-           <enum>QAbstractSpinBox::NoButtons</enum>
-          </property>
-          <property name="decimals">
-           <number>4</number>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="3">
-         <widget class="ScienDSpinBox" name="y_amplitude_doubleSpinBox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>80</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="frame">
-           <bool>true</bool>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-          <property name="buttonSymbols">
-           <enum>QAbstractSpinBox::NoButtons</enum>
-          </property>
-          <property name="keyboardTracking">
-           <bool>true</bool>
-          </property>
-          <property name="decimals">
-           <number>4</number>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="4">
-         <widget class="QSpinBox" name="z_frequency_spinBox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>60</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>60</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="layoutDirection">
-           <enum>Qt::LeftToRight</enum>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-          <property name="buttonSymbols">
-           <enum>QAbstractSpinBox::NoButtons</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="7">
-         <widget class="QLabel" name="y_pos_label">
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>0</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="7">
-         <widget class="QLabel" name="label_35">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>100</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>Pos (steps)</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="7">
-         <widget class="QLabel" name="x_pos_label">
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>0</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="8">
-         <widget class="QLabel" name="label_38">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>100</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>Cap. (nF)</string>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="6">
-         <widget class="QCheckBox" name="z_grounded_checkBox">
-          <property name="enabled">
-           <bool>true</bool>
-          </property>
-          <property name="text">
-           <string/>
-          </property>
-         </widget>
-        </item>
-        <item row="5" column="3" colspan="6">
-         <widget class="Line" name="line_10">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="5">
-         <widget class="QLabel" name="label_39">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>40</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>DC in</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="6">
-         <widget class="QCheckBox" name="y_grounded_checkBox">
-          <property name="enabled">
-           <bool>true</bool>
-          </property>
-          <property name="text">
-           <string/>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="6">
-         <widget class="QCheckBox" name="x_grounded_checkBox">
-          <property name="enabled">
-           <bool>true</bool>
-          </property>
-          <property name="text">
-           <string/>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="6">
-         <widget class="QLabel" name="label_40">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>40</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>Gnd</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="8">
-         <widget class="QLabel" name="x_cap_label">
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>0</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="8">
-         <widget class="QLabel" name="y_cap_label">
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>0</string>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="8">
-         <widget class="QLabel" name="z_cap_label">
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>0</string>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="7">
-         <widget class="QLabel" name="z_pos_label">
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>0</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="5">
-         <widget class="QCheckBox" name="z_dcin_checkBox">
-          <property name="maximumSize">
-           <size>
-            <width>40</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="text">
-           <string/>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="3">
-         <widget class="QLabel" name="Voltage_label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>100</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>Voltage</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="4">
-         <widget class="QLabel" name="frequency_label">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>100</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>10</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>Freq. (Hz)</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="6" column="4" rowspan="2" colspan="2">
-         <widget class="QPushButton" name="update_hardware_pushButton">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>123</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>150</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>9</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string extracomment="Reads tehe hardware values directly from the stepper harware">Set Hardware Values</string>
-          </property>
-         </widget>
-        </item>
-        <item row="6" column="7" rowspan="2" colspan="2">
-         <widget class="QPushButton" name="set_origin_button">
-          <property name="font">
-           <font>
-            <pointsize>9</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>Set origin</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
+       <property name="maximumSize">
+        <size>
+         <width>60</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::ClickFocus</enum>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="buttonSymbols">
+        <enum>QAbstractSpinBox::NoButtons</enum>
+       </property>
       </widget>
-     </widget>
-    </item>
-   </layout>
+     </item>
+     <item row="3" column="1">
+      <widget class="QLabel" name="y_axis_hardware_label">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>20</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>Y:</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QLabel" name="x_axis_hardware_label">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>20</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>X:</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="3">
+      <widget class="ScienDSpinBox" name="x_amplitude_doubleSpinBox">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>80</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::ClickFocus</enum>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="buttonSymbols">
+        <enum>QAbstractSpinBox::NoButtons</enum>
+       </property>
+       <property name="decimals">
+        <number>4</number>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="4">
+      <widget class="QSpinBox" name="x_frequency_spinBox">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>60</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>60</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::ClickFocus</enum>
+       </property>
+       <property name="layoutDirection">
+        <enum>Qt::LeftToRight</enum>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="buttonSymbols">
+        <enum>QAbstractSpinBox::NoButtons</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="1">
+      <widget class="QLabel" name="z_axis_hardware_label">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>20</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>Z:</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="3">
+      <widget class="ScienDSpinBox" name="z_amplitude_doubleSpinBox">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>80</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::ClickFocus</enum>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="buttonSymbols">
+        <enum>QAbstractSpinBox::NoButtons</enum>
+       </property>
+       <property name="decimals">
+        <number>4</number>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="3">
+      <widget class="ScienDSpinBox" name="y_amplitude_doubleSpinBox">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>80</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::ClickFocus</enum>
+       </property>
+       <property name="frame">
+        <bool>true</bool>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="buttonSymbols">
+        <enum>QAbstractSpinBox::NoButtons</enum>
+       </property>
+       <property name="keyboardTracking">
+        <bool>true</bool>
+       </property>
+       <property name="decimals">
+        <number>4</number>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="7">
+      <widget class="QLabel" name="label_35">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>100</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>Pos (steps)</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="7">
+      <widget class="QLabel" name="y_pos_label">
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>0</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="7">
+      <widget class="QLabel" name="x_pos_label">
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>0</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="4">
+      <widget class="QSpinBox" name="z_frequency_spinBox">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>60</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>60</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::ClickFocus</enum>
+       </property>
+       <property name="layoutDirection">
+        <enum>Qt::LeftToRight</enum>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="buttonSymbols">
+        <enum>QAbstractSpinBox::NoButtons</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="8">
+      <widget class="QLabel" name="label_38">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>100</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>Cap. (nF)</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="3" colspan="6">
+      <widget class="Line" name="line_10">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="6">
+      <widget class="QCheckBox" name="z_grounded_checkBox">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::ClickFocus</enum>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="5">
+      <widget class="QLabel" name="label_39">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>40</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>DC in</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="6">
+      <widget class="QCheckBox" name="y_grounded_checkBox">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::ClickFocus</enum>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="6">
+      <widget class="QCheckBox" name="x_grounded_checkBox">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::ClickFocus</enum>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="8">
+      <widget class="QLabel" name="y_cap_label">
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>0</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="8">
+      <widget class="QLabel" name="x_cap_label">
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>0</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="6">
+      <widget class="QLabel" name="label_40">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>40</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>Gnd</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="8">
+      <widget class="QLabel" name="z_cap_label">
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>0</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="5" rowspan="2" colspan="2">
+      <widget class="QPushButton" name="update_hardware_pushButton">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>123</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>150</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>9</pointsize>
+        </font>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::NoFocus</enum>
+       </property>
+       <property name="text">
+        <string extracomment="Reads tehe hardware values directly from the stepper harware">Set to Hardware</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="3" rowspan="2" colspan="2">
+      <widget class="QPushButton" name="read_hardware_pushButton">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>10</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>150</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>9</pointsize>
+        </font>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::NoFocus</enum>
+       </property>
+       <property name="text">
+        <string extracomment="Reads the hardware values saved in the computer">Get from Hardware</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </widget>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
-  <widget class="QMenuBar" name="menubar">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>508</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <widget class="QMenu" name="menuFile">
-    <property name="title">
-     <string>&amp;File</string>
-    </property>
-    <addaction name="actionSave_Step_Scan"/>
-    <addaction name="actionSave_configuration"/>
-    <addaction name="separator"/>
-    <addaction name="action_load_data"/>
-    <addaction name="separator"/>
-    <addaction name="actionClose"/>
-   </widget>
-   <addaction name="menuFile"/>
-  </widget>
-  <action name="actionSave_Step_Scan">
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/oxygen/22x22/document-save.png</normaloff>../../artwork/icons/oxygen/22x22/document-save.png</iconset>
-   </property>
-   <property name="text">
-    <string>&amp;Save scan</string>
-   </property>
-  </action>
-  <action name="actionSave_configuration">
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/oxygen/22x22/document-save.png</normaloff>../../artwork/icons/oxygen/22x22/document-save.png</iconset>
-   </property>
-   <property name="text">
-    <string>Save co&amp;nfiguration</string>
-   </property>
-  </action>
-  <action name="action_Settings">
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/oxygen/22x22/configure.png</normaloff>../../artwork/icons/oxygen/22x22/configure.png</iconset>
-   </property>
-   <property name="text">
-    <string>Se&amp;ttings</string>
-   </property>
-  </action>
-  <action name="actionClose">
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/oxygen/22x22/application-exit.png</normaloff>../../artwork/icons/oxygen/22x22/application-exit.png</iconset>
-   </property>
-   <property name="text">
-    <string>C&amp;lose</string>
-   </property>
-   <property name="toolTip">
-    <string>Close confocal</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+W</string>
-   </property>
-  </action>
-  <action name="actionSave_Depth_Scan">
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/oxygen/22x22/document-save.png</normaloff>../../artwork/icons/oxygen/22x22/document-save.png</iconset>
-   </property>
-   <property name="text">
-    <string>Save &amp;Depth scan</string>
-   </property>
-   <property name="toolTip">
-    <string>Save Depth Data</string>
-   </property>
-  </action>
-  <action name="action_optimizer_settings">
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/oxygen/22x22/configure.png</normaloff>../../artwork/icons/oxygen/22x22/configure.png</iconset>
-   </property>
-   <property name="text">
-    <string>O&amp;ptimizer Settings</string>
-   </property>
-  </action>
-  <action name="action_zoom">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/oxygen/22x22/zoom-select.png</normaloff>
-     <normalon>../../artwork/icons/qudiTheme/32x32/search_active.png</normalon>../../artwork/icons/oxygen/22x22/zoom-select.png</iconset>
-   </property>
-   <property name="text">
-    <string>Zoom</string>
-   </property>
-   <property name="shortcut">
-    <string>Z</string>
-   </property>
-  </action>
-  <action name="actionStep_scan_view">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="checked">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>&amp;Step Scan View</string>
-   </property>
-   <property name="iconText">
-    <string>step_scan</string>
-   </property>
-   <property name="toolTip">
-    <string>step_scan</string>
-   </property>
-   <property name="shortcut">
-    <string>Alt+X</string>
-   </property>
-  </action>
-  <action name="actionStep_parameters_view">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="checked">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>&amp;Step parameters</string>
-   </property>
-   <property name="toolTip">
-    <string>Step parameters</string>
-   </property>
-  </action>
-  <action name="action_step_start">
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/qudiTheme/22x22/scan-xy-start.png</normaloff>../../artwork/icons/qudiTheme/22x22/scan-xy-start.png</iconset>
-   </property>
-   <property name="text">
-    <string>Start Step Scan</string>
-   </property>
-   <property name="toolTip">
-    <string>Start a fresh stepping scan</string>
-   </property>
-  </action>
-  <action name="action_step_resume">
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/qudiTheme/22x22/scan-xy-resume.png</normaloff>../../artwork/icons/qudiTheme/22x22/scan-xy-resume.png</iconset>
-   </property>
-   <property name="text">
-    <string>Resume Step Scan</string>
-   </property>
-   <property name="toolTip">
-    <string>Resume an interrupted stepping scan</string>
-   </property>
-  </action>
-  <action name="action_scan_3D_start">
-   <property name="enabled">
-    <bool>true</bool>
-   </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/qudiTheme/22x22/scan-depth-start.png</normaloff>../../artwork/icons/qudiTheme/22x22/scan-depth-start.png</iconset>
-   </property>
-   <property name="text">
-    <string>Scan depth</string>
-   </property>
-   <property name="iconText">
-    <string>Scan 3D</string>
-   </property>
-   <property name="toolTip">
-    <string>Start a fresh 3D scan</string>
-   </property>
-  </action>
-  <action name="action_scan_3D_resume">
-   <property name="enabled">
-    <bool>true</bool>
-   </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/qudiTheme/22x22/scan-depth-resume.png</normaloff>../../artwork/icons/qudiTheme/22x22/scan-depth-resume.png</iconset>
-   </property>
-   <property name="text">
-    <string>Resume 3D scan</string>
-   </property>
-   <property name="toolTip">
-    <string>Resume an interrupted 3D scan</string>
-   </property>
-  </action>
-  <action name="action_scan_Finesse_start">
-   <property name="enabled">
-    <bool>true</bool>
-   </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/qudiTheme/22x22/scan-depth-start.png</normaloff>../../artwork/icons/qudiTheme/22x22/scan-depth-start.png</iconset>
-   </property>
-   <property name="text">
-    <string>Scan depth</string>
-   </property>
-   <property name="iconText">
-    <string>Scan Finesse</string>
-   </property>
-   <property name="toolTip">
-    <string>Start a fresh Finesse scan</string>
-   </property>
-  </action>
-  <action name="action_optimize_position">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/qudiTheme/22x22/optimize-position.png</normaloff>../../artwork/icons/qudiTheme/22x22/optimize-position.png</iconset>
-   </property>
-   <property name="text">
-    <string>&amp;Optimize position</string>
-   </property>
-   <property name="toolTip">
-    <string>&amp;Optimize position of crosshair</string>
-   </property>
-   <property name="shortcut">
-    <string>Alt+O</string>
-   </property>
-  </action>
-  <action name="action_step_stop">
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/qudiTheme/22x22/stop-scan.png</normaloff>../../artwork/icons/qudiTheme/22x22/stop-scan.png</iconset>
-   </property>
-   <property name="text">
-    <string>Stop Stepping</string>
-   </property>
-   <property name="toolTip">
-    <string>Stop stepping and return to &quot;ready&quot; state</string>
-   </property>
-  </action>
-  <action name="restore_default_view_Action">
-   <property name="text">
-    <string>&amp;Restore default</string>
-   </property>
-   <property name="toolTip">
-    <string>Restore default arrangement of dock widgets </string>
-   </property>
-  </action>
-  <action name="optimizer_only_view_Action">
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/qudiTheme/22x22/optimize-position.png</normaloff>../../artwork/icons/qudiTheme/22x22/optimize-position.png</iconset>
-   </property>
-   <property name="text">
-    <string>O&amp;ptimizer-only</string>
-   </property>
-   <property name="toolTip">
-    <string>Rearrange window as a small optimizer interface.</string>
-   </property>
-  </action>
-  <action name="actionScan_Toolbar">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="checked">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>&amp;Scan Toolbar</string>
-   </property>
-   <property name="toolTip">
-    <string>This toolbar contains all the scan actions that let you record images in the confocal microscope</string>
-   </property>
-  </action>
-  <action name="actionUtil_Toolbar">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="checked">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>&amp;Util Toolbar</string>
-   </property>
-  </action>
-  <action name="action_TiltCorrection">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/qudiTheme/22x22/correct-tilt.png</normaloff>../../artwork/icons/qudiTheme/22x22/correct-tilt.png</iconset>
-   </property>
-   <property name="text">
-    <string>&amp;Use Tilt Correction</string>
-   </property>
-  </action>
-  <action name="actionTilt_correction_view">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>&amp;Tilt correction</string>
-   </property>
-  </action>
-  <action name="actionForward">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/oxygen/22x22/go-next.png</normaloff>../../artwork/icons/oxygen/22x22/go-next.png</iconset>
-   </property>
-   <property name="text">
-    <string>&amp;Forward</string>
-   </property>
-   <property name="toolTip">
-    <string>Go forward in scan history</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+R</string>
-   </property>
-  </action>
-  <action name="actionBack">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/oxygen/22x22/go-previous.png</normaloff>../../artwork/icons/oxygen/22x22/go-previous.png</iconset>
-   </property>
-   <property name="text">
-    <string>&amp;Back</string>
-   </property>
-   <property name="toolTip">
-    <string>Go back in scan history</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+Z</string>
-   </property>
-  </action>
-  <action name="action_full_range_xy">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/oxygen/22x22/zoom-fit-best.png</normaloff>../../artwork/icons/oxygen/22x22/zoom-fit-best.png</iconset>
-   </property>
-   <property name="text">
-    <string>Full range XY</string>
-   </property>
-   <property name="toolTip">
-    <string>Set X and Y directions to full scan range</string>
-   </property>
-  </action>
-  <action name="action_full_range_z">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>../../artwork/icons/oxygen/22x22/zoom-fit-best.png</normaloff>../../artwork/icons/oxygen/22x22/zoom-fit-best.png</iconset>
-   </property>
-   <property name="text">
-    <string>Full range Z</string>
-   </property>
-   <property name="toolTip">
-    <string>Set Z direction to full scan range</string>
-   </property>
-  </action>
-  <action name="actionHardware_View">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Hardware View</string>
-   </property>
-  </action>
-  <action name="actionPosition_Feedback_View">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Position Feedback View</string>
-   </property>
-  </action>
-  <action name="action_show_labbook">
-   <property name="text">
-    <string>Show Labbook</string>
-   </property>
-  </action>
-  <action name="action_load_data">
-   <property name="text">
-    <string>Load Data</string>
-   </property>
-  </action>
  </widget>
  <customwidgets>
   <customwidget>
@@ -1481,22 +1153,5 @@
   <tabstop>update_hardware_pushButton</tabstop>
  </tabstops>
  <resources/>
- <connections>
-  <connection>
-   <sender>actionClose</sender>
-   <signal>triggered()</signal>
-   <receiver>MainWindow</receiver>
-   <slot>close()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>-1</x>
-     <y>-1</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>627</x>
-     <y>403</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>

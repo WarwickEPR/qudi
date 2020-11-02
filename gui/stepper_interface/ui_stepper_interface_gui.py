@@ -45,10 +45,9 @@ class StepperInterfaceMainWindow(QtWidgets.QMainWindow):
         uic.loadUi(ui_file, self)
         self.show()
 
-        def keyPressEvent(self, event):
-            """Pass the keyboard press event from the main window further. """
-            # TODO: presently this is hidden from the UI and inoperative
-            self.sigPressKeyBoard.emit(event)
+    def keyPressEvent(self, event):
+        """Pass the keyboard press event from the main window further. """
+        self.sigPressKeyBoard.emit(event)
 
 class StepperInterfaceGui(GUIBase):
     """
@@ -103,7 +102,7 @@ class StepperInterfaceGui(GUIBase):
         #               Configuring the dock widgets                      #
         ###################################################################
         # All our gui elements are dockable, and so there should be no "central" widget.
-        # self._mw.centralwidget.hide()
+        self._mw.centralwidget.hide()
         self._mw.setDockNestingEnabled(True)
 
         # setup a timer to prevent someone asking the hardware to recalibrate during a move
@@ -215,6 +214,7 @@ class StepperInterfaceGui(GUIBase):
         self.measure_stepper_hardware_values()
 
     def measure_stepper_hardware_values(self):
+        self.disable_hardware_buttons()
         parameters = self._stepper_logic.refresh_hardware_status()
         xvals = parameters['x']
         yvals = parameters['y']
