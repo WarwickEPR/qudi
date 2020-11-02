@@ -77,6 +77,7 @@ class MOGLabsMWMWavemeter(Base,WavemeterInterface):
     moglabs_wavemeter:
         module.Class: 'moglabs_mwm.MOGLabsMWMWavemeter'
         measurement_timing: 10.0 # in seconds
+        address: 'localhost'
     """
 
     # config options
