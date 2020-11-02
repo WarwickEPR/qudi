@@ -47,6 +47,7 @@ class StepperInterfaceMainWindow(QtWidgets.QMainWindow):
 
         def keyPressEvent(self, event):
             """Pass the keyboard press event from the main window further. """
+            # TODO: presently this is hidden from the UI and inoperative
             self.sigPressKeyBoard.emit(event)
 
 class StepperInterfaceGui(GUIBase):
@@ -120,6 +121,8 @@ class StepperInterfaceGui(GUIBase):
 
         self._mw.set_origin_button.clicked.connect(self.set_origin)
 
+        self._mw.sigPressKeyBoard.connect(self.keyPressEvent)
+
     def init_hardware_UI(self):
         # Set the range for the spin boxes of the voltage and frequency values:
         constraints = self._stepper_logic.get_constraints()
@@ -170,45 +173,20 @@ class StepperInterfaceGui(GUIBase):
 
         @param object event: qtpy.QtCore.QEvent object.
         """
-        pass
-        # todo: update from key needs to be adjusted for confocal stepper
-        modifiers = QtWidgets.QApplication.keyboardModifiers()
-
-        position = self._scanning_logic.get_position()  # in meters
-        x_pos = position[0]
-        y_pos = position[1]
-        z_pos = position[2]
-
-        if modifiers == QtCore.Qt.ControlModifier:
-            if event.key() == QtCore.Qt.Key_Right:
-                self.update_from_key(x=float(round(x_pos + self.slider_big_step, 10)))
-            elif event.key() == QtCore.Qt.Key_Left:
-                self.update_from_key(x=float(round(x_pos - self.slider_big_step, 10)))
-            elif event.key() == QtCore.Qt.Key_Up:
-                self.update_from_key(y=float(round(y_pos + self.slider_big_step, 10)))
-            elif event.key() == QtCore.Qt.Key_Down:
-                self.update_from_key(y=float(round(y_pos - self.slider_big_step, 10)))
-            elif event.key() == QtCore.Qt.Key_PageUp:
-                self.update_from_key(z=float(round(z_pos + self.slider_big_step, 10)))
-            elif event.key() == QtCore.Qt.Key_PageDown:
-                self.update_from_key(z=float(round(z_pos - self.slider_big_step, 10)))
-            else:
-                event.ignore()
+        if event.key() == QtCore.Qt.Key_Right:
+            self.move_right_clicked()
+        elif event.key() == QtCore.Qt.Key_Left:
+            self.move_left_clicked()
+        elif event.key() == QtCore.Qt.Key_Up:
+            self.move_up_clicked()
+        elif event.key() == QtCore.Qt.Key_Down:
+            self.move_down_clicked()
+        elif event.key() == QtCore.Qt.Key_PageUp:
+            self.raise_clicked()
+        elif event.key() == QtCore.Qt.Key_PageDown:
+            self.lower_clicked()
         else:
-            if event.key() == QtCore.Qt.Key_Right:
-                self.update_from_key(x=float(round(x_pos + self.slider_small_step, 10)))
-            elif event.key() == QtCore.Qt.Key_Left:
-                self.update_from_key(x=float(round(x_pos - self.slider_small_step, 10)))
-            elif event.key() == QtCore.Qt.Key_Up:
-                self.update_from_key(y=float(round(y_pos + self.slider_small_step, 10)))
-            elif event.key() == QtCore.Qt.Key_Down:
-                self.update_from_key(y=float(round(y_pos - self.slider_small_step, 10)))
-            elif event.key() == QtCore.Qt.Key_PageUp:
-                self.update_from_key(z=float(round(z_pos + self.slider_small_step, 10)))
-            elif event.key() == QtCore.Qt.Key_PageDown:
-                self.update_from_key(z=float(round(z_pos - self.slider_small_step, 10)))
-            else:
-                event.ignore()
+            event.ignore()
 
     def update_stepper_hardware_values(self):
         self.disable_hardware_buttons()
@@ -320,8 +298,6 @@ class StepperInterfaceGui(GUIBase):
         self._mw.lower_button.setEnabled(True)
 
     def disable_hardware_buttons(self):
-        self._mw.read_hardware_pushButton.setEnabled(False)
-        self._mw.update_hardware_pushButton.setEnabled(False)
         self._mw.read_hardware_pushButton.setEnabled(False)
         self._mw.update_hardware_pushButton.setEnabled(False)
         self._mw.move_up_button.setEnabled(False)
