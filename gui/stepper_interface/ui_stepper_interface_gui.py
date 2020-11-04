@@ -119,6 +119,7 @@ class StepperInterfaceGui(GUIBase):
         self._mw.stop_button.clicked.connect(self.stop_clicked)
 
         self._mw.set_origin_button.clicked.connect(self.set_origin)
+        self._mw.measure_capacitance_button.clicked.connect(self.measure_capacitance)
 
         self._mw.sigPressKeyBoard.connect(self.keyPressEvent)
 
@@ -159,6 +160,7 @@ class StepperInterfaceGui(GUIBase):
 
         # get current step values
         self.measure_stepper_hardware_values()
+        self.measure_capacitance()
 
     def show(self):
         """Make window visible and put it above all other windows. """
@@ -201,14 +203,23 @@ class StepperInterfaceGui(GUIBase):
             self._stepper_logic.enable_DC_input('z')
 
         axes_to_ground = []
+        axes_to_unground = []
         if self._mw.x_grounded_checkBox.isChecked() is True:
             axes_to_ground.append('x')
+        else:
+            axes_to_unground.append('x')
         if self._mw.y_grounded_checkBox.isChecked() is True:
             axes_to_ground.append('y')
+        else:
+            axes_to_unground.append('y')
         if self._mw.z_grounded_checkBox.isChecked() is True:
             axes_to_ground.append('z')
+        else:
+            axes_to_unground.append('z')
         if len(axes_to_ground) != 0:
             self._stepper_logic.ground(axes_to_ground)
+        if len(axes_to_unground) != 0:
+            self._stepper_logic.unground(axes_to_unground)
 
         time.sleep(0.5)
         self.measure_stepper_hardware_values()
@@ -228,10 +239,6 @@ class StepperInterfaceGui(GUIBase):
         self._mw.y_frequency_spinBox.setValue(yvals['frequency'])
         self._mw.z_frequency_spinBox.setValue(zvals['frequency'])
 
-        self._mw.x_cap_label.setText(str(np.round(1e9 * xvals['capacitance'], 0)))
-        self._mw.y_cap_label.setText(str(np.round(1e9 * yvals['capacitance'], 0)))
-        self._mw.z_cap_label.setText(str(np.round(1e9 * zvals['capacitance'], 0)))
-
         self._mw.x_grounded_checkBox.setChecked(xvals['grounded'])
         self._mw.y_grounded_checkBox.setChecked(yvals['grounded'])
         self._mw.z_grounded_checkBox.setChecked(zvals['grounded'])
@@ -239,6 +246,13 @@ class StepperInterfaceGui(GUIBase):
         self._mw.z_dcin_checkBox.setChecked(zvals['dci'])
         self.update_positions()
         self.reenable_hardware_buttons()
+
+    def measure_capacitance(self):
+        capacitance = self._stepper_logic.measure_capacitance()
+
+        self._mw.x_cap_label.setText(str(int(np.round(1e9 * capacitance[0], 0))))
+        self._mw.y_cap_label.setText(str(int(np.round(1e9 * capacitance[1], 0))))
+        self._mw.z_cap_label.setText(str(int(np.round(1e9 * capacitance[2], 0))))
 
     def update_positions(self):
         pos = self._stepper_logic.get_current_location()
@@ -276,12 +290,14 @@ class StepperInterfaceGui(GUIBase):
 
     def raise_clicked(self):
         self._stepper_logic.move_number_of_steps('z', self._mw.z_steps_spinbox.value())
+        self._mw.z_dcin_checkBox.setChecked(False) # we automatically disable the DC input when we step Z
         self.disable_hardware_buttons()
         self.update_positions()
         self._timer.start(1000 * self._mw.z_steps_spinbox.value() / self._mw.z_frequency_spinBox.value())
 
     def lower_clicked(self):
         self._stepper_logic.move_number_of_steps('z', -self._mw.z_steps_spinbox.value())
+        self._mw.z_dcin_checkBox.setChecked(False)  # we automatically disable the DC input when we step Z
         self.disable_hardware_buttons()
         self.update_positions()
         self._timer.start(1000 * self._mw.z_steps_spinbox.value() / self._mw.z_frequency_spinBox.value())
@@ -290,12 +306,18 @@ class StepperInterfaceGui(GUIBase):
         self._timer.stop()
         self._mw.read_hardware_pushButton.setEnabled(True)
         self._mw.update_hardware_pushButton.setEnabled(True)
-        self._mw.move_up_button.setEnabled(True)
-        self._mw.move_down_button.setEnabled(True)
-        self._mw.move_left_button.setEnabled(True)
-        self._mw.move_right_button.setEnabled(True)
-        self._mw.raise_button.setEnabled(True)
-        self._mw.lower_button.setEnabled(True)
+
+        if self._mw.x_grounded_checkBox.isChecked() is False:
+            self._mw.move_left_button.setEnabled(True)
+            self._mw.move_right_button.setEnabled(True)
+
+        if self._mw.y_grounded_checkBox.isChecked() is False:
+            self._mw.move_up_button.setEnabled(True)
+            self._mw.move_down_button.setEnabled(True)
+
+        if self._mw.z_grounded_checkBox.isChecked() is False:
+            self._mw.raise_button.setEnabled(True)
+            self._mw.lower_button.setEnabled(True)
 
     def disable_hardware_buttons(self):
         self._mw.read_hardware_pushButton.setEnabled(False)

@@ -164,17 +164,15 @@ class StepperLogic(GenericLogic):
         return self._stepping_device.capacitance(self.axes)
 
     def refresh_hardware_status(self):
-        """ Update hardware configuration values for all axes """
+        """ Update hardware configuration values for all axes - doesn't include measuring capacitance """
         freq = self.get_frequency(self.axes)
         voltage = self.get_voltage(self.axes)
-        capacitance = self.measure_capacitance()
         dci = self.get_dci_status()
         grounded = self.get_grounding_status()
 
         hardware_values = {}
         for idx, ax in enumerate(self.axes):
             hardware_values[ax] = {}
-            hardware_values[ax]['capacitance'] = capacitance[idx]
             hardware_values[ax]['frequency'] = freq[idx]
             hardware_values[ax]['voltage'] = voltage[idx]
             hardware_values[ax]['dci'] = dci[idx]

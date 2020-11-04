@@ -55,6 +55,9 @@
      <property name="focusPolicy">
       <enum>Qt::NoFocus</enum>
      </property>
+     <property name="toolTip">
+      <string>Move up</string>
+     </property>
      <property name="text">
       <string/>
      </property>
@@ -86,6 +89,9 @@
      </property>
      <property name="focusPolicy">
       <enum>Qt::NoFocus</enum>
+     </property>
+     <property name="toolTip">
+      <string>Move down</string>
      </property>
      <property name="text">
       <string/>
@@ -119,6 +125,9 @@
      <property name="focusPolicy">
       <enum>Qt::NoFocus</enum>
      </property>
+     <property name="toolTip">
+      <string>Move left</string>
+     </property>
      <property name="text">
       <string/>
      </property>
@@ -151,6 +160,9 @@
      <property name="focusPolicy">
       <enum>Qt::NoFocus</enum>
      </property>
+     <property name="toolTip">
+      <string>Stop</string>
+     </property>
      <property name="text">
       <string/>
      </property>
@@ -182,6 +194,9 @@
      </property>
      <property name="focusPolicy">
       <enum>Qt::NoFocus</enum>
+     </property>
+     <property name="toolTip">
+      <string>Move right</string>
      </property>
      <property name="text">
       <string/>
@@ -309,6 +324,34 @@
       <string>X steps / pulse</string>
      </property>
     </widget>
+    <widget class="QPushButton" name="set_origin_button">
+     <property name="geometry">
+      <rect>
+       <x>130</x>
+       <y>130</y>
+       <width>60</width>
+       <height>60</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>9</pointsize>
+      </font>
+     </property>
+     <property name="focusPolicy">
+      <enum>Qt::NoFocus</enum>
+     </property>
+     <property name="toolTip">
+      <string>Set origin</string>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+     <property name="icon">
+      <iconset>
+       <normaloff>../../artwork/icons/qudiTheme/22x22/optimize-position.png</normaloff>../../artwork/icons/qudiTheme/22x22/optimize-position.png</iconset>
+     </property>
+    </widget>
    </widget>
   </widget>
   <widget class="QDockWidget" name="dockWidget_4">
@@ -352,6 +395,9 @@
      <property name="focusPolicy">
       <enum>Qt::NoFocus</enum>
      </property>
+     <property name="toolTip">
+      <string>Raise stage</string>
+     </property>
      <property name="text">
       <string/>
      </property>
@@ -377,6 +423,9 @@
      </property>
      <property name="focusPolicy">
       <enum>Qt::NoFocus</enum>
+     </property>
+     <property name="toolTip">
+      <string>Lower stage</string>
      </property>
      <property name="text">
       <string/>
@@ -556,21 +605,6 @@
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="7" rowspan="2" colspan="2">
-      <widget class="QPushButton" name="set_origin_button">
-       <property name="font">
-        <font>
-         <pointsize>9</pointsize>
-        </font>
-       </property>
-       <property name="focusPolicy">
-        <enum>Qt::NoFocus</enum>
-       </property>
-       <property name="text">
-        <string>Set origin</string>
        </property>
       </widget>
      </item>
@@ -1127,6 +1161,30 @@
        </property>
        <property name="text">
         <string extracomment="Reads the hardware values saved in the computer">Get from Hardware</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="7" rowspan="2" colspan="2">
+      <widget class="QPushButton" name="measure_capacitance_button">
+       <property name="minimumSize">
+        <size>
+         <width>123</width>
+         <height>23</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>123</width>
+         <height>16777215</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>9</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>Meas. capacitance</string>
        </property>
       </widget>
      </item>
