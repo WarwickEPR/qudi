@@ -131,7 +131,7 @@ class AttocubeController(Base, MotorInterface):
         """ Initialize axis with the values from the config """
         for name in self._axis_config:
             self.capacitance(name)
-            self.unground()
+            self.unground(name)
             self.frequency(name, self._axis_config[name]['frequency'])
             self.voltage(name, self._axis_config[name]['voltage'])
 
@@ -517,7 +517,8 @@ class AttocubeController(Base, MotorInterface):
         """
         parsed_axis = self._parse_axis(axis)
         for ax in parsed_axis:
-            self.disable_DC_input(ax)
+            if ax == 'z':
+                self.disable_DC_input(ax)
             if self._axis_config[ax]['busy']:
                 self.warning('Stepping might not work while axis {} in capacitance measurement'.format(ax))
             number_step_axis = int(self._parse_value(axis, ax, number))
