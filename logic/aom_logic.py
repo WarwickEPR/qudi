@@ -198,22 +198,27 @@ class AomLogic(GenericLogic):
 
     def fit_data(self):
         model, param = self._fitlogic.make_hyperbolicsaturation_model()
-        param['I_sat'].min = 0
-        param['I_sat'].max = 1e7
-        param['I_sat'].value = max(self.psat_data) * .7
+        param['I_sat'].min = 1e-3
+        param['I_sat'].max = 1e8
+        param['I_sat'].value = max(self.psat_data)
         param['P_sat'].max = 10.0
-        param['P_sat'].min = 0.0
-        param['P_sat'].value = 0.0001
-        param['slope'].min = 0.0
-        param['slope'].value = 1e3
+        param['P_sat'].min = 1e-5
+        param['P_sat'].value = 1e-3
+        param['slope'].min = 1
+        param['slope'].value = 1e12
         param['offset'].min = 0.0
-        fit = self._fitlogic.make_hyperbolicsaturation_fit(x_axis=self.powers, data=self.psat_data,
+        param['offset'].value = 500
+        self.log.debug("Psat powers: {}".format(self.powers))
+        self.log.debug("Psat counts: {}".format(self.psat_data))
+
+        fit = self._fitlogic.make_hyperbolicsaturation_fit(x_axis=self.powers[1:], data=self.psat_data[1:],
                                                            estimator=self._fitlogic.estimate_hyperbolicsaturation,
                                                            add_params=param)
         self.fit = fit
         self.fitted_Psat = fit.best_values['P_sat']
         self.fitted_Isat = fit.best_values['I_sat']
         self.fitted_offset = fit.best_values['offset']
+        self.fitted_offset = 0
         self.psat_fitted = True
         self.psat_fit_y = model.eval(x=self.psat_fit_x, params=fit.params)
 
