@@ -326,6 +326,12 @@ class ConfocalGui(GUIBase):
         self._mw.z_current_InputWidget.setRange(self._scanning_logic.z_range[0],
                                                 self._scanning_logic.z_range[1])
 
+        # The 'decimals' value on these widgets as set in the .ui seem to be ignored
+        # Until debugged, it works to set them explicitly at this point
+        self._mw.x_current_InputWidget.setDecimals(2)
+        self._mw.y_current_InputWidget.setDecimals(2)
+        self._mw.z_current_InputWidget.setDecimals(2)
+
         # set the maximal ranges for the imagerange from the logic:
         self._mw.x_min_InputWidget.setRange(self._scanning_logic.x_range[0],
                                             self._scanning_logic.x_range[1])
