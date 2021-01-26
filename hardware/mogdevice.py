@@ -52,30 +52,10 @@ class MOGDevice:
         # check the connection?
         if check:
             try:
-                self.info = self.ask(b'info')
+                self.info = self.ask(b'help')
             except Exception as E:
                 logger.error(str(E))
                 raise RuntimeError('Device did not respond to query')
-    
-    def versions(self):
-        verstr = self.ask(b'version')
-        if verstr == b'Command not defined':
-            raise RuntimeError('Incompatible firmware')
-        # does the version string define components?
-        vers = {}
-        if b':' in verstr:
-            # old versions are LF-separated, new are comma-separated
-            tk = b',' if b',' in verstr else '\n'
-            for l in verstr.split(tk):
-                if l.startswith(b'OK'): continue
-                n,v = l.split(b':',2)
-                v = v.strip()
-                if b' ' in v: v = v.rsplit(' ',2)[1].strip()
-                vers[n.strip()] = v
-        else:
-            # just the micro
-            vers[b'UC'] = verstr.strip()
-        return vers
 
     def cmd(self,cmd):
         "Send the specified command, and check the response is OK"
