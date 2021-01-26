@@ -100,11 +100,14 @@ class MOGLabsMWMWavemeter(Base,WavemeterInterface):
         # Initialisation to access external DLL
         #############################################
         try:
+            if self._address == "localhost":
+                import socket
+                self._address = socket.gethostbyname(socket.gethostname())
             self._dev = MOGDevice(self._address, port=7803)
         except:
             self.log.critical('Cannot connect to MOGLabs MWM wavemeter.')
 
-        self.log.info('Connected to mogwave server with info {}'.format( self._dev.ask('info')))
+        self.log.info('Connected to mogwave server with info {}'.format( self._dev.ask('help')))
 
         # create an independent thread for the hardware communication
         self.hardware_thread = QtCore.QThread()
@@ -171,7 +174,7 @@ class MOGLabsMWMWavemeter(Base,WavemeterInterface):
                     'anyway!')
         else:
             # stop the measurement thread
-            self.sig_handle_timer.emit(True)
+            self.sig_handle_timer.emit(False)
             # set status to idle again
             self.module_state.stop()
 
@@ -214,16 +217,23 @@ class MOGLabsMWMWavemeter(Base,WavemeterInterface):
 
     def _start_measurement(self):
         """ Start continuous measurement on mogwave server """
-        self._dev.ask(b"start")
+        # if this fails it's likely there's already a measurement running, no need to worry about error
+        try:
+            self._dev.ask(b"start")
+        except:
+            pass
 
     def _stop_measurement(self):
         """ Stop continuous measurement on mogwave server """
-        self._dev.ask(b"stop")
+        pass
+
+        # might as well just leave it all running - simpler to setup in mogwave anyway
+        #self._dev.ask(b"stop")
 
     def _get_wavelength(self):
         """ Get the current wavelength measurement, in vac nm"""
         temp = self._strip_response(self._dev.ask(b"wave,nm vac"))
-        temp1 = temp.split(sep=' ')
+        temp1 = temp.decode().split(sep=' ')
         return float(temp1[1])
 
     def _strip_response(self, resp):
