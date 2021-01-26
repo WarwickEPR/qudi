@@ -96,7 +96,6 @@ class StepperLogic(GenericLogic):
 
         @return the new current position for the specified axis"""
         self._stepping_device.move_rel({axis: steps})
-        time.sleep(0.1)
         return self._stepping_device.get_pos()[axis]
 
     def get_current_location(self):
