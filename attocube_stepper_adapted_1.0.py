@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-This module contains the Qudi Hardware module attocube ANC300 .
+This module contains the Qudi Hardware module attocube ANC350, via the PyANC350 module.
 
 Qudi is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
 
-#from pyANC350 import Positioner
+import PyANC350.PyANC350v4
 import time
 
 from core.module import Base
@@ -35,14 +35,6 @@ class AttoCubeStepper(Base, ConfocalStepperInterface):
 
     _modtype = 'AttoCubeStepper'
     _modclass = 'hardware'
-
-    """
-    Not needed when using pyANC350 module
-    _host = ConfigOption('host', missing='error')
-    tmp = ConfigOption('password', b"123456", missing='warn')
-    _port = ConfigOption('port', 7230, missing='warn')
-    """
-
 
     _voltage_range_stepper = ConfigOption('voltage_range_stepper', [0, 60], missing='warn')
     axis = ConfigOption('axis', {}, missing='error')
@@ -75,7 +67,10 @@ class AttoCubeStepper(Base, ConfocalStepperInterface):
         self._attocube_axis_range = {}  # dictionary contains the axes stepping range
         self._position_feedback = {}
         default_range = [0, 5]
-
+        
+        # instantiates the Positioner class in PyANC350v4
+        pyanc = Positioner()
+        
         for i in self.axis:
             for j in dict(i).items():
                 self._attocube_axis[j[0]] = j[1]
@@ -159,7 +154,7 @@ class AttoCubeStepper(Base, ConfocalStepperInterface):
                          explanation can be found in method activation.
         """
 
-        Positioner.disconnect()
+        pyanc.disconnect()
         self.connected = False
 
     # =================== Attocube Communication ========================
@@ -205,7 +200,7 @@ class AttoCubeStepper(Base, ConfocalStepperInterface):
                 # Should _axis_amplitude be defined at top of file?
                 self._axis_amplitude[axis] = voltage
                 # Note: axis is a string, so must convert to integer for pyANC350
-                return Positioner.setAmplitude(self.attocube_axis_num[axis],voltage)
+                return pyanc.setAmplitude(self.attocube_axis_num[axis],voltage)
             self.log.error("axis {} not in list of possible axes".format(self._attocube_axis))
             return -1
 
@@ -216,7 +211,7 @@ class AttoCubeStepper(Base, ConfocalStepperInterface):
         @return float: the step amplitude of the axis
         """
         if axis in self._attocube_axis.keys():
-            self._axis_amplitude[axis] = Positioner.getAmplitude(self.attocube_axis_num[axis])
+            self._axis_amplitude[axis] = pyanc.getAmplitude(self.attocube_axis_num[axis])
             if (self._voltage_range_stepper[0] > self._axis_amplitude[axis] or
                     self._axis_amplitude[axis] >
                     self._voltage_range_stepper[1]):
@@ -241,7 +236,7 @@ class AttoCubeStepper(Base, ConfocalStepperInterface):
         if freq is not None:
             if axis in self._attocube_axis.keys():
                 self._axis_frequency[axis] = freq
-                return Positioner.setFrequency(self.attocube_axis_num[axis],freq)
+                return pyanc.setFrequency(self.attocube_axis_num[axis],freq)
             self.log.error("axis {} not in list of possible axes".format(self._attocube_axis))
             return -1
         self.log.info("No frequency was given so the step frequency was not changed.")
@@ -254,7 +249,7 @@ class AttoCubeStepper(Base, ConfocalStepperInterface):
         @return float: the step amplitude of the axis
         """
         if axis in self._attocube_axis.keys():
-            self._axis_frequency[axis] = Positioner.getFrequency(self.attocube_axis_num[axis])
+            self._axis_frequency[axis] = pyanc.getFrequency(self.attocube_axis_num[axis])
             if (self._frequency_range[axis][0] > self._axis_frequency[axis] or self._axis_frequency[axis] >
                     self._frequency_range[axis][1]):
                 self.log.error(
@@ -450,7 +445,7 @@ Their definitions do not make sense. Possibly related to AC voltage amplitude?
         @return float: the capacitance of the axis in F, -1 for error
         """
         if axis in self._attocube_axis.keys():
-            Cap = Positioner.measureCapacitance(self.attocube_axis_num[axis])
+            Cap = pyanc.measureCapacitance(self.attocube_axis_num[axis])
             if Cap == 0:
                 self.log.error("Something is wrong with measuring capacitance of the attocubes.")
                 return -1
@@ -671,7 +666,7 @@ Their definitions do not make sense. Possibly related to AC voltage amplitude?
 # This is the tricky one. Needs to have access to all three types of motion.
 # Currently has access to single step and continuous mode
 # TODO: must add autoMove function too, but will likely require a change to the logic module
-    # Todo: make two options for silent or not for fast usage
+# TODO: add a way for Qudi to check that attocube has moved
     def move_attocube(self, axis, mode=True, direction=True, steps=1):
         """Moves attocubes either continuously or by a number of steps
         in the up or down direction.
@@ -682,23 +677,21 @@ Their definitions do not make sense. Possibly related to AC voltage amplitude?
         @param int steps: number of steps to be moved, ignore for continuous mode
         @return int:  error code (0: OK, -1:error)
         """
-        # TODO still needs to decide if necessary to use send_cmd or if silent_cmd is sufficient,
-        #  or if option in call. Also needs to check response from attocube if moved.
 
         if axis in self._attocube_axis.keys():
             i = 0
             if mode and direction:
                 while i < steps:
-                    Positioner.startSingleStep(self.attocube_axis_num[axis], 0)
+                    pyanc.startSingleStep(self.attocube_axis_num[axis], 0)
                     i += 1
             elif mode and not direction:
                 while i < steps:
-                    Positioner.startSingleStep(self.attocube_axis_num[axis], 1)
+                    pyanc.startSingleStep(self.attocube_axis_num[axis], 1)
                     i += 1
             elif not mode and direction:
-                Positioner.startContinousMove(self.attocube_axis_num[axis], 1, 0)
+                pyanc.startContinousMove(self.attocube_axis_num[axis], 1, 0)
             elif not mode and not direction:
-                Positioner.startContinousMove(self.attocube_axis_num[axis], 1, 1)
+                pyanc.startContinousMove(self.attocube_axis_num[axis], 1, 1)
             else:
                 self.log.error(
                     'You tried to move an attocube, but somehow didnt assign mode or direction a boolean value in move_attocube()')
@@ -714,7 +707,7 @@ Their definitions do not make sense. Possibly related to AC voltage amplitude?
         @return int: error code (0: OK, -1:error)
         """
         if axis in self._attocube_axis.keys():
-            return Positioner.startContinousMove(self.attocube_axis_num[axis], 0, 0)
+            return pyanc.startContinousMove(self.attocube_axis_num[axis], 0, 0)
         else:
             self.log.error("axis {} not in list of possible axes".format(self._attocube_axis))
             return -1
@@ -727,7 +720,7 @@ Their definitions do not make sense. Possibly related to AC voltage amplitude?
         @return 0
         """
         for axis in self._attocube_axis.keys():
-            Positioner.startContinousMove(self.attocube_axis_num[axis], 0, 0)
+            pyanc.startContinousMove(self.attocube_axis_num[axis], 0, 0)
 
         self.log.info("any attocube stepper motion has been stopped")
         return 0
@@ -766,5 +759,5 @@ Their definitions do not make sense. Possibly related to AC voltage amplitude?
 
         @return tuple(float): current position as a tuple. Ex : (x, y, z, a).
         """
-        pos = (Positioner.getPosition(1), Positioner.getPosition(2), Positioner.getPosition(3))
+        pos = (pyanc.getPosition(1), pyanc.getPosition(2), pyanc.getPosition(3))
         return pos
