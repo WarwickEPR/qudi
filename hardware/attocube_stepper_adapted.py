@@ -690,9 +690,9 @@ Their definitions do not make sense. Possibly related to AC voltage amplitude?
                     pyanc.startSingleStep(self.attocube_axis_num[axis], 1)
                     i += 1
             elif not mode and direction:
-                pyanc.startContinousMove(self.attocube_axis_num[axis], 1, 0)
+                pyanc.startContinuousMove(self.attocube_axis_num[axis], 1, 0)
             elif not mode and not direction:
-                pyanc.startContinousMove(self.attocube_axis_num[axis], 1, 1)
+                pyanc.startContinuousMove(self.attocube_axis_num[axis], 1, 1)
             else:
                 self.log.error(
                     'You tried to move an attocube, but somehow didnt assign mode or direction a boolean value in move_attocube()')
@@ -708,7 +708,7 @@ Their definitions do not make sense. Possibly related to AC voltage amplitude?
         @return int: error code (0: OK, -1:error)
         """
         if axis in self._attocube_axis.keys():
-            return pyanc.startContinousMove(self.attocube_axis_num[axis], 0, 0)
+            return pyanc.startContinuousMove(self.attocube_axis_num[axis], 0, 0)
         else:
             self.log.error("axis {} not in list of possible axes".format(self._attocube_axis))
             return -1
@@ -721,7 +721,7 @@ Their definitions do not make sense. Possibly related to AC voltage amplitude?
         @return 0
         """
         for axis in self._attocube_axis.keys():
-            pyanc.startContinousMove(self.attocube_axis_num[axis], 0, 0)
+            pyanc.startContinuousMove(self.attocube_axis_num[axis], 0, 0)
 
         self.log.info("any attocube stepper motion has been stopped")
         return 0
