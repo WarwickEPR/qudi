@@ -445,12 +445,12 @@ Their definitions do not make sense. Possibly related to AC voltage amplitude?
         @return float: the capacitance of the axis in F, -1 for error
         """
         if axis in self._attocube_axis.keys():
-            Cap = pyanc.measureCapacitance(self.attocube_axis_num[axis])
-            if Cap == 0:
+            cap = pyanc.measureCapacitance(self.attocube_axis_num[axis])
+            if cap == 0:
                 self.log.error("Something is wrong with measuring capacitance of the attocubes.")
                 return -1
             else:
-                return Cap
+                return cap
         self.log.error("axis {} not in list of possible axes".format(self._attocube_axis))
         return -1
 
@@ -525,17 +525,17 @@ Their definitions do not make sense. Possibly related to AC voltage amplitude?
         return True
 
 # Stepper range should be defined in config file.
-    def get_position_range_stepper(self, axis):
+    def get_position_range_stepper(self, axis_name):
         """ Returns the physical range of the stepper.
 
         @param str axis_name: the axis for which the range is to be checked
 
         @return dict: key: axis name as sting (e.g. "x"), value the stepper range in mm
         """
-        if axis not in self._attocube_axis.keys():
+        if axis_name not in self._attocube_axis.keys():
             self.log.error("axis {} not in list of possible axes".format(self._attocube_axis))
             return -1
-        return self._attocube_axis_range[axis]
+        return self._attocube_axis_range[axis_name]
 
     def set_position_range_stepper(self, axis, my_range=None):
         """ Sets the physical range of the stepper.
@@ -737,7 +737,7 @@ Their definitions do not make sense. Possibly related to AC voltage amplitude?
 
     def set_amplitude(self, amp=None):
         for axis in self._attocube_axis.keys():
-            self.set_step_amplitude(self.attocube_axis_num[axis], amp)
+            self.set_step_amplitude(axis, amp)
         return 0
 
     def set_temperature(self):
