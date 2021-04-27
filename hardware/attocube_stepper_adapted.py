@@ -42,7 +42,10 @@ class AttoCubeStepper(Base, ConfocalStepperInterface):
     _feedback = ConfigOption('position_feedback', {}, missing='error')
 
     attocube_axis_num = {'x': 1, 'y': 2, 'z': 3} # Converts _attocube_axis keys to numbers for pyANC350
-
+    
+    # instantiates the Positioner class in PyANC350v4
+    pyanc = Positioner()
+    
     def on_activate(self):
         """ Initialisation performed during activation of the module.
 
@@ -66,10 +69,7 @@ class AttoCubeStepper(Base, ConfocalStepperInterface):
         self._attocube_axis = {}  # dictionary contains the axes and the specific controller
         self._attocube_axis_range = {}  # dictionary contains the axes stepping range
         self._position_feedback = {}
-        default_range = [0, 5]
-        
-        # instantiates the Positioner class in PyANC350v4
-        pyanc = Positioner()
+        default_range = [0, 3]
         
         for i in self.axis:
             for j in dict(i).items():
