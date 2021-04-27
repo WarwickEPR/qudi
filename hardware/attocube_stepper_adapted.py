@@ -620,7 +620,8 @@ Their definitions do not make sense. Possibly related to AC voltage amplitude?
         """
         return self._frequency_range
 
-# TODO: Work out what this method actually does. Possibly related to Positioner.discover()
+    # Note: For the time being, this just returns a list of true, but should really be related to Positioner.discover
+    # TODO: Relate this to Positioner.discover
     # Todo: It might make sense to return a libary of axis ("x", "y", "z" etc. against booleans) check.
     def get_stepper_axes(self):
         """"
@@ -646,9 +647,9 @@ Their definitions do not make sense. Possibly related to AC voltage amplitude?
             else:
 
                 axis.append(True)
-        return axis
         """
-        pass
+        axis = [True, True, True, True, True]
+        return axis
 
     def get_stepper_axes_use(self):
         """ Find out how the axes of the stepping device are used for confocal and their names.
