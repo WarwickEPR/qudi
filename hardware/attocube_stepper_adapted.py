@@ -666,6 +666,7 @@ Their definitions do not make sense. Possibly related to AC voltage amplitude?
 # This is the tricky one. Needs to have access to all three types of motion.
 # Currently has access to single step and continuous mode
 # TODO: must add autoMove function too, but will likely require a change to the logic module
+# NOTE: autoMove uses units m, but Qudi uses units mm
 # TODO: add a way for Qudi to check that attocube has moved
     def move_attocube(self, axis, mode=True, direction=True, steps=1):
         """Moves attocubes either continuously or by a number of steps
