@@ -33,7 +33,7 @@
 #                         5-Jul-2016
 #              http://nowack.lassp.cornell.edu/
 
-import ANC350libv4 as ANC
+import PyANC350.ANC350libv4 as ANC
 import ctypes, math
 
 class Positioner:
