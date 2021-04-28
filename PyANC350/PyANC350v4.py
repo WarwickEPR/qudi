@@ -39,9 +39,9 @@ import ctypes, math
 class Positioner:
     
     def __init__(self):
-        self.discover()
-        self.device = self.connect()
-        
+        #self.discover()
+        #self.device = self.connect()
+        pass
         
     def configureAQuadBIn(self, axisNo, enable, resolution):
         '''
