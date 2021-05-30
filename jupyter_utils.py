@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import json
 import os
 
+print("Working dir: {}".format(working_directory))
 log_file = os.path.join(working_directory, 'out.log')
 record_file_abs = os.path.join(working_directory, record_file)
 
@@ -165,6 +166,13 @@ def refocus(poi, save_image=False):
     wait_for('refocus done', time_limit=30)
     poimanagerlogic.set_active_poi(poi)
     poimanagerlogic.save_roi()
+    update_poi_record(poi, {
+        'pos_x': optimizerlogic.optim_pos_x,
+        'pos_y': optimizerlogic.optim_pos_y,
+        'pos_z': optimizerlogic.optim_pos_z,
+        'sigma_x': optimizerlogic.optim_sigma_x,
+        'sigma_y': optimizerlogic.optim_sigma_y,
+        'sigma_z': optimizerlogic.optim_sigma_z })
     if save_image:
         plot_image(optimizerlogic.xy_refocus_image, os.path.join(working_directory, 'img', 'opt_' + poi + '.png'))
     progress('Updated poi {} to {}'.format(poi, poimanagerlogic.get_poi_position(poi) * 1e6))
