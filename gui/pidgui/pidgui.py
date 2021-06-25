@@ -24,7 +24,7 @@ import numpy as np
 import os
 import pyqtgraph as pg
 
-from core.module import Connector
+from core.connector import Connector
 from gui.colordefs import QudiPalettePale as palette
 from gui.guibase import GUIBase
 from qtpy import QtCore
@@ -49,10 +49,8 @@ class PIDMainWindow(QtWidgets.QMainWindow):
 class PIDGui(GUIBase):
     """ FIXME: Please document
     """
-    _modclass = 'pidgui'
-    _modtype = 'gui'
 
-    ## declare connectors
+    # declare connectors
     pidlogic = Connector(interface='PIDLogic')
 
     sigStart = QtCore.Signal()
@@ -71,7 +69,7 @@ class PIDGui(GUIBase):
         """ Definition and initialisation of the GUI plus staring the measurement.
 
         """
-        self._pid_logic = self.get_connector('pidlogic')
+        self._pid_logic = self.pidlogic()
 
         #####################
         # Configuring the dock widgets

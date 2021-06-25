@@ -21,7 +21,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 import os
 
-from core.module import Connector
+from core.connector import Connector
 from gui.guibase import GUIBase
 from qtpy import QtWidgets
 from qtpy import QtCore
@@ -31,9 +31,8 @@ from qtpy import uic
 class TaskGui(GUIBase):
     """ A grephical interface to mofe switches by hand and change their calibration.
     """
-    _modclass = 'TaskGui'
-    _modtype = 'gui'
-    ## declare connectors
+
+    # declare connectors
     tasklogic = Connector(interface='TaskRunner')
 
     sigRunTaskFromList = QtCore.Signal(object)
@@ -45,7 +44,7 @@ class TaskGui(GUIBase):
         """
         self._mw = TaskMainWindow()
         self.restoreWindowPos(self._mw)
-        self.logic = self.get_connector('tasklogic')
+        self.logic = self.tasklogic()
         self._mw.taskTableView.setModel(self.logic.model)
         self._mw.taskTableView.clicked.connect(self.setRunToolState)
         self._mw.actionStart_Task.triggered.connect(self.manualStart)

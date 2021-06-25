@@ -22,7 +22,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 import numpy as np
 
-from core.module import Connector
+from core.connector import Connector
 from logic.generic_logic import GenericLogic
 from interface.odmr_counter_interface import ODMRCounterInterface
 from interface.microwave_interface import MicrowaveInterface
@@ -38,19 +38,21 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
     device.
     """
 
-    _modclass = 'ODMRCounterMicrowaveInterfuse'
-    _modtype = 'interfuse'
-
     slowcounter = Connector(interface='SlowCounterInterface')
     microwave = Connector(interface='MicrowaveInterface')
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
+        self._pulse_out_channel = 'dummy'
+        self._lock_in_active = False
+        self._oversampling = 10
+        self._odmr_length = 100
+
 
     def on_activate(self):
         """ Initialisation performed during activation of the module."""
-        self._mw_device = self.get_connector('microwave') # microwave device
-        self._sc_device = self.get_connector('slowcounter') # slow counter device
+        self._mw_device = self.microwave()
+        self._sc_device = self.slowcounter()  # slow counter device
         pass
 
     def on_deactivate(self):
@@ -69,10 +71,7 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
         @return int: error code (0:OK, -1:error)
         """
         return self._sc_device.set_up_clock(clock_frequency=clock_frequency,
-                                            clock_channel=clock_channel)
-
-        # return self._sc_device.set_up_odmr_clock(clock_frequency=clock_frequency,
-        #                                          clock_channel=clock_channel)
+                                                   clock_channel=clock_channel)
 
     def set_up_odmr(self, counter_channel=None, photon_source=None,
                     clock_channel=None, odmr_trigger_channel=None):
@@ -90,15 +89,10 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
         @return int: error code (0:OK, -1:error)
         """
 
-        # return self._sc_device.set_up_odmr(counter_channel=counter_channel,
-        #                                    photon_source=photon_source,
-        #                                    clock_channel=clock_channel)
-
         return self._sc_device.set_up_counter(counter_channels=counter_channel,
                                                 sources=photon_source,
                                                 clock_channel=clock_channel,
                                                 counter_buffer=None)
-
 
     def set_odmr_length(self, length=100):
         """Set up the trigger sequence for the ODMR and the triggered microwave.
@@ -107,10 +101,8 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
 
         @return int: error code (0:OK, -1:error)
         """
-        self._sc_device.set_odmr_length(length)
         self._odmr_length = length
         return 0
-
 
     def count_odmr(self, length = 100):
         """ Sweeps the microwave and returns the counts on that sweep.
@@ -119,14 +111,14 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
 
         @return float[]: the photon counts per second
         """
-        test_values = self._sc_device.get_counter(samples=1)
-        number_of_channels,_ = test_values.shape
-        counts = np.zeros((number_of_channels,length))
+
+        counts = np.zeros((len(self.get_odmr_channels()), length))
+        # self.trigger()
         for i in range(length):
             self.trigger()
-            counts[:,i] = self._sc_device.get_counter(samples=1)[:,0]
+            counts[:, i] = self._sc_device.get_counter(samples=1)[0]
         self.trigger()
-        return counts
+        return False, counts
 
     def close_odmr(self):
         """ Close the odmr and clean up afterwards.
@@ -140,17 +132,20 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
 
         @return int: error code (0:OK, -1:error)
         """
-        return self._sc_device.close_clock() #close_odmr_clock()
+        return self._sc_device.close_clock()
 
     def get_odmr_channels(self):
-        return self._sc_device.get_odmr_channels()
+        """ Return a list of channel names.
+
+        @return list(str): channels recorded during ODMR measurement
+        """
+        return self._sc_device.get_counter_channels()
 
     ### ----------- Microwave interface commands -----------
 
     def trigger(self):
 
         return self._mw_device.trigger()
-
 
     def off(self):
         """
@@ -269,14 +264,15 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
         """
         return self._mw_device.reset_sweeppos()
 
-    def set_ext_trigger(self, pol=TriggerEdge.RISING):
+    def set_ext_trigger(self, pol, timing):
         """ Set the external trigger for this device with proper polarization.
 
         @param TriggerEdge pol: polarisation of the trigger (basically rising edge or falling edge)
+        @param timing: estimated time between triggers
 
         @return object: current trigger polarity [TriggerEdge.RISING, TriggerEdge.FALLING]
         """
-        return self._mw_device.set_ext_trigger(pol=pol)
+        return self._mw_device.set_ext_trigger(pol=pol, timing=timing)
 
     def get_limits(self):
         """ Return the device-specific limits in a nested dictionary.
@@ -284,3 +280,27 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
           @return MicrowaveLimits: Microwave limits object
         """
         return self._mw_device.get_limits()
+
+    @property
+    def oversampling(self):
+        return self._oversampling
+
+    @oversampling.setter
+    def oversampling(self, val):
+        if not isinstance(val, (int, float)):
+            self.log.error('oversampling has to be int of float.')
+        else:
+            self._oversampling = int(val)
+
+    @property
+    def lock_in_active(self):
+        return self._lock_in_active
+
+    @lock_in_active.setter
+    def lock_in_active(self, val):
+        if not isinstance(val, bool):
+            self.log.error('lock_in_active has to be boolean.')
+        else:
+            self._lock_in_active = val
+            if self._lock_in_active:
+                self.log.warn('Lock-In is not implemented')

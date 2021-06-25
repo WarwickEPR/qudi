@@ -29,7 +29,8 @@ import datetime
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from core.module import Connector, ConfigOption
+from core.connector import Connector
+from core.configoption import ConfigOption
 from logic.generic_logic import GenericLogic
 from core.util.mutex import Mutex
 
@@ -100,9 +101,6 @@ class WavemeterLoggerLogic(GenericLogic):
     sig_new_data_point = QtCore.Signal(list)
     sig_fit_updated = QtCore.Signal()
 
-    _modclass = 'laserscanninglogic'
-    _modtype = 'logic'
-
     # declare connectors
     wavemeter1 = Connector(interface='WavemeterInterface')
     counterlogic = Connector(interface='CounterLogic')
@@ -145,13 +143,13 @@ class WavemeterLoggerLogic(GenericLogic):
 
         self.stopRequested = False
 
-        self._wavemeter_device = self.get_connector('wavemeter1')
+        self._wavemeter_device = self.wavemeter1()
 #        print("Counting device is", self._counting_device)
 
-        self._save_logic = self.get_connector('savelogic')
-        self._counter_logic = self.get_connector('counterlogic')
+        self._save_logic = self.savelogic()
+        self._counter_logic = self.counterlogic()
 
-        self._fit_logic = self.get_connector('fitlogic')
+        self._fit_logic = self.fitlogic()
         self.fc = self._fit_logic.make_fit_container('Wavemeter counts', '1d')
         self.fc.set_units(['Hz', 'c/s'])
 

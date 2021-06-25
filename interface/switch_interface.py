@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
 """
-Control the Radiant Dyes flip mirror driver through the serial interface.
-
 Qudi is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
@@ -20,87 +18,116 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
 
-import abc
-from core.util.interfaces import InterfaceMetaclass
+from core.interface import abstract_interface_method, interface_method
+from core.meta import InterfaceMetaclass
 
 
 class SwitchInterface(metaclass=InterfaceMetaclass):
-    """ Methods to control slow (mechaincal) laser switching devices. """
+    """ Methods to control slow (mechanical) switching devices.
 
-    _modtype = 'SwitchInterface'
-    _modclass = 'interface'
+    Getter and setter functions to control single switches need to be implemented by the hardware
+    module.
+    Automatically implements Python properties to access and set the switch states based on the
+    single switch getter and setter method.
+    """
 
-    @abc.abstractmethod
-    def getNumberOfSwitches(self):
-        """ Gives the number of switches connected to this hardware.
+    @property
+    @abstract_interface_method
+    def name(self):
+        """ Name of the hardware as string.
 
-          @return int: number of swiches on this hardware
+        @return str: The name of the hardware
         """
         pass
 
-    @abc.abstractmethod
-    def getSwitchState(self, switchNumber):
-        """ Gives state of switch.
+    @property
+    @abstract_interface_method
+    def available_states(self):
+        """ Names of the states as a dict of tuples.
 
-          @param int switchNumber: number of switch
+        The keys contain the names for each of the switches. The values are tuples of strings
+        representing the ordered names of available states for each switch.
 
-          @return bool: True if on, False if off, None on error
+        @return dict: Available states per switch in the form {"switch": ("state1", "state2")}
         """
         pass
 
-    @abc.abstractmethod
-    def getCalibration(self, switchNumber, state):
-        """ Get calibration parameter for switch.
+    @abstract_interface_method
+    def get_state(self, switch):
+        """ Query state of single switch by name
 
-          @param int switchNumber: number of switch for which to get calibration
-                                   parameter
-          @param str switchState: state ['On', 'Off'] for which to get
-                                  calibration parameter
-
-          @return str: calibration parameter fir switch and state.
+        @param str switch: name of the switch to query the state for
+        @return str: The current switch state
         """
         pass
 
-    @abc.abstractmethod
-    def setCalibration(self, switchNumber, state, value):
-        """ Set calibration parameter for switch.
+    @abstract_interface_method
+    def set_state(self, switch, state):
+        """ Query state of single switch by name
 
-          @param int switchNumber: number of switch for which to get calibration
-                                   parameter
-          @param str switchState: state ['On', 'Off'] for which to get
-                                  calibration parameter
-          @param int value: calibration parameter to be set.
-
-          @return bool: True if suceeds, False otherwise
+        @param str switch: name of the switch to change
+        @param str state: name of the state to set
         """
         pass
 
-    @abc.abstractmethod
-    def switchOn(self, switchNumber):
-        """ Switch on.
+    # Non-abstract default implementations below
 
-          @param int switchNumber: number of switch to be switched
+    @property
+    @interface_method
+    def number_of_switches(self):
+        """ Number of switches provided by the hardware.
 
-          @return bool: True if suceeds, False otherwise
+        @return int: number of switches
         """
-        pass
+        return len(self.available_states)
 
-    @abc.abstractmethod
-    def switchOff(self, switchNumber):
-        """ Switch off.
+    @property
+    @interface_method
+    def switch_names(self):
+        """ Names of all available switches as tuple.
 
-          @param int switchNumber: number of switch to be switched
-
-          @return bool: True if suceeds, False otherwise
+        @return str[]: Tuple of strings of available switch names.
         """
-        pass
+        return tuple(self.available_states)
 
-    @abc.abstractmethod
-    def getSwitchTime(self, switchNumber):
-        """ Give switching time for switch.
+    @property
+    @interface_method
+    def states(self):
+        """ The current states the hardware is in as state dictionary with switch names as keys and
+        state names as values.
 
-          @param int switchNumber: number of switch
-
-          @return float: time needed for switch state change
+        @return dict: All the current states of the switches in the form {"switch": "state"}
         """
-        pass
+        return {switch: self.get_state(switch) for switch in self.available_states}
+
+    @states.setter
+    def states(self, state_dict):
+        """ The setter for the states of the hardware.
+
+        The states of the system can be set by specifying a dict that has the switch names as keys
+        and the names of the states as values.
+
+        @param dict state_dict: state dict of the form {"switch": "state"}
+        """
+        assert isinstance(state_dict, dict), 'Parameter "state_dict" must be dict type'
+        for switch, state in state_dict.items():
+            self.set_state(switch, state)
+
+    @staticmethod
+    def _chk_refine_available_switches(switch_dict):
+        """ Perform some general checking of the configured available switches and their possible
+        states. When implementing a hardware module, you can overwrite this method to include
+        custom checks, but make sure to call this implementation first via super().
+
+        @param dict switch_dict: available switches in a dict like {"switch1": ["state1", "state2"]}
+        @return dict: The refined switch dict to replace the dict passed as argument
+        """
+        assert isinstance(switch_dict, dict), 'switch_dict must be a dict of tuples'
+        assert all((isinstance(sw, str) and sw) for sw in
+                   switch_dict), 'Switch name must be non-empty string'
+        assert all(len(states) > 1 for states in
+                   switch_dict.values()), 'State tuple must contain at least 2 states'
+        assert all(all((s and isinstance(s, str)) for s in states) for states in
+                   switch_dict.values()), 'Switch states must be non-empty strings'
+        # Convert state lists to tuples in order to restrict mutation
+        return {switch: tuple(states) for switch, states in switch_dict.items()}

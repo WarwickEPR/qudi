@@ -272,7 +272,8 @@ class FitSettingsDialog(QtWidgets.QDialog):
                     'make_fit': self.all_functions[widget.fit]['make_fit'],
                     'make_model': self.all_functions[widget.fit]['make_model'],
                     'estimator': self.all_functions[widget.fit][widget.estimator],
-                    'parameters': self.parameters[name]
+                    'parameters': self.parameters[name],
+                    'use_settings': self.parameterUse[name]
                 }
             except KeyError:
                 continue
@@ -301,7 +302,7 @@ class FitSettingsDialog(QtWidgets.QDialog):
 
             @return Parameters: lmfit parameters container
         """
-        return self.parameters[fit]
+        return self.parameters[fit_name]
 
     def updateParameters(self, fit_name, parameters):
         """ Update parameters of a given fit.
@@ -357,7 +358,7 @@ class FitSettingsComboBox(QtWidgets.QComboBox):
             @return tuple(str, dict): name nad fit dict for current fit
         """
         name = self.currentText()
-        return (name, self.fit_functions[name])
+        return name, self.fit_functions[name]
 
     def setCurrentFit(self, name):
         """ Set current fit by name. 'No Fit' if the name is invalid.
@@ -503,28 +504,25 @@ class FitParametersWidget(QtWidgets.QWidget):
             self.paramUseSettings[name] = False
             self.widgets[name + '_use'] = useCheckbox = QtWidgets.QCheckBox()
             self.widgets[name + '_label'] = parameterNameLabel = QtWidgets.QLabel(str(name))
-            self.widgets[name + '_value'] = valueSpinbox =  ScienDSpinBox()
+            self.widgets[name + '_value'] = valueSpinbox = ScienDSpinBox()
             self.widgets[name + '_min'] = minimumSpinbox = ScienDSpinBox()
             self.widgets[name + '_max'] = maximumSpinbox = ScienDSpinBox()
             self.widgets[name + '_expr'] = expressionLineEdit = QtWidgets.QLineEdit()
             self.widgets[name + '_vary'] = varyCheckbox = QtWidgets.QCheckBox()
-            valueSpinbox.setDecimals(3)
-            valueSpinbox.setSingleStep(0.01)
             valueSpinbox.setMaximum(np.inf)
             valueSpinbox.setMinimum(-np.inf)
-            minimumSpinbox.setDecimals(3)
-            minimumSpinbox.setSingleStep(0.01)
+            valueSpinbox.setMinimumSize(QtCore.QSize(60, 16777215))
             minimumSpinbox.setMaximum(np.inf)
             minimumSpinbox.setMinimum(-np.inf)
-            maximumSpinbox.setDecimals(3)
-            maximumSpinbox.setSingleStep(0.01)
+            minimumSpinbox.setMinimumSize(QtCore.QSize(60, 16777215))
             maximumSpinbox.setMaximum(np.inf)
             maximumSpinbox.setMinimum(-np.inf)
+            maximumSpinbox.setMinimumSize(QtCore.QSize(60, 16777215))
             if param.value is not None and not math.isnan(param.value):
                 useCheckbox.setChecked(self.paramUseSettings[name])
                 valueSpinbox.setValue(param.value)
                 minimumSpinbox.setValue(param.min)
-                minimumSpinbox.setValue(param.max)
+                maximumSpinbox.setValue(param.max)
                 expressionLineEdit.setText(param.expr)
                 varyCheckbox.setChecked(param.vary)
 
@@ -546,12 +544,12 @@ class FitParametersWidget(QtWidgets.QWidget):
             @return tuple(Parameters, dict): new lmfit Parameters and a dict indicating their use
         """
         for name, param in self.parameters.items():
-            self.paramUseSettings[name] = self.widgets[name + '_use'].checkState()
+            self.paramUseSettings[name] = self.widgets[name + '_use'].isChecked()
             param.value = self.widgets[name + '_value'].value()
             param.min = self.widgets[name + '_min'].value()
             param.max = self.widgets[name + '_max'].value()
             param.expr = str(self.widgets[name + '_expr'].displayText())
-            param.vary = self.widgets[name + '_vary'].checkState()
+            param.vary = self.widgets[name + '_vary'].isChecked()
         return self.parameters, self.paramUseSettings
 
     def resetFitParameters(self):

@@ -1,6 +1,6 @@
 # qudi
 Qudi is a suite of tools for operating multi-instrument and multi-computer laboratory experiments.
-Originally built around a confocal fluorescence microscope experiments, it has grown to be a generally applicaple framework for controlling experiments.
+Originally built around a confocal fluorescence microscope experiments, it has grown to be a generally applicable framework for controlling experiments.
 
 ## Features
   * A modular and extendable architecture
@@ -9,14 +9,14 @@ Originally built around a confocal fluorescence microscope experiments, it has g
   * Position optimization for fluorescent spots
   * Tracking of fluorescent spots
   * Tektronix AWG 5000 7000 and 70000 support for pulsed microwave experiments
-  * Anritsu MG37022A and MG3696B, R&S SMIQ and SMR support for ODMR measurements
+  * Anritsu MG37022A, MG3696B and MG3961C, R&S SMIQ and SMR support for ODMR measurements
   * Getting spectra from the WinSpec32 spectroscopy software
   * Thorlabs APT motor control
   * Magnetic field alignment for NV- in diamond via fluorescence, ODMR and nuclear spin
   * etc.
 
 ## Citation
-If you are publishing scientific results, mentioning Qudi in your methods decscription is the least you can do as good scientific practice.
+If you are publishing scientific results, mentioning Qudi in your methods description is the least you can do as good scientific practice.
 You should cite our paper [Qudi: A modular python suite for experiment control and data processing](http://doi.org/10.1016/j.softx.2017.02.001) for this purpose.
 
 ## Documentation

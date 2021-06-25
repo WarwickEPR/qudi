@@ -31,11 +31,14 @@ import time
 
 
 class MicrowaveDummy(Base, MicrowaveInterface):
-    """This is the Interface class to define the controls for the simple
-    microwave hardware.
+    """ A dummy class to emulate a microwave source.
+
+    Example config for copy-paste:
+
+    mw_source_dummy:
+        module.Class: 'microwave.mw_source_dummy.MicrowaveDummy'
+
     """
-    _modclass = 'MicrowaveDummy'
-    _modtype = 'mwsource'
 
     def on_activate(self):
         """ Initialisation performed during activation of the module.
@@ -132,7 +135,7 @@ class MicrowaveDummy(Base, MicrowaveInterface):
         elif self.current_output_mode == MicrowaveMode.LIST:
             return self.mw_frequency_list
         elif self.current_output_mode == MicrowaveMode.SWEEP:
-            return (self.mw_start_freq, self.mw_stop_freq, self.mw_step_freq)
+            return self.mw_start_freq, self.mw_stop_freq, self.mw_step_freq
 
     def cw_on(self):
         """
@@ -159,7 +162,7 @@ class MicrowaveDummy(Base, MicrowaveInterface):
 
         Interleave option is used for arbitrary waveform generator devices.
         """
-        self.log.debug('MicrowaveDummy>set_cw, frequency: {0:f}, power {0:f}:'.format(frequency,
+        self.log.debug('MicrowaveDummy>set_cw, frequency: {0:f}, power {1:f}:'.format(frequency,
                                                                                       power))
         self.output_active = False
         self.current_output_mode = MicrowaveMode.CW
@@ -252,16 +255,17 @@ class MicrowaveDummy(Base, MicrowaveInterface):
         """
         return 0
 
-    def set_ext_trigger(self, pol):
+    def set_ext_trigger(self, pol, timing):
         """ Set the external trigger for this device with proper polarization.
 
         @param TriggerEdge pol: polarisation of the trigger (basically rising edge or falling edge)
+        @param float timing: estimated time between triggers
 
         @return object: current trigger polarity [TriggerEdge.RISING, TriggerEdge.FALLING]
         """
         self.log.info('MicrowaveDummy>ext_trigger set')
         self.current_trig_pol = pol
-        return self.current_trig_pol
+        return self.current_trig_pol, timing
 
     def trigger(self):
         """ Trigger the next element in the list or sweep mode programmatically.

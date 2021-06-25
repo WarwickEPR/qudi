@@ -27,7 +27,7 @@ import pylab as pb
 import time
 
 from collections import OrderedDict
-from core.module import Connector
+from core.connector import Connector
 from core.util.network import netobtain
 from logic.generic_logic import GenericLogic
 from qtpy import QtCore
@@ -38,9 +38,6 @@ class SingleShotLogic(GenericLogic):
         into trace form processable by the trace_analysis_logic.
     """
 
-    _modclass = 'SingleShotLogic'
-    _modtype = 'logic'
-
     # declare connectors
     savelogic = Connector(interface='SaveLogic')
     fitlogic = Connector(interface='FitLogic')
@@ -49,7 +46,7 @@ class SingleShotLogic(GenericLogic):
     pulsedmeasurementlogic = Connector(interface='PulsedMeasurementLogic')
     traceanalysislogic1 = Connector(interface='TraceAnalysisLogic')
     pulsegenerator = Connector(interface='PulserInterface')
-    scannerlogic = Connector(interface='ScannerLogic')
+    scannerlogic = Connector(interface='ConfocalLogic')
     optimizerlogic = Connector(interface='OptimizerLogic')
     pulsedmasterlogic = Connector(interface='PulsedMasterLogic')
     odmrlogic = Connector(interface='ODMRLogic')
@@ -83,17 +80,17 @@ class SingleShotLogic(GenericLogic):
         """ Initialisation performed during activation of the module.
         """
 
-        self._fast_counter_device = self.get_connector('fastcounter')
-        self._pulse_generator_device = self.get_connector('pulsegenerator')
-        self._save_logic = self.get_connector('savelogic')
-        self._fit_logic = self.get_connector('fitlogic')
-        self._traceanalysis_logic = self.get_connector('traceanalysislogic1')
-        self._pe_logic = self.get_connector('pulseextractionlogic')
-        self._pm_logic = self.get_connector('pulsedmeasurementlogic')
-        self._odmr_logic = self.get_connector('odmrlogic')
-        self._pulsed_master_logic = self.get_connector('pulsedmasterlogic')
-        self._confocal_logic = self.get_connector('scannerlogic')
-        self._optimizer_logic = self.get_connector('optimizerlogic')
+        self._fast_counter_device = self.fastcounter()
+        self._pulse_generator_device = self.pulsegenerator()
+        self._save_logic = self.savelogic()
+        self._fit_logic = self.fitlogic()
+        self._traceanalysis_logic = self.traceanalysislogic1()
+        self._pe_logic = self.pulseextractionlogic()
+        self._pm_logic = self.pulsedmeasurementlogic()
+        self._odmr_logic = self.odmrlogic()
+        self._pulsed_master_logic = self.pulsedmasterlogic()
+        self._confocal_logic = self.scannerlogic()
+        self._optimizer_logic = self.optimizerlogic()
 
         self.hist_data = None
         self.trace = None
@@ -360,7 +357,7 @@ class SingleShotLogic(GenericLogic):
         time.sleep(10)
         # try to do this differently
         tmp_var1 = self._fast_counter_device.get_status()
-        while (tmp_var1 - 1):
+        while tmp_var1 - 1:
             time.sleep(5)
             tmp_var1 = self._fast_counter_device.get_status()
 
