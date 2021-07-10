@@ -70,12 +70,13 @@ class ZMQServer(QtCore.QThread):
 
     class ZMQPubProxy(QtCore.QThread):
 
-        def __init__(self, ctx, bind_address, port):
+        def __init__(self, ctx, bind_address, port, capture=False):
             super().__init__()
             self.ctx = ctx
             self.aggregator = None
             self.pub = None
             self.capture = None
+            self.do_capture = capture
             self.bind_address = bind_address
             self.port = port
             self.log = logging.getLogger(__name__ + ".pub")
@@ -94,13 +95,17 @@ class ZMQServer(QtCore.QThread):
             self.log.debug('Binding pub socket {} on {}'.format(self.pub, pub_address))
             self.pub.bind(pub_address)
 
-            self.capture = self.ctx.socket(zmq.PUSH)
-            self.capture.setsockopt(zmq.LINGER, LINGER_TIME)
-            self.capture.bind('inproc://proxy-capture')
+            if self.do_capture:
+                self.capture = self.ctx.socket(zmq.PUSH)
+                self.capture.setsockopt(zmq.LINGER, LINGER_TIME)
+                self.capture.bind('inproc://proxy-capture')
 
             # proxy will exit as a daemon thread when the context closes
             try:
-                zmq.proxy(self.pub, self.aggregator, self.capture)
+                if self.do_capture:
+                    zmq.proxy(self.pub, self.aggregator, self.capture)
+                else:
+                    zmq.proxy(self.pub, self.aggregator)
             except zmq.error.ContextTerminated:
                 self.log.debug("ZMQ Context terminated. Notification distribution stopped")
             except zmq.error.ZMQError as e:
@@ -113,7 +118,8 @@ class ZMQServer(QtCore.QThread):
             # won't get here, at least until shutdown
             self.pub.close()
             self.aggregator.close()
-            self.capture.close()
+            if self.capture is not None:
+                self.capture.close()
 
     # ZMQPubCapture starts a thread to capture the proxied frames e.g. for logging
     # If this is
@@ -192,7 +198,7 @@ class ZMQServer(QtCore.QThread):
         self.poller.register(self.discovery, zmq.POLLIN)
 
         # In a background thread, pump messages emitted by PUB via XSUB and out XPUB
-        self.pub_pump = self.ZMQPubProxy(self.ctx, self.bind_address, self.pub_port)
+        self.pub_pump = self.ZMQPubProxy(self.ctx, self.bind_address, self.pub_port, capture=self.more_logging)
         self.pub_pump.start()
 
         # Intercept and capture all notifications
@@ -245,9 +251,9 @@ class ZMQServer(QtCore.QThread):
                                     self.handler_socket[handler_name].unbind()
 
                             else:
-                                self.log.debug("Sending normal message {}".format(message))
+                                self.log.debug("Sending message out to client via router {}".format(m.str()))
                                 # normal messages just to return to peer. Already has the envelope attached so just send!
-                                self.control_router.send_multipart(message)
+                                self.control_router.send_multipart(m.encoded_with_envelope())
 
                     if self.control_router in waiting_sockets:
                         # message has arrived from a client, with return envelope prepended by the router

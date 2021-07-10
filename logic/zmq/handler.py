@@ -40,39 +40,39 @@ class MessageHandlerBase:
         self.log.warning("handle_{} not implemented by {}".format(self.f, type(self)))
 
     def handle_echo(self):
-        self.log.debug("Echoing: {}".format(self.contents))
-        self.reply(self.message())
+        self.log.debug("Echoing: {}".format(self.message.contents))
+        self.reply(self.create_message())
 
     def handle_broadcast(self):
-        self.notify(self.notification_message())
+        self.notify(self.create_notification_message())
 
-    def message(self, channel=None, f=None, contents=None):
+    def create_message(self, channel=None, f=None, contents=None):
         if channel is None:
             channel = self.channel
         if f is None:
-            f = self.f
+            f = self.message.f
         if contents is None:
-            contents = self.contents
-        return Message(channel=channel, f=f, contents=contents)
+            contents = self.message.contents
+        return Message(envelope=self.message.envelope, channel=channel, f=f, contents=contents)
 
-    def notification_message(self, topic=None, f=None, contents=None):
+    def create_notification_message(self, topic=None, f=None, contents=None):
         if topic is None:
             topic = self.channel
         if f is None:
-            f = self.f
+            f = self.message.f
         if contents is None:
-            contents = self.contents
+            contents = self.message.contents
         return PubMessage(topic=topic, f=f, contents=contents)
 
     def reply(self, message: Message):
         if not message.f:
             message.f = self.f
-        self.reply_router.reply(message.encoded_with_envelope())
+        self.reply_router.reply(message)
 
     def notify(self, message: PubMessage):
         if message.topic is None:
             message.topic = self.channel
-        self.reply_router.notify(message.encoded())
+        self.reply_router.notify(message)
 
 
 class MessageHandlerLoop(QtCore.QThread):
@@ -125,20 +125,22 @@ class MessageHandlerLoop(QtCore.QThread):
             self.control.send_multipart(Message(envelope=b'control', f='stopped').encoded_with_envelope())
         except zmq.error.ZMQError as e:
             if e.errno == zmq.ENOTSOCK:
-                # poll can throw this during shutdown
-                if not self.isInterruptionRequested():
-                    self.log.warning("Caught zmq.ENOTSOCK not during shutdown")
-                    raise e
+                # this can happen if the other end and the context may be going away as well so not
+                # really a problem. Would be nice to get the shutdown sequence in order but not essential.
+                pass
+            else:
+                raise e
+
         self.control.close(linger=1000)
         self.pub.close(linger=1000)
 
     # reply to client that messaged, must have client envelope
-    def reply(self, message):
-        self.control.send_multipart(message)
+    def reply(self, message: Message):
+        self.control.send_multipart(message.encoded_with_envelope())
 
     # send to all subscribed clients
-    def notify(self, message):
-        self.pub.send(message)
+    def notify(self, message: PubMessage):
+        self.pub.send(message.encoded())
 
 
 # A threaded Qudi module but just to borrow the configuration and connection behaviour.

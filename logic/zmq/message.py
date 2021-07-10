@@ -26,13 +26,17 @@ class Message:
             # from the wire
             if len(frames) == 5:
                 # envelope provided
+                # e.g. from router to handler
                 (envelope, _, channel, f, contents) = frames
                 self.envelope = envelope
-            elif len(frames) == 3:
-                # no envelope
-                (channel, f, contents) = frames
+            elif len(frames) == 4:
+                # i.e. outbound from router, envelope stripped
+                (_, channel, f, contents) = frames
+#            elif len(frames) == 3:
+#                # no envelope
+#                (channel, f, contents) = frames
             else:
-                raise InvalidMessage([frames])
+                raise InvalidMessage(frames)
 
             self.channel = from_bytes(channel)
             self.f = from_bytes(f)
@@ -44,6 +48,9 @@ class Message:
             self.channel = channel
             self.f = f
             self.contents = contents
+
+    def str(self):
+        return 'Message(envelope={}, channel={}, f={}) with {} bytes of contents'.format(self.envelope, self.channel, self.f, len(self.contents))
 
     def encoded_with_envelope(self):
         if self.envelope is not None:
@@ -63,11 +70,7 @@ class PubMessage:
 
         if packet is not None:
             # from wire.
-            header, contents = packet.split(' ', 2)
-            topic, f = header.split(':', 2)
-            self.topic = from_bytes(topic)
-            self.f = from_bytes(f)
-            self.contents = pickle.loads(contents)
+            [self.topic, self.f, self.contents] = pickle.loads(packet)
 
         else:
             # from params
@@ -75,6 +78,9 @@ class PubMessage:
             self.f = f
             self.contents = contents
 
+    def str(self):
+        return 'PubMessage(topic={}, f={}) with {} bytes of contents'.format(self.topic, self.f, len(self.contents))
+
     def encoded(self):
-        return "%s:%s %s" % (to_bytes(self.topic), to_bytes(self.f), pickle.dumps(self.contents))
+        return pickle.dumps([self.topic, self.f, self.contents])
 

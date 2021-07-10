@@ -34,7 +34,8 @@ class QudiClient:
         self._subscription[topic] = False
 
     async def send_command(self, instruction, body):
-        await self.control_socket.send_multipart(Message(channel=self.channel, f=instruction, contents=body))
+        m = Message(channel=self.channel, f=instruction, contents=body)
+        await self.control_socket.send_multipart(m.encoded_with_envelope())
 
     async def receive_message(self):
         reply = await self.control_socket.recv_multipart()
@@ -57,8 +58,7 @@ class DummyClient(QudiClient):
     async def echo(self, x):
         await self.send_command('echo', x)
         reply = await self.receive_message()
-        message = Message(frames=reply)
-        return message.contents
+        return reply.contents
 
     async def broadcast(self, message):
         await self.send_command('broadcast', message)
