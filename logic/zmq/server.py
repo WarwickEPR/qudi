@@ -79,7 +79,7 @@ class ZMQServer(QtCore.QThread):
             self.do_capture = capture
             self.bind_address = bind_address
             self.port = port
-            self.log = logging.getLogger(__name__ + ".pub")
+            self.log = logging.getLogger("logic.zmq.pub")
 
         def run(self):
             # pass on messages between publishers and subscribers
@@ -113,7 +113,6 @@ class ZMQServer(QtCore.QThread):
                     # poll can throw this during shutdown
                     if not self.isInterruptionRequested():
                         self.log.warning("Caught zmq.ENOTSOCK not during shutdown")
-                        raise e
 
             # won't get here, at least until shutdown
             self.pub.close()
@@ -130,7 +129,7 @@ class ZMQServer(QtCore.QThread):
             super().__init__()
             self.ctx = ctx
             self.capture = None
-            self.log = logging.getLogger(__name__ + ".pub_capture")
+            self.log = logging.getLogger("logic.zmq.pub_capture")
 
         def run(self):
             # pass on messages between publishers and subscribers
@@ -155,14 +154,17 @@ class ZMQServer(QtCore.QThread):
             # on exit
             self.capture.close()
 
+    # ZMQ Server
     def __init__(self,
                  ctx: zmq.Context,
                  bind_address="127.0.0.1",
                  control_port=7081,
                  pub_port=7082,
-                 additional_logging=False):
+                 additional_logging=False,
+                 manager=None):
         super().__init__()
         self.ctx = ctx
+        self._manager = manager
         self.bind_address = bind_address
         self.control_port = control_port
         self.pub_port = pub_port
@@ -174,7 +176,7 @@ class ZMQServer(QtCore.QThread):
         self.poller = None
         self.handler_socket = dict()
         self.handler_started = dict()
-        self.log = logging.getLogger(__name__)
+        self.log = logging.getLogger("logic.zmq.server")
 
     def run(self):
         # external contact point for ZMQ service
@@ -232,6 +234,7 @@ class ZMQServer(QtCore.QThread):
                             self.log.debug("Received: {}".format(message))
                             m = Message(frames=message)
 
+                            # handle any message from the backend for the server
                             if m.envelope == b'control':
 
                                 if m.f == 'started':
@@ -251,17 +254,34 @@ class ZMQServer(QtCore.QThread):
                                     self.handler_socket[handler_name].unbind()
 
                             else:
-                                self.log.debug("Sending message out to client via router {}".format(m.str()))
-                                # normal messages just to return to peer. Already has the envelope attached so just send!
+                                self.log.debug("Sending message out to client via router {}".format(m))
+                                # normal messages just to return to peer. Already has the envelope attached so just send
                                 self.control_router.send_multipart(m.encoded_with_envelope())
 
                     if self.control_router in waiting_sockets:
                         # message has arrived from a client, with return envelope prepended by the router
                         # unpack the message to see where it needs to go to
-                        self.log.debug("Control message ready")
                         m = Message(frames=self.control_router.recv_multipart())
-                        self.log.debug("Control message: {} {} {} {}".format(m.envelope, m.channel, m.f, m.contents))
-                        self.handler_socket[channel].send_multipart(m.encoded_with_envelope())
+                        self.log.debug("Client message: {} ".format(m))
+
+                        # handle any 'control' messages for the server from client
+                        if m.channel == 'control':
+                            # special messages for the server to handle
+                            if m.f == 'start_logic_module':
+                                module = m.contents
+                                self.log.info("Attempting to start module {}".format(module))
+                                self._start_module('logic', module)
+                            else:
+                                self.log.warning("Unrecognised control function {}".format(m.f))
+
+                        elif m.channel in self.handler_socket:
+                            # Most commonly, just send this to the appropriate channel handler to deal with
+                            self.log.debug("Sending to {}".format(m.channel))
+                            self.handler_socket[m.channel].send_multipart(m.encoded_with_envelope())
+
+                        else:
+                            # No such handler. Ignore but log
+                            self.log.warning("Attempt to access a handler that isn't available: {}".format(m.channel))
 
                 except InvalidMessage as e:
                     self.log.warning("Invalid message: {}".format(e.msg))
@@ -277,13 +297,13 @@ class ZMQServer(QtCore.QThread):
                     raise e
 
         # Loop has exited due to interruption, interrupt child threads
+        self.pub_pump.requestInterruption()
+        if self.pub_capture is not None:
+            self.pub_capture.requestInterruption()
         self.control_router.close()
         self.discovery.close()
         for s in self.handler_socket.values():
             s.close()
-        self.pub_pump.requestInterruption()
-        if self.pub_capture is not None:
-            self.pub_capture.requestInterruption()
 
     def _register_handler(self, channel):
         # could use ROUTER-DEALER if multiple handler threads are needed
@@ -304,6 +324,13 @@ class ZMQServer(QtCore.QThread):
         self.poller.register(handler_socket, zmq.POLLIN)
         self.handler_socket[channel] = handler_socket
         self.handler_started[channel] = False
+
+    def _start_module(self, base: str, module_name: str):
+        return QtCore.QMetaObject.invokeMethod(self._manager,
+                                               "startModule",
+                                               QtCore.Qt.QueuedConnection,
+                                               QtCore.Q_ARG(str, base),
+                                               QtCore.Q_ARG(str, module_name))
 
     def _open_for_service(self):
         self.poller.register(self.control_router, zmq.POLLIN)
@@ -337,7 +364,8 @@ class ZMQLogic(GenericLogic):
                                  bind_address=self.bind_address,
                                  control_port=self.control_port,
                                  pub_port=self.pub_port,
-                                 additional_logging=self.more_logging)
+                                 additional_logging=self.more_logging,
+                                 manager=self._manager)
         self._server.start()
 
     def register_handler(self, channel):

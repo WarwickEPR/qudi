@@ -29,7 +29,7 @@ class MessageHandlerBase:
         self.reply_router = reply_router
         self.channel = channel
         self.message = message
-        self.log = logging.getLogger('zmq.' + channel)
+        self.log = logging.getLogger('logic.zmq.' + channel)
         self.handler = getattr(self, "handle_" + self.message.f, "handle_unimplemented")
 
     def handle(self):
@@ -44,6 +44,7 @@ class MessageHandlerBase:
         self.reply(self.create_message())
 
     def handle_broadcast(self):
+        self.log.debug("Broadcasting: {}".format(self.message))
         self.notify(self.create_notification_message())
 
     def create_message(self, channel=None, f=None, contents=None):
@@ -69,6 +70,12 @@ class MessageHandlerBase:
             message.f = self.f
         self.reply_router.reply(message)
 
+    def reply_okay(self, contents=None):
+        self.reply(Message(f="OK", contents=contents))
+
+    def reply_failed(self, contents=None):
+        self.reply(Message(f="FAIL", contents=contents))
+
     def notify(self, message: PubMessage):
         if message.topic is None:
             message.topic = self.channel
@@ -77,12 +84,12 @@ class MessageHandlerBase:
 
 class MessageHandlerLoop(QtCore.QThread):
 
-    def __init__(self, ctx: zmq.Context, channel, message_handler_type):
+    def __init__(self, context=None, channel="", handler_class=None):
         super().__init__()
-        self.ctx = ctx
+        self.ctx = context
         self.channel = channel
-        self.message_handler_type = message_handler_type
-        self.log = logging.getLogger('zmq.loop.' + channel)
+        self.message_handler_type = handler_class
+        self.log = logging.getLogger('logic.zmq.loop.' + channel)
 
         self.control = None
         self.pub = None
@@ -109,6 +116,7 @@ class MessageHandlerLoop(QtCore.QThread):
                     # get message, unpack and dispatch
                     message = Message(frames=self.control.recv_multipart())
                     mh = self.message_handler_type(self, self.channel, message)
+                    self.log.debug("Sending message to {}".format(mh))
                     mh.handle()
 
         except zmq.error.ContextTerminated:
@@ -140,7 +148,7 @@ class MessageHandlerLoop(QtCore.QThread):
 
     # send to all subscribed clients
     def notify(self, message: PubMessage):
-        self.pub.send(message.encoded())
+        self.pub.send_multipart(message.encoded())
 
 
 # A threaded Qudi module but just to borrow the configuration and connection behaviour.
@@ -155,7 +163,6 @@ class MessageChannel(GenericLogic):
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
-        #self.log = logging.getLogger('zmq.channel.' + self.channel)
 
         # now config is loaded, look in the message handling class to check what Connector are used.
         # Ensure these are loaded by manager by inserting in the constructor
@@ -174,7 +181,10 @@ class MessageChannel(GenericLogic):
         # zmq should take care of any synchronisation issues
         self.ctx = self.zmq().ctx()
         self._register_handler()
-        self.handler_thread = MessageHandlerLoop(self.ctx, self.channel, self.message_handler_type())
+        _channel = str(self.channel)
+        self.handler_thread = MessageHandlerLoop(context=self.ctx,
+                                                 channel=_channel,
+                                                 handler_class=self.message_handler_type())
         self.handler_thread.start()
 
     def on_deactivate(self):

@@ -2,9 +2,38 @@ import zmq
 import asyncio
 import zmq.asyncio
 from logic.zmq.message import Message, PubMessage
+import logging
 
 from IPython.display import display
 import ipywidgets as widgets
+
+
+class NotificationSubscription:
+
+    def __init__(self, ctx: zmq.Context, publisher, topics=[]):
+        self.log = logging.getLogger('notifications')
+        self.socket = ctx.socket(zmq.SUB)
+        try:
+            self.socket.connect(publisher)
+            if not topics:
+                self.log.info("Subscribing to all")
+                self.socket.subscribe('')
+                self.socket.setsockopt_string(zmq.SUBSCRIBE, '')
+            else:
+                for topic in topics:
+                    self.log.info("Subscribing to {}".format(topic))
+                    self.socket.subscribe(topic)
+                    self.socket.setsockopt_string(zmq.SUBSCRIBE, topic)
+        except zmq.ZMQError as e:
+            self.log.error("Failed to subscribe to {}: {}".format(topics, e))
+
+    def __del__(self):
+        # wait half a sec for any operations to finish
+        self.socket.close(linger=500)
+
+    async def receive(self):
+        topic, contents = await self.socket.recv_multipart()
+        return PubMessage(frames=(topic, contents))
 
 
 # Each notebook makes one of these for each channel they use.
@@ -17,21 +46,10 @@ class QudiClient:
         self.pub_uri = pub_uri
         self.control_socket = control_socket
         self.notifier_socket = None
-        self._subscription = {}
+        self.output_task = None
 
-    def subscribe(self, topic):
-        self.notifier_socket = self.ctx.socket(zmq.SUB)
-        self.notifier_socket.subscribe(topic)
-        self.notifier_socket.setsockopt_string(zmq.SUBSCRIBE, topic)
-        self.notifier_socket.subscribe(topic)
-        self.notifier_socket.setsockopt_string(zmq.SUBSCRIBE, topic)
-        self.notifier_socket.connect(self.pub_uri)
-        self._subscription[topic] = True
-
-    def unsubscribe(self, topic):
-        self.notifier_socket.unsubscribe(topic)
-        #self.notifier_socket.setsockopt(zmq.UNSUBSCRIBE, topic)
-        self._subscription[topic] = False
+    def subscribe(self, topics=[]):
+        return NotificationSubscription(self.ctx, self.pub_uri, topics)
 
     async def send_command(self, instruction, body):
         m = Message(channel=self.channel, f=instruction, contents=body)
@@ -42,11 +60,24 @@ class QudiClient:
         message = Message(frames=reply)
         return message
 
-    async def receive_notification(self):
-        reply = await self.notifier_socket.recv()
-        # unpack message
-        message = PubMessage(packet=reply)
-        return message
+    async def broadcast(self, message):
+        await self.send_command('broadcast', message)
+
+    async def display_notifications(self, subscription):
+
+        out = widgets.Output(layout={'border': '1px solid black'})
+        out.append_stdout("Starting\n")
+        display(out)
+
+        async def output_task(o):
+            while True:
+                o.append_stdout("\n waiting ...")
+                message = await subscription.receive()
+                o.append_stdout(" --- ")
+                with o:
+                    o.append_stdout("Received: {} {} {}".format(message.topic, message.f, message.contents))
+
+        self.output_task = asyncio.create_task(output_task(out), name='broadcast')
 
 
 class DummyClient(QudiClient):
@@ -59,26 +90,6 @@ class DummyClient(QudiClient):
         await self.send_command('echo', x)
         reply = await self.receive_message()
         return reply.contents
-
-    async def broadcast(self, message):
-        await self.send_command('broadcast', message)
-
-    async def output_all_broadcast(self):
-        self.subscribe('')
-
-        out = widgets.Output(layout={'border': '1px solid black'})
-        out.append_stdout("Starting\n")
-        display(out)
-
-        async def output_task(o):
-            while True:
-                o.append_stdout("\n waiting ...")
-                message = await self.receive_notification()
-                o.append_stdout(" --- ")
-                with o:
-                    o.append_stdout("Received: {} {} {}".format(message.topic, message.f, message.contents))
-
-        self.output_task = asyncio.create_task(output_task(out), name='broadcast')
 
 
 # The interface for users to use

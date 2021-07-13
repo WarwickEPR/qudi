@@ -1,5 +1,4 @@
 import pickle
-import logging
 
 
 def to_bytes(x: str):
@@ -49,8 +48,9 @@ class Message:
             self.f = f
             self.contents = contents
 
-    def str(self):
-        return 'Message(envelope={}, channel={}, f={}) with {} bytes of contents'.format(self.envelope, self.channel, self.f, len(self.contents))
+    def __str__(self):
+        return 'Message(envelope={}, channel={}, f={}) with {} bytes of contents'\
+            .format(self.envelope, self.channel, self.f, len(self.contents))
 
     def encoded_with_envelope(self):
         if self.envelope is not None:
@@ -64,13 +64,15 @@ class Message:
 
 class PubMessage:
 
-    def __init__(self, packet=None, topic="", f="", contents=None):
+    def __init__(self, frames=None, topic="", f="", contents=None):
         # PyZMQ doesn't seem to support multipart pub-sub
         # revert to encoding in one message
 
-        if packet is not None:
+        if frames is not None:
             # from wire.
-            [self.topic, self.f, self.contents] = pickle.loads(packet)
+            topic, contents = frames
+            self.topic, self.f = from_bytes(topic).split(':', 2)
+            self.contents = pickle.loads(contents)
 
         else:
             # from params
@@ -78,9 +80,9 @@ class PubMessage:
             self.f = f
             self.contents = contents
 
-    def str(self):
-        return 'PubMessage(topic={}, f={}) with {} bytes of contents'.format(self.topic, self.f, len(self.contents))
+    def __str__(self):
+        return 'PubMessage(topic={}:{}) with {} bytes of contents'.format(self.topic, self.f, len(self.contents))
 
     def encoded(self):
-        return pickle.dumps([self.topic, self.f, self.contents])
+        return [to_bytes("%s:%s" % (self.topic, self.f)), pickle.dumps(self.contents)]
 
