@@ -1261,10 +1261,22 @@ class PredefinedGeneratorBase:
         @return: PulseBlockElement, the generated MW element
         """
         if self.microwave_channel.startswith('d'):
+            microwave_channel = self.microwave_channel
+            if phase:
+                # an alternate microwave channel may provide this phase
+                if phase == 90 and self.generation_parameters.get('microwave_y_channel'):
+                    # the most common so just call it y
+                    microwave_channel = self.generation_parameters.get('microwave_y_channel')
+                else:
+                    channel_key = 'microwave_{}_channel'.format(phase)
+                    if self.generation_parameters.get(channel_key):
+                        microwave_channel = self.generation_parameters.get(channel_key)
+                self.log.debug("Digital pulse with phase {} substituting channel {}".format(phase, microwave_channel))
+
             mw_element = self._get_trigger_element(
                 length=length,
                 increment=increment,
-                channels=self.microwave_channel)
+                channels=microwave_channel)
         else:
             mw_element = self._get_idle_element(
                 length=length,

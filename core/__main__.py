@@ -127,15 +127,6 @@ else:
     app = QtWidgets.QApplication(sys.argv)
 
 
-# Install the pyzmq ioloop. This has to be done before anything else from
-# tornado is imported.
-try:
-    from zmq.eventloop import ioloop
-    ioloop.install()
-except:
-    logger.error('Preparing ZMQ failed, probably no IPython possible!')
-
-
 # Disable standard garbage collector and run it from the event loop to
 # improve stability.
 # (see garbage_collector in the doc for more information)

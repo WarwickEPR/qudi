@@ -211,3 +211,7 @@ class SimpleLaserInterface(metaclass=InterfaceMetaclass):
           @return str: diagnostic info as a string
         """
         pass
+
+
+class LaserNotConnected(Exception):
+    pass
