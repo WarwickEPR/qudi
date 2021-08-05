@@ -25,7 +25,7 @@ from core.util.mutex import Mutex
 from core.connector import Connector
 from core.statusvariable import StatusVar
 from qtpy import QtCore
-
+from scipy.optimize import curve_fit
 
 class AomLogic(GenericLogic):
     """
@@ -50,13 +50,6 @@ class AomLogic(GenericLogic):
 
     # status vars
     _clock_frequency = StatusVar('clock_frequency', 30)
-    #_calibration_voltage = ConfigOption('voltage', missing='error')
-    #_calibration_efficiency = ConfigOption('efficiency', missing='error')
-
-    # temporary to avoid restarting qudi
-    #_calibration_voltage = [0.6, 0.65, .7, .75, .8, .85, .9, .95, 1.0, 1.05, 1.10, 1.15, 1.2, 1.3, 1.4]
-    #_calibration_efficiency = [.00141, .00554, .01342, .02467, .03881, .05515, .07320, 0.09160, .11123, .12956,
-    #                           .14604, .16094, .17408, .19377, .20777]
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -88,7 +81,7 @@ class AomLogic(GenericLogic):
         self._cal_efficiency = config['efficiency']
         self.maximum_efficiency = max(self._cal_efficiency)
 
-        self.set_psat_points()
+        self.set_psat_points(points=100)
         self.clear()
 
         self.psat_updated.connect(self.fit_data)
@@ -100,9 +93,9 @@ class AomLogic(GenericLogic):
         self.psat_updated.disconnect(self.fit_data)
 
     def clear(self):
-        self.set_psat_points()
+        self.set_psat_points(points=100)
         self.psat_data = np.zeros_like(self.powers)
-        self.psat_fit_x = np.linspace(0, max(self.powers), 60)
+        self.psat_fit_x = np.linspace(0, max(self.powers), len(self.powers))
         self.psat_fit_y = np.zeros_like(self.psat_fit_x)
         self.fitted_Isat = 0.0
         self.fitted_Psat = 0.0
@@ -197,25 +190,45 @@ class AomLogic(GenericLogic):
         return self.powers, v, self.psat_data
 
     def fit_data(self):
-        model, param = self._fitlogic.make_hyperbolicsaturation_model()
-        param['I_sat'].min = 0
-        param['I_sat'].max = 1e7
-        param['I_sat'].value = max(self.psat_data) * .7
-        param['P_sat'].max = 10.0
-        param['P_sat'].min = 0.0
-        param['P_sat'].value = 0.0001
-        param['slope'].min = 0.0
-        param['slope'].value = 1e3
-        param['offset'].min = 0.0
-        fit = self._fitlogic.make_hyperbolicsaturation_fit(x_axis=self.powers, data=self.psat_data,
-                                                           estimator=self._fitlogic.estimate_hyperbolicsaturation,
-                                                           add_params=param)
-        self.fit = fit
-        self.fitted_Psat = fit.best_values['P_sat']
-        self.fitted_Isat = fit.best_values['I_sat']
-        self.fitted_offset = fit.best_values['offset']
+
+        # the lmfit methods don't work, so try scipy.optimize instead. Seems more robust
+
+        # use the model everyone uses for colour centre saturation (however it often doesn't fit well so I suspect it
+        # may be too simplistic)
+        # I'm not convinced it shouldn't be exponential below saturation and flat/declining for high powers as lifetime
+        # is reduced or photoionisation becomes more likely. Perhaps one to check with Einstein A-B approach?
+        def psat_curve(power, I_sat, P_sat, bg_fl, bg):
+            return I_sat * (power / (power + P_sat)) + bg + power * bg_fl
+
+        # I_sat P_sat bg_fl bg
+        lower_bounds = [1, 1e-9, 0, 0]
+        upper_bounds = [np.inf, np.inf, np.inf, np.inf]
+
+        # estimates
+        I_sat = max(self.psat_data)
+
+        if I_sat == 0:
+            # no data to fit!
+            return
+
+        high_output = np.flatnonzero(self.psat_data > (I_sat/2))
+        P_sat_index = high_output[0]
+        P_sat = self.psat_fit_x[P_sat_index]
+        bg_fl = 0
+        bg = 100
+        self.log.debug("Estimate to start fit: Isat {} Psat {} bg_fl {} bg {}".format(I_sat, P_sat, bg_fl, bg))
+
+        # do the fit
+        params, k = curve_fit(psat_curve, self.psat_fit_x, self.psat_data, p0=[I_sat, P_sat, bg_fl, bg], bounds=(lower_bounds, upper_bounds), absolute_sigma=True)
+        I_sat, P_sat, bg_fl, bg = params
+
+        self.log.debug("Fitted params: Isat {} Psat {} bg_fl {} bg {}".format(I_sat, P_sat, bg_fl, bg))
+
         self.psat_fitted = True
-        self.psat_fit_y = model.eval(x=self.psat_fit_x, params=fit.params)
+        self.psat_fit_y = psat_curve(self.psat_fit_x, I_sat, P_sat, bg_fl, bg)
+        self.fitted_Isat = I_sat
+        self.fitted_Psat = P_sat
+        self.fitted_offset = bg
 
         self.psat_fit_updated.emit()
 
