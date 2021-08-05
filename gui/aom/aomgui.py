@@ -92,7 +92,7 @@ class AomGui(GUIBase):
         self._mw.psat_plot_PlotWidget.setLabel(axis='bottom', text='Power', units='W')
         self._mw.psat_plot_PlotWidget.showGrid(x=True, y=True, alpha=0.8)
         self._mw.setPower.setValue(self.get_power())
-        self._mw.setPower.valueChanged.connect(self.set_power)
+        self._mw.setPower.editingFinished.connect(self.update_power)
         self._mw.setPower.setMaximum(self._aom_logic.current_maximum_power()*1000)
         self._mw.set_to_psat.clicked.connect(self.set_power_to_psat)
         self._aom_logic.power_available.connect(self.update_power_available)
@@ -146,7 +146,11 @@ class AomGui(GUIBase):
 
         return 0
 
-    def set_power(self,power):
+    def update_power(self):
+        power = self._mw.setPower.value()
+        self.set_power(power)
+
+    def set_power(self, power):
         self._aom_logic.set_power(power/1000)
 
     def get_power(self):
