@@ -1301,13 +1301,13 @@ class ConfocalGui(GUIBase):
     def change_xy_resolution(self):
         """ Update the xy resolution in the logic according to the GUI.
         """
-        self._scanning_logic.set_xy_resolution(self._mw.xy_res_InputWidget.value())
+        self._scanning_logic.xy_resolution = self._mw.xy_res_InputWidget.value()
         self.log.debug('Updated xy_resolution to {}'.format(self._scanning_logic.xy_resolution))
 
     def change_z_resolution(self):
         """ Update the z resolution in the logic according to the GUI.
         """
-        self._scanning_logic.set_z_resolution(self._mw.z_res_InputWidget.value())
+        self._scanning_logic.z_resolution = self._mw.z_res_InputWidget.value()
         self.log.debug('Updated z_resolution to {}'.format(self._scanning_logic.z_resolution))
 
 
