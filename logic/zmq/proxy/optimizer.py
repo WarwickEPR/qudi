@@ -50,8 +50,8 @@ class OptimizerProxy(MessageHandlerBase):
                 data[a] = v
             except AttributeError as e:
                 pass
-        self.notify(PubMessage(topic='optimizer', f='refocus_data', contents=data))
+        self.notify(PubMessage(topic='optimizer.data', contents=data))
 
     def emit_refocused(self, caller_tag, position):
-        self.notify(PubMessage(topic='optimizer', f='refocused', contents=position))
+        self.notify(PubMessage(topic='optimizer.refocused', contents=position))
         self.emit_data()

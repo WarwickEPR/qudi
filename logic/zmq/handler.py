@@ -56,14 +56,12 @@ class MessageHandlerBase:
             contents = self.message.contents
         return Message(envelope=self.message.envelope, channel=channel, f=f, contents=contents)
 
-    def create_notification_message(self, topic=None, f=None, contents=None):
+    def create_notification_message(self, topic=None, contents=None):
         if topic is None:
             topic = self.channel
-        if f is None:
-            f = self.message.f
         if contents is None:
             contents = self.message.contents
-        return PubMessage(topic=topic, f=f, contents=contents)
+        return PubMessage(topic=topic, contents=contents)
 
     def reply(self, message: Message):
         if not message.f:

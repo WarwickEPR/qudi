@@ -115,17 +115,14 @@ class QudiClient(metaclass=Plugin):
     async def display_notifications(self, subscription):
 
         out = widgets.Output(layout={'border': '1px solid black'})
-        out.append_stdout("Starting\n")
         display(out)
 
         async def output_task(o):
             while True:
-                o.append_stdout("\n waiting ...")
                 message = await subscription.receive()
-                o.append_stdout(" --- ")
                 with o:
-                    o.append_stdout("Received: {} {} {}".format(message.topic, message.f, message.contents))
+                    o.append_stdout("Received: {} {}\n".format(message.topic, message.contents))
 
-        self.output_task = asyncio.create_task(output_task(out), name='broadcast')
+        self.output_task = asyncio.create_task(output_task(out))
 
 

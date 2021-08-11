@@ -64,25 +64,24 @@ class Message:
 
 class PubMessage:
 
-    def __init__(self, frames=None, topic="", f="", contents=None):
+    def __init__(self, frames=None, topic="", contents=None):
         # PyZMQ doesn't seem to support multipart pub-sub
-        # revert to encoding in one message
+        # revert to encoding in one message of two frames
 
         if frames is not None:
             # from wire.
             topic, contents = frames
-            self.topic, self.f = from_bytes(topic).split(':', 2)
+            self.topic = from_bytes(topic)
             self.contents = pickle.loads(contents)
 
         else:
             # from params
             self.topic = topic
-            self.f = f
             self.contents = contents
 
     def __str__(self):
-        return 'PubMessage(topic={}:{}) with {} bytes of contents'.format(self.topic, self.f, len(self.contents))
+        return 'PubMessage(topic={}:{}) with {} bytes of contents'.format(self.topic, len(self.contents))
 
     def encoded(self):
-        return [to_bytes("%s:%s" % (self.topic, self.f)), pickle.dumps(self.contents)]
+        return [to_bytes(self.topic), pickle.dumps(self.contents)]
 

@@ -1,5 +1,6 @@
 from .QudiControl import QudiClient
-
+import PIL.Image
+import IPython.display
 
 class Optimizer(QudiClient):
 
@@ -15,6 +16,12 @@ class Optimizer(QudiClient):
         await self.send_command('push_data', '')
 
     async def wait_for_refocus(self):
-        s = self.subscribe('refocused')
+        s = self.subscribe('optimizer.refocused')
         response = await s.receive()
         print("Position: {}".format(response))
+
+    async def display(self):
+        s = self.subscribe('optimizer.data')
+        data = await s.receive()
+        if 'xy_data' in data:
+            IPython.display.display(PIL.Image.fromarray(data['xy_data']))
