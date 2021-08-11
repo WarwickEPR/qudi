@@ -30,11 +30,11 @@ class MessageHandlerBase:
         self.channel = channel
         self.message = message
         self.log = logging.getLogger('logic.zmq.' + channel)
-        self.handler = getattr(self, "handle_" + self.message.f, "handle_unimplemented")
+        self.handler_fn = getattr(self, "handle_" + self.message.f, "handle_unimplemented")
 
     def handle(self):
         # find handler function, if available, and call
-        self.handler()
+        self.handler_fn()
 
     def handle_unimplemented(self, msg):
         self.log.warning("handle_{} not implemented by {}".format(self.f, type(self)))
@@ -115,6 +115,7 @@ class MessageHandlerLoop(QtCore.QThread):
                 if self.control in waiting:
                     # get message, unpack and dispatch
                     message = Message(frames=self.control.recv_multipart())
+                    # instantiate an instance of the message handler type
                     mh = self.message_handler_type(self, self.channel, message)
                     self.log.debug("Sending message to {}".format(mh))
                     mh.handle()
@@ -164,13 +165,16 @@ class MessageChannel(GenericLogic):
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
 
+        # convert the handler configuration to a class
+        self.handler_type = self.message_handler_type()
+
         # now config is loaded, look in the message handling class to check what Connector are used.
         # Ensure these are loaded by manager by inserting in the constructor
         # Should behave as if loaded directly here and in the message handler - the __call__ stuff only cares
         # on invocation and this is soon enough for manager to do the connect() stuff
-        def is_connector(x):
-            return inspect.isclass(x) and issubclass(Connector, x)
-        handler_connectors = dict(inspect.getmembers(self.handler, predicate=is_connector))
+
+        handler_connectors = dict(filter(lambda x: isinstance(x[1], Connector), inspect.getmembers(self.handler_type)))
+        self.log.debug("Inserting handler connectors into channel module: {}".format(handler_connectors))
         self.connectors.update(handler_connectors)
         # doesn't trigger any of the gnarly metaclass multiple inheritance traversal stuff but does that matter?
         self.handler_thread = None
@@ -184,7 +188,7 @@ class MessageChannel(GenericLogic):
         _channel = str(self.channel)
         self.handler_thread = MessageHandlerLoop(context=self.ctx,
                                                  channel=_channel,
-                                                 handler_class=self.message_handler_type())
+                                                 handler_class=self.handler_type)
         self.handler_thread.start()
 
     def on_deactivate(self):
@@ -202,7 +206,7 @@ class MessageChannel(GenericLogic):
         handler_class = handler[last_dot+1:]
         try:
             importlib.import_module(module, handler_class)
-            return getattr(sys.modules[__name__], handler_class)
+            return getattr(sys.modules[module], handler_class)
         except AttributeError as e:
             self.log.error("Failed to find ZMQ message handler {} in {}: {}".format(handler_class, module, e))
             raise e

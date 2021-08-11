@@ -8,10 +8,10 @@ from IPython.display import display
 import ipywidgets as widgets
 
 
-class NotificationSubscription:
+class Subscription:
 
     def __init__(self, ctx: zmq.Context, publisher, topics=[]):
-        self.log = logging.getLogger('notifications')
+        self.log = logging.getLogger('broadcast.notifications')
         self.socket = ctx.socket(zmq.SUB)
         try:
             self.socket.connect(publisher)
@@ -36,9 +36,56 @@ class NotificationSubscription:
         return PubMessage(frames=(topic, contents))
 
 
+# The interface for users to use
+
+class QudiControl:
+
+    channel_client = {}
+    log = logging.getLogger('core.qudicontrol')
+
+    def __init__(self, hostname='127.0.0.1', control_port=7081, pub_port=7082):
+        # create an asyncio based ZMQ context
+        # this will use the existing event loop
+        self.ctx = zmq.asyncio.Context()
+
+        # remember where we're connecting to but only make connections when requested
+        self.host = hostname
+        self.control_port = control_port
+        self.pub_port = pub_port
+        self.control_uri = 'tcp://{}:{}'.format(hostname, control_port)
+        self.pub_uri = 'tcp://{}:{}'.format(hostname, pub_port)
+
+    @classmethod
+    def register(cls, name, client):
+        if name:
+            cls.log.debug("Registering {} as {}".format(client, name))
+            cls.channel_client[name] = client
+
+    # connect to the control port
+    # message exchanges are asynchronous and initiated from this end
+    # so e.g. a command that doesn't expect a reply, a request which expects a reply or a
+    # a series of updates ending in a done message.
+    def connect(self, channel):
+        control = self.ctx.socket(zmq.DEALER)
+        control.connect(self.control_uri)
+        if channel in self.channel_client:
+            return self.channel_client[channel](self.ctx, self.pub_uri, channel, control)
+        else:
+            return QudiClient(self.ctx, self.pub_uri, channel, control)
+
+
+class Plugin(type):
+    def __new__(mcs, name, bases, class_dict):
+        cls = type.__new__(mcs, name, bases, class_dict)
+        QudiControl.register(cls.name, cls)
+        return cls
+
+
 # Each notebook makes one of these for each channel they use.
 # All share a notebook level ZMQ context
-class QudiClient:
+class QudiClient(metaclass=Plugin):
+
+    name = ""
 
     def __init__(self, ctx, pub_uri, channel, control_socket):
         self.ctx = ctx
@@ -49,7 +96,9 @@ class QudiClient:
         self.output_task = None
 
     def subscribe(self, topics=[]):
-        return NotificationSubscription(self.ctx, self.pub_uri, topics)
+        if isinstance(topics, str):
+            topics = [topics]
+        return Subscription(self.ctx, self.pub_uri, topics)
 
     async def send_command(self, instruction, body):
         m = Message(channel=self.channel, f=instruction, contents=body)
@@ -79,47 +128,4 @@ class QudiClient:
 
         self.output_task = asyncio.create_task(output_task(out), name='broadcast')
 
-
-class DummyClient(QudiClient):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.output_task = None
-
-    async def echo(self, x):
-        await self.send_command('echo', x)
-        reply = await self.receive_message()
-        return reply.contents
-
-
-# The interface for users to use
-
-class QudiControl:
-
-    channel_client =\
-        {'dummy': DummyClient}
-
-    def __init__(self, hostname='127.0.0.1', control_port=7081, pub_port=7082):
-        # create an asyncio based ZMQ context
-        # this will use the existing event loop
-        self.ctx = zmq.asyncio.Context()
-
-        # remember where we're connecting to but only make connections when requested
-        self.host = hostname
-        self.control_port = control_port
-        self.pub_port = pub_port
-        self.control_uri = 'tcp://{}:{}'.format(hostname, control_port)
-        self.pub_uri = 'tcp://{}:{}'.format(hostname, pub_port)
-
-    # connect to the control port
-    # message exchanges are asynchronous and initiated from this end
-    # so e.g. a command that doesn't expect a reply, a request which expects a reply or a
-    # a series of updates ending in a done message.
-    def connect(self, channel):
-        control = self.ctx.socket(zmq.DEALER)
-        control.connect(self.control_uri)
-        if channel in self.channel_client:
-            return self.channel_client[channel](self.ctx, self.pub_uri, channel, control)
-        else:
-            return QudiClient(self.ctx, self.pub_uri, channel, control)
 

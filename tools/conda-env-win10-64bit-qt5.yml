@@ -169,4 +169,3 @@ dependencies:
     - ipython==7.24.1
     - ruamel-yaml==0.17.9
     - ruamel-yaml-clib==0.2.2
-prefix: C:\Anaconda3\envs\qudi
