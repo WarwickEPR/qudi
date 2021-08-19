@@ -35,5 +35,5 @@ def initialize_logger(path=''):
     rotating_file_handler.setLevel(logging.DEBUG)
     logger.addHandler(rotating_file_handler)
 
-    for logger_name in ['core', 'client', 'broadcast']:
+    for logger_name in ['core', 'client', 'backend', 'broadcast']:
         logging.getLogger(logger_name).setLevel(logging.DEBUG)

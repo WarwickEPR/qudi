@@ -32,8 +32,8 @@ class Subscription:
         self.socket.close(linger=500)
 
     async def receive(self):
-        topic, contents = await self.socket.recv_multipart()
-        return PubMessage(frames=(topic, contents))
+        topic, body = await self.socket.recv_multipart()
+        return PubMessage(frames=(topic, body))
 
 
 # The interface for users to use
@@ -94,6 +94,7 @@ class QudiClient(metaclass=Plugin):
         self.control_socket = control_socket
         self.notifier_socket = None
         self.output_task = None
+        self.log = logging.getLogger('client.' + str(self.__class__.__name__))
 
     def subscribe(self, topics=[]):
         if isinstance(topics, str):
@@ -101,12 +102,14 @@ class QudiClient(metaclass=Plugin):
         return Subscription(self.ctx, self.pub_uri, topics)
 
     async def send_command(self, instruction, body):
-        m = Message(channel=self.channel, f=instruction, contents=body)
-        await self.control_socket.send_multipart(m.encoded_with_envelope())
+        m = Message(channel=self.channel, f=instruction, body=body)
+        self.log.debug("Sending: {}".format(m))
+        await self.control_socket.send_multipart(m.frames_to_qudi())
 
     async def receive_message(self):
         reply = await self.control_socket.recv_multipart()
-        message = Message(frames=reply)
+        message = Message.client_from_frontend(frames=reply)
+        self.log.debug("Receiving: {}".format(message))
         return message
 
     async def broadcast(self, message):
@@ -121,7 +124,7 @@ class QudiClient(metaclass=Plugin):
             while True:
                 message = await subscription.receive()
                 with o:
-                    o.append_stdout("Received: {} {}\n".format(message.topic, message.contents))
+                    o.append_stdout("Received: {} {}\n".format(message.topic, message.body))
 
         self.output_task = asyncio.create_task(output_task(out))
 

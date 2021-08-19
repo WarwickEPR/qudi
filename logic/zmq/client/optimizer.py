@@ -2,6 +2,7 @@ from .QudiControl import QudiClient
 import PIL.Image
 import IPython.display
 
+
 class Optimizer(QudiClient):
 
     name = "optimizer"

@@ -1,13 +1,14 @@
-from logic.zmq.handler import MessageHandlerBase
+from . base import ZmqProxy
 from core.connector import Connector
 from logic.optimizer_logic import OptimizerLogic
 from logic.zmq.message import PubMessage
-import logging
 
 
-class OptimizerProxy(MessageHandlerBase):
+class OptimizerProxy(ZmqProxy):
 
-    optimizer = Connector(interface=OptimizerLogic)
+    frontend = Connector(interface='ZmqFrontend')
+    optimizer = Connector(interface='OptimizerLogic')
+
     data_fields = {'xy_data': 'refocus_image',
                    'z_data': 'refocus_z_line',
                    'z_fit_line': 'z_fit_data',
@@ -23,13 +24,18 @@ class OptimizerProxy(MessageHandlerBase):
                    'z': 'optim_pos_z',
                    'z_sigma': 'optim_sigma_z'}
 
-    def __init__(self, reply_router, channel, message):
-        super().__init__(reply_router, channel, message)
-        self.log = logging.getLogger('logic.zmq.' + channel)
+    def __init__(self, config, **kwargs):
+        super().__init__(config=config, **kwargs)
+
+    def on_activate(self):
         # get hold of a handle to optimizer_logic, load if necessary
         # subscribe to key events, emit a message when done
+        super().on_activate()
         self.optimizer().sigRefocusFinished.connect(self.emit_refocused)
-        self.handler = getattr(self, "handle_" + self.message.f, "handle_unimplemented")
+
+    def on_deactivate(self):
+        self.optimizer().sigRefocusFinished.disconnect(self.emit_refocused)
+        super().on_deactivate()
 
     def handle_refocus(self, msg={}):
         # call optimizer to start refocus
@@ -50,8 +56,8 @@ class OptimizerProxy(MessageHandlerBase):
                 data[a] = v
             except AttributeError as e:
                 pass
-        self.notify(PubMessage(topic='optimizer.data', contents=data))
+        self.notify(PubMessage(topic='optimizer.data', body=data))
 
     def emit_refocused(self, caller_tag, position):
-        self.notify(PubMessage(topic='optimizer.refocused', contents=position))
+        self.notify(PubMessage(topic='optimizer.refocused', body=position))
         self.emit_data()
