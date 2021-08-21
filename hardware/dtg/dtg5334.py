@@ -25,7 +25,7 @@ from collections import OrderedDict
 import numpy as np
 import os
 import time
-import visa
+import pyvisa as visa
 from core.util.helpers import natural_sort
 
 from interface.pulser_interface import PulserInterface, PulserConstraints, SequenceOption

@@ -23,7 +23,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 import os
 import time
-import visa
+import pyvisa as visa
 import numpy as np
 
 from collections import OrderedDict

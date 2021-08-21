@@ -23,7 +23,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 from core.module import Base
 from core.configoption import ConfigOption
-import visa
+import pyvisa as visa
 
 class EdwardsVacuumController(Base):
     """ This module implements communication with Edwards turbopump and vacuum

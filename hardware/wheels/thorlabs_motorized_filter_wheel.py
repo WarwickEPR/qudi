@@ -17,7 +17,7 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
 
-import visa
+import pyvisa as visa
 from core.module import Base
 from core.configoption import ConfigOption
 

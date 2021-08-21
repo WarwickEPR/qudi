@@ -26,7 +26,7 @@ from interface.simple_laser_interface import ControlMode
 from interface.simple_laser_interface import ShutterState
 from interface.simple_laser_interface import LaserState
 from enum import Enum
-import visa
+import pyvisa as visa
 
 
 class Models(Enum):
