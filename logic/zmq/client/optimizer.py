@@ -90,7 +90,6 @@ class Refocus:
                 self.fig = fig
                 self.axs = axs
 
-
 class Optimizer(QudiClient):
 
     name = "optimizer"

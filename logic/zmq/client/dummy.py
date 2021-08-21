@@ -11,5 +11,5 @@ class Dummy(QudiClient):
     async def echo(self, x):
         await self.send_command('echo', body=x)
         reply = await self.receive_message()
-        return reply.contents
+        return reply.body
 

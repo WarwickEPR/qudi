@@ -31,8 +31,8 @@ class Subscription:
         self.socket.close(linger=500)
 
     async def receive(self):
-        topic, contents = await self.socket.recv_multipart()
-        return PubMessage(frames=(topic, contents))
+        topic, body = await self.socket.recv_multipart()
+        return PubMessage(frames=(topic, body))
 
 
 # holder for a running background Task and an associated cancellation button
@@ -134,6 +134,7 @@ class QudiClient(metaclass=Plugin):
         self.control_socket = control_socket
         self.notifier_socket = None
         self.output_task = None
+        self.log = logging.getLogger('client.' + str(self.__class__.__name__))
 
     def subscribe(self, topics=None):
         if not topics:
@@ -145,14 +146,10 @@ class QudiClient(metaclass=Plugin):
     def subscribe_all(self):
         return Subscription(self.ctx, self.pub_uri, None)
 
-    async def send_command(self, instruction, body=''):
-        m = Message(channel=self.channel, f=instruction, contents=body)
-        self.log.debug("Sending command {}".format(instruction))
-        await self.control_socket.send_multipart(m.encoded_with_envelope())
-
-    async def send_control_command(self, instruction, body=''):
-        m = Message(channel='control', f=instruction, contents=body)
-        await self.control_socket.send_multipart(m.encoded_with_envelope())
+    async def send_command(self, instruction, body):
+        m = Message(channel=self.channel, f=instruction, body=body)
+        self.log.debug("Sending: {}".format(m))
+        await self.control_socket.send_multipart(m.frames_to_qudi())
 
     # run in background and wrap output with a button for cancellation
     def bg(self, coroutine, output_area):
@@ -179,8 +176,23 @@ class QudiClient(metaclass=Plugin):
 
     async def receive_message(self):
         reply = await self.control_socket.recv_multipart()
-        message = Message(frames=reply)
+        message = Message.client_from_frontend(frames=reply)
+        self.log.debug("Receiving: {}".format(message))
         return message
 
     async def broadcast(self, message):
         await self.send_command('broadcast', message)
+
+    async def display_notifications(self, subscription):
+
+        out = widgets.Output(layout={'border': '1px solid black'})
+        display(out)
+
+        async def output_task(o):
+            while True:
+                message = await subscription.receive()
+                with o:
+                    o.append_stdout("Received: {} {}\n".format(message.topic, message.body))
+
+        self.output_task = asyncio.create_task(output_task(out))
+

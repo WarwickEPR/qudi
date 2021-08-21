@@ -1,14 +1,14 @@
-from logic.zmq.handler import MessageHandlerBase
+from . base import ZmqProxy
 from core.connector import Connector
 from logic.optimizer_logic import OptimizerLogic
 from logic.confocal_logic import ConfocalLogic
 from logic.zmq.message import PubMessage
-import PyQt5.QtCore as QtCore
-import logging
-from .. message import Message
 
 
-class OptimizerProxy(MessageHandlerBase):
+class OptimizerProxy(ZmqProxy):
+
+    frontend = Connector(interface='ZmqFrontend')
+    optimizer = Connector(interface='OptimizerLogic')
 
     optimizer = Connector(interface=OptimizerLogic)
     scanner = Connector(interface=ConfocalLogic)
@@ -29,13 +29,18 @@ class OptimizerProxy(MessageHandlerBase):
                    'z': 'optim_pos_z',
                    'z_sigma': 'optim_sigma_z'}
 
-    def __init__(self, reply_router, channel):
-        super().__init__(reply_router, channel)
-        self.log = logging.getLogger('logic.zmq.' + channel)
+    def __init__(self, config, **kwargs):
+        super().__init__(config=config, **kwargs)
+
+    def on_activate(self):
         # get hold of a handle to optimizer_logic, load if necessary
         # subscribe to key events, emit a message when done
-        self.optimizer().sigRefocusFinished.connect(self.refocused, QtCore.Qt.QueuedConnection)
-        self.log.debug("Started zmq optimization handler")
+        super().on_activate()
+        self.optimizer().sigRefocusFinished.connect(self.emit_refocused)
+
+    def on_deactivate(self):
+        self.optimizer().sigRefocusFinished.disconnect(self.emit_refocused)
+        super().on_deactivate()
 
     def handle_refocus(self, msg: Message):
         # call optimizer to start refocus
@@ -60,11 +65,8 @@ class OptimizerProxy(MessageHandlerBase):
                 data[a] = v
             except AttributeError as e:
                 pass
-        self.notify(PubMessage(topic='optimizer.data', contents=data))
+        self.notify(PubMessage(topic='optimizer.data', body=data))
 
-    @QtCore.pyqtSlot(str, list)
-    def refocused(self, caller_tag: str, position: list):
-        self.log.info("Refocused to {}".format(position))
-        self.scanner().set_position(tag=caller_tag, x=position[0], y=position[1], z=position[2])
-        self.notify(PubMessage(topic='optimizer.refocused', contents=position))
+    def emit_refocused(self, caller_tag, position):
+        self.notify(PubMessage(topic='optimizer.refocused', body=position))
         self.emit_data()
