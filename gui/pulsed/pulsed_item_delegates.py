@@ -26,7 +26,7 @@ from gui.pulsed.pulsed_custom_widgets import MultipleCheckboxWidget, AnalogParam
 from qtwidgets.scientific_spinbox import ScienDSpinBox
 
 
-class CheckBoxItemDelegate(QtGui.QStyledItemDelegate):
+class CheckBoxItemDelegate(QtWidgets.QStyledItemDelegate):
     """
     """
     editingFinished = QtCore.Signal()
@@ -43,8 +43,8 @@ class CheckBoxItemDelegate(QtGui.QStyledItemDelegate):
         """
         Create for the display and interaction with the user an editor.
 
-        @param QtGui.QWidget parent: The parent object (probably QTableView)
-        @param QtGui.QStyleOptionViewItemV4 option: This is a setting option which you can use for
+        @param QtWidgets.QWidget parent: The parent object (probably QTableView)
+        @param QtWidgets.QStyleOptionViewItemV4 option: This is a setting option which you can use for
                                                     style configuration.
         @param QtCore.QModelIndex index: That index will be passed by the model object of the
                                          QTableView to the delegated object. This index contains
@@ -124,7 +124,7 @@ class CheckBoxItemDelegate(QtGui.QStyledItemDelegate):
         painter.restore()
 
 
-class SpinBoxItemDelegate(QtGui.QStyledItemDelegate):
+class SpinBoxItemDelegate(QtWidgets.QStyledItemDelegate):
     """
     """
     editingFinished = QtCore.Signal()
@@ -147,8 +147,8 @@ class SpinBoxItemDelegate(QtGui.QStyledItemDelegate):
         """
         Create for the display and interaction with the user an editor.
 
-        @param QtGui.QWidget parent: The parent object (probably QTableView)
-        @param QtGui.QStyleOptionViewItemV4 option: This is a setting option which you can use for
+        @param QtWidgets.QWidget parent: The parent object (probably QTableView)
+        @param QtWidgets.QStyleOptionViewItemV4 option: This is a setting option which you can use for
                                                     style configuration.
         @param QtCore.QModelIndex index: That index will be passed by the model object of the
                                          QTableView to the delegated object. This index contains
@@ -164,7 +164,7 @@ class SpinBoxItemDelegate(QtGui.QStyledItemDelegate):
         of QStyledItemDelegate takes care of closing and destroying the editor for you, if it is not
         needed any longer.
         """
-        editor = QtGui.QSpinBox(parent=parent)
+        editor = QtWidgets.QSpinBox(parent=parent)
         if 'min' in self.item_dict:
             editor.setMinimum(self.item_dict['min'])
         if 'max' in self.item_dict:
@@ -227,7 +227,7 @@ class SpinBoxItemDelegate(QtGui.QStyledItemDelegate):
         painter.save()
         r = option.rect
         painter.translate(r.topLeft())
-        widget = QtGui.QSpinBox()
+        widget = QtWidgets.QSpinBox()
         if 'min' in self.item_dict:
             widget.setMinimum(self.item_dict['min'])
         if 'max' in self.item_dict:
@@ -240,7 +240,7 @@ class SpinBoxItemDelegate(QtGui.QStyledItemDelegate):
         painter.restore()
 
 
-class ScienDSpinBoxItemDelegate(QtGui.QStyledItemDelegate):
+class ScienDSpinBoxItemDelegate(QtWidgets.QStyledItemDelegate):
     """
     """
     editingFinished = QtCore.Signal()
@@ -262,8 +262,8 @@ class ScienDSpinBoxItemDelegate(QtGui.QStyledItemDelegate):
         """
         Create for the display and interaction with the user an editor.
 
-        @param QtGui.QWidget parent: The parent object (probably QTableView)
-        @param QtGui.QStyleOptionViewItemV4 option: This is a setting option which you can use for
+        @param QtWidgets.QWidget parent: The parent object (probably QTableView)
+        @param QtWidgets.QStyleOptionViewItemV4 option: This is a setting option which you can use for
                                                     style configuration.
         @param QtCore.QModelIndex index: That index will be passed by the model object of the
                                          QTableView to the delegated object. This index contains
@@ -355,7 +355,7 @@ class ScienDSpinBoxItemDelegate(QtGui.QStyledItemDelegate):
         painter.restore()
 
 
-class ComboBoxItemDelegate(QtGui.QStyledItemDelegate):
+class ComboBoxItemDelegate(QtWidgets.QStyledItemDelegate):
     """
     """
     editingFinished = QtCore.Signal()
@@ -372,8 +372,8 @@ class ComboBoxItemDelegate(QtGui.QStyledItemDelegate):
         """
         Create for the display and interaction with the user an editor.
 
-        @param QtGui.QWidget parent: The parent object (probably QTableView)
-        @param QtGui.QStyleOptionViewItemV4 option: This is a setting option which you can use for
+        @param QtWidgets.QWidget parent: The parent object (probably QTableView)
+        @param QtWidgets.QStyleOptionViewItemV4 option: This is a setting option which you can use for
                                                     style configuration.
         @param QtCore.QModelIndex index: That index will be passed by the model object of the
                                          QTableView to the delegated object. This index contains
@@ -388,7 +388,7 @@ class ComboBoxItemDelegate(QtGui.QStyledItemDelegate):
         of QStyledItemDelegate takes care of closing and destroying the editor for you, if it is not
         needed any longer.
         """
-        widget = QtGui.QComboBox(parent)
+        widget = QtWidgets.QComboBox(parent)
         widget.addItems(self._item_list)
         widget.setGeometry(option.rect)
         widget.currentIndexChanged.connect(self.commitAndCloseEditor)
@@ -441,14 +441,14 @@ class ComboBoxItemDelegate(QtGui.QStyledItemDelegate):
         painter.save()
         r = option.rect
         painter.translate(r.topLeft())
-        widget = QtGui.QComboBox()
+        widget = QtWidgets.QComboBox()
         widget.addItem(index.data(self._access_role))
         widget.setGeometry(r)
         widget.render(painter)
         painter.restore()
 
 
-class MultipleCheckboxItemDelegate(QtGui.QStyledItemDelegate):
+class MultipleCheckboxItemDelegate(QtWidgets.QStyledItemDelegate):
     """
     """
     editingFinished = QtCore.Signal()
@@ -464,8 +464,8 @@ class MultipleCheckboxItemDelegate(QtGui.QStyledItemDelegate):
         """
         Create for the display and interaction with the user an editor.
 
-        @param QtGui.QWidget parent: The parent object, here QTableWidget
-        @param QtGui.QStyleOptionViewItemV4 option: This is a setting option which you can use
+        @param QtWidgets.QWidget parent: The parent object, here QTableWidget
+        @param QtWidgets.QStyleOptionViewItemV4 option: This is a setting option which you can use
                                                     for style configuration.
         @param QtCore.QModelIndex index: That index will be passed by the model object of the
                                          QTableWidget to the delegated object. This index contains
@@ -540,7 +540,7 @@ class MultipleCheckboxItemDelegate(QtGui.QStyledItemDelegate):
         painter.restore()
 
 
-class AnalogParametersItemDelegate(QtGui.QStyledItemDelegate):
+class AnalogParametersItemDelegate(QtWidgets.QStyledItemDelegate):
     """
     """
     editingFinished = QtCore.Signal()
@@ -556,8 +556,8 @@ class AnalogParametersItemDelegate(QtGui.QStyledItemDelegate):
         """
         Create for the display and interaction with the user an editor.
 
-        @param QtGui.QWidget parent: The parent object, here QTableWidget
-        @param QtGui.QStyleOptionViewItemV4 option: This is a setting option which you can use
+        @param QtWidgets.QWidget parent: The parent object, here QTableWidget
+        @param QtWidgets.QStyleOptionViewItemV4 option: This is a setting option which you can use
                                                     for style configuration.
         @param QtCore.QModelIndex index: That index will be passed by the model object of the
                                          QTableWidget to the delegated object. This index contains

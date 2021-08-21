@@ -495,23 +495,23 @@ class ConfocalGui(GUIBase):
         self._scanning_logic.sigImageDepthInitialized.connect(self.adjust_depth_window)
 
         # Connect the signal from the logic with an update of the cursor position
-        self._scanning_logic.signal_change_position.connect(self.update_crosshair_position_from_logic)
+        self._scanning_logic.signal_change_position.connect(self.update_crosshair_position_from_logic, QtCore.Qt.QueuedConnection)
 
         # Connect other signals from the logic with an update of the gui
 
-        self._scanning_logic.signal_start_scanning.connect(self.logic_started_scanning)
-        self._scanning_logic.signal_save_started.connect(self.logic_started_save)
-        self._scanning_logic.signal_xy_data_saved.connect(self.logic_finished_save)
-        self._scanning_logic.signal_depth_data_saved.connect(self.logic_finished_save)
-        self._scanning_logic.signal_continue_scanning.connect(self.logic_continued_scanning)
-        self._optimizer_logic.sigRefocusStarted.connect(self.logic_started_refocus)
+        self._scanning_logic.signal_start_scanning.connect(self.logic_started_scanning, QtCore.Qt.QueuedConnection)
+        self._scanning_logic.signal_save_started.connect(self.logic_started_save, QtCore.Qt.QueuedConnection)
+        self._scanning_logic.signal_xy_data_saved.connect(self.logic_finished_save, QtCore.Qt.QueuedConnection)
+        self._scanning_logic.signal_depth_data_saved.connect(self.logic_finished_save, QtCore.Qt.QueuedConnection)
+        self._scanning_logic.signal_continue_scanning.connect(self.logic_continued_scanning, QtCore.Qt.QueuedConnection)
+        self._optimizer_logic.sigRefocusStarted.connect(self.logic_started_refocus, QtCore.Qt.QueuedConnection)
         # self._scanning_logic.signal_stop_scanning.connect()
 
         # Connect the tracker
-        self.sigStartOptimizer.connect(self._optimizer_logic.start_refocus)
-        self._optimizer_logic.sigRefocusFinished.connect(self._refocus_finished_wrapper)
-        self._optimizer_logic.sigRefocusXySizeChanged.connect(self.update_roi_xy_size)
-        self._optimizer_logic.sigRefocusZSizeChanged.connect(self.update_roi_depth_size)
+        self.sigStartOptimizer.connect(self._optimizer_logic.start_refocus, QtCore.Qt.QueuedConnection)
+        self._optimizer_logic.sigRefocusFinished.connect(self._refocus_finished_wrapper, QtCore.Qt.QueuedConnection)
+        self._optimizer_logic.sigRefocusXySizeChanged.connect(self.update_roi_xy_size, QtCore.Qt.QueuedConnection)
+        self._optimizer_logic.sigRefocusZSizeChanged.connect(self.update_roi_depth_size, QtCore.Qt.QueuedConnection)
 
         # Connect the 'File' Menu dialog and the Settings window in confocal
         # with the methods:
