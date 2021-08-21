@@ -18,8 +18,10 @@ class Message:
 
     SEP = b''
 
-    def __init__(self, frames=None, envelope=None, channel="", f="", contents=None):
-        self.envelope = None
+    def __init__(self, frames=None, envelope=None, channel=None, f=None, contents=None):
+        self.channel = ''
+        self.f = ''
+        self.contents = ''
 
         if frames is not None:
             # from the wire
@@ -31,9 +33,6 @@ class Message:
             elif len(frames) == 4:
                 # i.e. outbound from router, envelope stripped
                 (_, channel, f, contents) = frames
-#            elif len(frames) == 3:
-#                # no envelope
-#                (channel, f, contents) = frames
             else:
                 raise InvalidMessage(frames)
 
@@ -44,9 +43,12 @@ class Message:
         else:
             # from parameters
             self.envelope = envelope
-            self.channel = channel
-            self.f = f
-            self.contents = contents
+            if channel is not None:
+                self.channel = channel
+            if f is not None:
+                self.f = f
+            if contents is not None:
+                self.contents = contents
 
     def __str__(self):
         return 'Message(envelope={}, channel={}, f={}) with {} bytes of contents'\
@@ -64,20 +66,23 @@ class Message:
 
 class PubMessage:
 
-    def __init__(self, frames=None, topic="", contents=None):
+    def __init__(self, frames=None, topic='', body=None):
         # PyZMQ doesn't seem to support multipart pub-sub
         # revert to encoding in one message of two frames
 
+        self.body = ''
+
         if frames is not None:
             # from wire.
-            topic, contents = frames
+            topic, body = frames
             self.topic = from_bytes(topic)
-            self.contents = pickle.loads(contents)
+            self.body = pickle.loads(body)
 
         else:
             # from params
             self.topic = topic
-            self.contents = contents
+            if body is not None:
+                self.body = body
 
     def __str__(self):
         return 'PubMessage(topic={}:{}) with {} bytes of contents'.format(self.topic, len(self.contents))

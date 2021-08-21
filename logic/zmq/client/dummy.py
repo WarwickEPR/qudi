@@ -9,7 +9,7 @@ class Dummy(QudiClient):
         super().__init__(*args, **kwargs)
 
     async def echo(self, x):
-        await self.send_command('echo', x)
+        await self.send_command('echo', body=x)
         reply = await self.receive_message()
         return reply.contents
 

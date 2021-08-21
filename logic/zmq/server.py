@@ -7,7 +7,7 @@ from core.configoption import ConfigOption
 from logic.zmq.message import Message, InvalidMessage
 import logging
 
-LINGER_TIME = 100
+LINGER_TIME = 0
 
 
 class ZMQServer(QtCore.QThread):
@@ -28,9 +28,10 @@ class ZMQServer(QtCore.QThread):
 
     #   * a notification service shared by all channels which can be filtered by topic/channel
     #     built from PUB <- (XSUB : XPUB) -> SUB
-    #     - the (XSUB : PUB) part is just a proxy that allows all publishers and subscribers to contact a
+    #     - the (XSUB : XPUB) part is just a proxy that allows all publishers and subscribers to contact a
     #       central service, however many are created. If each had their own PUB socket, each would need a TCP port.
-    #     - PyZMQ doesn't seem to support multipart PUB-SUB so each message is encoded in one frame
+    #     - PyZMQ doesn't seem to support multipart PUB-SUB messages so each message is encoded into one frame
+    #       preceded by a topic frame
     #
     # Typical use example would be for a client to send a control message over DEALER-ROUTER to initiate a measurement.
     # The client may assumes it's started or wait for confirmation. Then it waits for a notifications over the PUB-SUB
@@ -121,7 +122,6 @@ class ZMQServer(QtCore.QThread):
                 self.capture.close()
 
     # ZMQPubCapture starts a thread to capture the proxied frames e.g. for logging
-    # If this is
 
     class ZMQPubCapture(QtCore.QThread):
 
@@ -141,7 +141,7 @@ class ZMQServer(QtCore.QThread):
             try:
                 while not self.isInterruptionRequested():
                     message = self.capture.recv_multipart()
-                    self.log.debug('Forwarding broadcast: {}'.format(message))
+                    self.log.debug('Forwarding notification: {}'.format(message[0]))
             except zmq.error.ContextTerminated:
                 self.log.debug("ZMQ Context terminated.")
             except zmq.error.ZMQError as e:
@@ -214,9 +214,7 @@ class ZMQServer(QtCore.QThread):
 
                 try:
                     # block until something comes in
-                    self.log.debug("Waiting for activity on any ZMQ socket")
-                    waiting_sockets = self.poller.poll()
-                    self.log.debug("Returned from ZMQ poll: {}".format(waiting_sockets))
+                    waiting_sockets = self.poller.poll(100)
                     waiting_sockets = dict(waiting_sockets)
 
                     # first see if any new handlers have been in touch
@@ -227,7 +225,6 @@ class ZMQServer(QtCore.QThread):
 
                     # then check for activity from the handlers, have they started up?
                     for handler_name, socket in self.handler_socket.items():
-                        self.log.debug("Checking for handler {}".format(handler_name))
                         if socket in waiting_sockets:
                             self.log.debug("Receiving on handler socket")
                             message = socket.recv_multipart()
@@ -250,8 +247,10 @@ class ZMQServer(QtCore.QThread):
                                 elif m.f == 'stopped':
                                     self.log.debug("Handler for {} stopped, closing socket".format(handler_name))
                                     self.handler_started[handler_name] = False
-                                    self.handler_socket[handler_name].close()
-                                    self.handler_socket[handler_name].unbind()
+                                    if handler_name in self.handler_socket:
+                                        self.handler_socket[handler_name].close()
+                                        self.poller.unregister(self.handler_socket[handler_name])
+                                        self.handler_socket[handler_name].unbind()
 
                             else:
                                 self.log.debug("Sending message out to client via router {}".format(m))
@@ -300,15 +299,18 @@ class ZMQServer(QtCore.QThread):
         self.pub_pump.requestInterruption()
         if self.pub_capture is not None:
             self.pub_capture.requestInterruption()
-        self.control_router.close()
-        self.discovery.close()
-        for s in self.handler_socket.values():
+        for s in list(self.handler_socket.values()) + [self.control_router, self.discovery]:
             s.close()
+            self.poller.unregister(s)
 
     def _register_handler(self, channel):
         # could use ROUTER-DEALER if multiple handler threads are needed
         # but the work in each handler should be minimal and asynchronous
         # so unless concurrent handling becomes necessary use 1:1 PAIR-PAIR sockets
+        if channel in self.handler_socket and not self.handler_socket[channel].closed:
+            self.log.debug("Closing and unregistering PAIR connection with {}".format(channel))
+            self.handler_socket[channel].close()
+            self.poller.unregister(self.handler_socket[channel])
         handler_socket = self.ctx.socket(zmq.PAIR)
         handler_socket.setsockopt(zmq.LINGER, LINGER_TIME)
         for i in range(1, 5):

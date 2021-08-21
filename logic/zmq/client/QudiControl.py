@@ -2,6 +2,7 @@ import zmq
 import asyncio
 import zmq.asyncio
 from logic.zmq.message import Message, PubMessage
+import functools
 import logging
 
 from IPython.display import display
@@ -16,14 +17,12 @@ class Subscription:
         try:
             self.socket.connect(publisher)
             if not topics:
-                self.log.info("Subscribing to all")
+                self.log.debug("Subscribing to all")
                 self.socket.subscribe('')
-                self.socket.setsockopt_string(zmq.SUBSCRIBE, '')
             else:
                 for topic in topics:
-                    self.log.info("Subscribing to {}".format(topic))
+                    self.log.debug("Subscribing to {}".format(topic))
                     self.socket.subscribe(topic)
-                    self.socket.setsockopt_string(zmq.SUBSCRIBE, topic)
         except zmq.ZMQError as e:
             self.log.error("Failed to subscribe to {}: {}".format(topics, e))
 
@@ -34,6 +33,35 @@ class Subscription:
     async def receive(self):
         topic, contents = await self.socket.recv_multipart()
         return PubMessage(frames=(topic, contents))
+
+
+# holder for a running background Task and an associated cancellation button
+
+class BgTask:
+
+    log = logging.getLogger('core.bg')
+
+    def __init__(self, coroutine, on_done=None):
+        self.log.debug("Scheduling coroutine {} as task".format(coroutine))
+        self.task = asyncio.create_task(coroutine)
+        if on_done is not None:
+            self.task.add_done_callback(on_done)
+        self.cancel_button = widgets.Button(description='',
+                                            disabled=False,
+                                            button_style='',
+                                            tooltip='Stop',
+                                            icon='window-close')
+        self.cancel_button.style.button_color = 'transparent'
+
+        def cancel(btn):
+            self.task.cancel()
+            self.cancel_button.disabled = True
+
+        self.cancel_button.on_click(cancel)
+
+    def add_cancel_button(self, out):
+        return widgets.HBox(children=[out, self.cancel_button],
+                            layout=widgets.Layout(display='flex', justify_content='space-between'))
 
 
 # The interface for users to use
@@ -54,6 +82,7 @@ class QudiControl:
         self.pub_port = pub_port
         self.control_uri = 'tcp://{}:{}'.format(hostname, control_port)
         self.pub_uri = 'tcp://{}:{}'.format(hostname, pub_port)
+        self.control = self.connect('control')
 
     @classmethod
     def register(cls, name, client):
@@ -73,6 +102,15 @@ class QudiControl:
         else:
             return QudiClient(self.ctx, self.pub_uri, channel, control)
 
+    async def start_logic_modules(self, modules):
+        start_commands = map(self.control.start_logic_module, modules)
+        await asyncio.gather(*start_commands)
+
+    # convenience method
+    def display_all_notifications(self):
+        s = self.control.subscribe_all()
+        self.control.display_notifications(s)
+
 
 class Plugin(type):
     def __new__(mcs, name, bases, class_dict):
@@ -86,6 +124,8 @@ class Plugin(type):
 class QudiClient(metaclass=Plugin):
 
     name = ""
+    tasks = []
+    log = logging.getLogger('core.qudiclient')
 
     def __init__(self, ctx, pub_uri, channel, control_socket):
         self.ctx = ctx
@@ -95,14 +135,47 @@ class QudiClient(metaclass=Plugin):
         self.notifier_socket = None
         self.output_task = None
 
-    def subscribe(self, topics=[]):
-        if isinstance(topics, str):
+    def subscribe(self, topics=None):
+        if not topics:
+            topics = [self.channel]
+        elif isinstance(topics, str):
             topics = [topics]
         return Subscription(self.ctx, self.pub_uri, topics)
 
-    async def send_command(self, instruction, body):
+    def subscribe_all(self):
+        return Subscription(self.ctx, self.pub_uri, None)
+
+    async def send_command(self, instruction, body=''):
         m = Message(channel=self.channel, f=instruction, contents=body)
+        self.log.debug("Sending command {}".format(instruction))
         await self.control_socket.send_multipart(m.encoded_with_envelope())
+
+    async def send_control_command(self, instruction, body=''):
+        m = Message(channel='control', f=instruction, contents=body)
+        await self.control_socket.send_multipart(m.encoded_with_envelope())
+
+    # run in background and wrap output with a button for cancellation
+    def bg(self, coroutine, output_area):
+        t = BgTask(coroutine)
+        self.tasks.append(t)  # keep a handle to it
+        layout = t.add_cancel_button(output_area)
+        return layout
+
+    def display_notifications(self, subscription):
+        out = widgets.Output(layout={'border': '1px solid grey', 'width': '60%', 'height': '100px'})
+        c = self._output_notifications(subscription, out)
+        out = self.bg(c, out)
+        display(out)
+
+    @staticmethod
+    async def _output_notifications(subscription, out):
+        while True:
+            message = await subscription.receive()
+            with out:
+                out.append_stdout("Received: {} {}\n".format(message.topic, message.contents))
+
+    async def start_logic_module(self, module):
+        await self.send_control_command('start_logic_module', module)
 
     async def receive_message(self):
         reply = await self.control_socket.recv_multipart()
@@ -111,18 +184,3 @@ class QudiClient(metaclass=Plugin):
 
     async def broadcast(self, message):
         await self.send_command('broadcast', message)
-
-    async def display_notifications(self, subscription):
-
-        out = widgets.Output(layout={'border': '1px solid black'})
-        display(out)
-
-        async def output_task(o):
-            while True:
-                message = await subscription.receive()
-                with o:
-                    o.append_stdout("Received: {} {}\n".format(message.topic, message.contents))
-
-        self.output_task = asyncio.create_task(output_task(out))
-
-

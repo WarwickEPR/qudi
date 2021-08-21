@@ -1,4 +1,6 @@
 import zmq
+from PyQt5.QtCore import QEventLoop
+
 from logic.generic_logic import GenericLogic
 from core.connector import Connector
 from core.configoption import ConfigOption
@@ -10,11 +12,11 @@ import logging
 import time
 from logic.zmq.message import Message, PubMessage
 
-LINGER_TIME = 100
+LINGER_TIME = 0
 
 
 # Base for all message handlers
-class MessageHandlerBase:
+class MessageHandlerBase(QtCore.QObject):
 
     # avoid all the complications from the metaclass shenanigans
     # just let the handler declare what it needs and proxy_handler can peek in to ensure they're made available
@@ -25,54 +27,53 @@ class MessageHandlerBase:
     # hides the message delivery structure from the handler
     # responses are valid as long as the ZMQ context isn't reset
     # (although the other party might go away silently in the meantime)
-    def __init__(self, reply_router, channel, message):
+    def __init__(self, reply_router, channel):
+        super().__init__()
         self.reply_router = reply_router
         self.channel = channel
-        self.message = message
         self.log = logging.getLogger('logic.zmq.' + channel)
-        self.handler_fn = getattr(self, "handle_" + self.message.f, "handle_unimplemented")
 
-    def handle(self):
+    def handle(self, message: Message):
         # find handler function, if available, and call
-        self.handler_fn()
+        handler_fn = getattr(self, "handle_" + message.f, "handle_unimplemented")
+        handler_fn(message)
 
-    def handle_unimplemented(self, msg):
-        self.log.warning("handle_{} not implemented by {}".format(self.f, type(self)))
+    def handle_unimplemented(self, msg: Message):
+        self.log.warning("handle_{} not implemented by {}".format(msg.f, type(self)))
 
-    def handle_echo(self):
-        self.log.debug("Echoing: {}".format(self.message.contents))
-        self.reply(self.create_message())
+    def handle_echo(self, msg: Message):
+        self.log.debug("Echoing: {}".format(msg.contents))
+        self.reply(msg, contents=msg.contents)
 
-    def handle_broadcast(self):
-        self.log.debug("Broadcasting: {}".format(self.message))
+    def handle_broadcast(self, msg: Message):
+        self.log.debug("Broadcasting: {}".format(msg))
         self.notify(self.create_notification_message())
 
-    def create_message(self, channel=None, f=None, contents=None):
+    def reply(self, msg: Message, channel=None, f=None, contents=None):
+
+        if not msg and msg.envelope:
+            self.log.error("Can't reply without a message to reply to")
+            return
+
         if channel is None:
             channel = self.channel
+
         if f is None:
-            f = self.message.f
-        if contents is None:
-            contents = self.message.contents
-        return Message(envelope=self.message.envelope, channel=channel, f=f, contents=contents)
+            f = msg.f
+
+        reply = Message(envelope=msg.envelope, channel=channel, f=f, contents=contents)
+        self.reply_router.reply(reply)
 
     def create_notification_message(self, topic=None, contents=None):
         if topic is None:
             topic = self.channel
-        if contents is None:
-            contents = self.message.contents
         return PubMessage(topic=topic, contents=contents)
 
-    def reply(self, message: Message):
-        if not message.f:
-            message.f = self.f
-        self.reply_router.reply(message)
+    def reply_okay(self, msg: Message, contents=None):
+        self.reply(Message(f="OK", envelope=msg.envelope, contents=contents))
 
-    def reply_okay(self, contents=None):
-        self.reply(Message(f="OK", contents=contents))
-
-    def reply_failed(self, contents=None):
-        self.reply(Message(f="FAIL", contents=contents))
+    def reply_failed(self, msg: Message, contents=None):
+        self.reply(Message(f="FAIL", envelope=msg.envelope, contents=contents))
 
     def notify(self, message: PubMessage):
         if message.topic is None:
@@ -105,21 +106,25 @@ class MessageHandlerLoop(QtCore.QThread):
         self.control.send_multipart(Message(envelope=b'control', f='started').encoded_with_envelope())
 
         try:
+
+            # instantiate an instance of the message handler type
+            mh = self.message_handler_type(self, self.channel)
+
             # loop doing non-blocking recv and potentially emitting messages via a callback
             while not self.isInterruptionRequested():
-                # just block until something comes in
-                waiting = dict(self.poller.poll())
+                # let the event loop in by looping with a timeout of 0.1 s
+                waiting = dict(self.poller.poll(100))
+                self.eventDispatcher().processEvents(QEventLoop.AllEvents)
 
                 if self.control in waiting:
                     # get message, unpack and dispatch
                     message = Message(frames=self.control.recv_multipart())
-                    # instantiate an instance of the message handler type
-                    mh = self.message_handler_type(self, self.channel, message)
                     self.log.debug("Sending message to {}".format(mh))
-                    mh.handle()
+                    mh.handle(message)
 
         except zmq.error.ContextTerminated:
             self.log.debug("ZMQ context terminated")
+            return
 
         except zmq.error.ZMQError as e:
             if e.errno == zmq.ENOTSOCK:
@@ -130,6 +135,7 @@ class MessageHandlerLoop(QtCore.QThread):
 
         try:
             self.control.send_multipart(Message(envelope=b'control', f='stopped').encoded_with_envelope())
+            time.sleep(1) # give the other end a chance to receive and close the far end
         except zmq.error.ZMQError as e:
             if e.errno == zmq.ENOTSOCK:
                 # this can happen if the other end and the context may be going away as well so not
@@ -138,8 +144,10 @@ class MessageHandlerLoop(QtCore.QThread):
             else:
                 raise e
 
-        self.control.close(linger=1000)
-        self.pub.close(linger=1000)
+        self.control.close()
+        self.poller.unregister(self.control)
+        self.pub.close()
+        self.poller.unregister(self.pub)
 
     # reply to client that messaged, must have client envelope
     def reply(self, message: Message):
@@ -218,5 +226,5 @@ class MessageChannel(GenericLogic):
         discovery.connect('inproc://discovery')
         self.log.debug("Connected to discovery")
         discovery.send_string(self.channel)
-        discovery.close(linger=100)
+        discovery.close()
 
