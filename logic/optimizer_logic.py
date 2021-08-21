@@ -123,11 +123,11 @@ class OptimizerLogic(GenericLogic):
         self._optimization_step = 0
 
         # Sets connections between signals and functions
-        self._sigScanNextXyLine.connect(self._refocus_xy_line, QtCore.Qt.QueuedConnection)
-        self._sigScanZLine.connect(self.do_z_optimization, QtCore.Qt.QueuedConnection)
-        self._sigCompletedXyOptimizerScan.connect(self._set_optimized_xy_from_fit, QtCore.Qt.QueuedConnection)
+        self._sigScanNextXyLine.connect(self._refocus_xy_line)
+        self._sigScanZLine.connect(self.do_z_optimization)
+        self._sigCompletedXyOptimizerScan.connect(self._set_optimized_xy_from_fit)
 
-        self._sigDoNextOptimizationStep.connect(self._do_next_optimization_step, QtCore.Qt.QueuedConnection)
+        self._sigDoNextOptimizationStep.connect(self._do_next_optimization_step)
         self._sigFinishedAllOptimizationSteps.connect(self.finish_refocus)
         self._initialize_xy_refocus_image()
         self._initialize_z_refocus_image()
