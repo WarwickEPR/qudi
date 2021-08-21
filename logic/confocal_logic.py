@@ -673,7 +673,13 @@ class ConfocalLogic(GenericLogic):
         if a is not None:
             self._current_a = a
 
-        # Checks if the scanner is still running
+        # Checks if the scanner is still running.
+        for i in range(1, 10):
+            if self.module_state() == 'locked' or self._scanning_device.module_state() == 'locked':
+                time.sleep(0.1)
+            else:
+                break
+
         if self.module_state() == 'locked' or self._scanning_device.module_state() == 'locked':
             return -1
         else:
