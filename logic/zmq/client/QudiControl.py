@@ -2,8 +2,9 @@ import zmq
 import asyncio
 import zmq.asyncio
 from logic.zmq.message import Message, PubMessage
-import functools
 import logging
+import time
+import h5py
 
 from IPython.display import display
 import ipywidgets as widgets
@@ -71,10 +72,28 @@ class QudiControl:
     channel_client = {}
     log = logging.getLogger('core.qudicontrol')
 
-    def __init__(self, hostname='127.0.0.1', control_port=7081, pub_port=7082):
+    def __init__(self, data_store=None, do_not_store=False, hostname='127.0.0.1', control_port=7081, pub_port=7082):
+
         # create an asyncio based ZMQ context
         # this will use the existing event loop
         self.ctx = zmq.asyncio.Context()
+        self.storage = None
+
+        # open an HDF storage file (unless explicitly asked not to)
+        self.session_name = 'session-' + time.strftime("%Y%m%d-%H%M%S")
+        if not do_not_store:
+            if data_store:
+                filename = data_store
+            else:
+                filename = self.session_name + '.hdf5'
+            try:
+                self.storage = h5py.File(filename, 'a', swmr_mode=True)
+                # open in SWMR mode to allow readers at same time as writing consistently
+                # allowing online processing of results from file
+            except Exception as e:
+                # Mapped from underlying HDFS but not documented
+                self.log.error("Exception opening HDF file: {}".format(e))
+                raise e
 
         # remember where we're connecting to but only make connections when requested
         self.host = hostname
@@ -109,7 +128,7 @@ class QudiControl:
     # convenience method
     def display_all_notifications(self):
         s = self.control.subscribe_all()
-        self.control.display_notifications(s)
+        return self.control.display_notifications(s)
 
 
 class Plugin(type):
@@ -146,30 +165,21 @@ class QudiClient(metaclass=Plugin):
     def subscribe_all(self):
         return Subscription(self.ctx, self.pub_uri, None)
 
-    async def send_command(self, instruction, body):
+    async def send_command(self, instruction, body=None):
         m = Message(channel=self.channel, f=instruction, body=body)
         self.log.debug("Sending: {}".format(m))
         await self.control_socket.send_multipart(m.frames_to_qudi())
 
-    # run in background and wrap output with a button for cancellation
-    def bg(self, coroutine, output_area):
-        t = BgTask(coroutine)
-        self.tasks.append(t)  # keep a handle to it
-        layout = t.add_cancel_button(output_area)
-        return layout
-
-    def display_notifications(self, subscription):
-        out = widgets.Output(layout={'border': '1px solid grey', 'width': '60%', 'height': '100px'})
-        c = self._output_notifications(subscription, out)
-        out = self.bg(c, out)
-        display(out)
+    async def send_control_command(self, instruction, body=None):
+        m = Message(channel='control', f=instruction, body=body)
+        await self.control_socket.send_multipart(m.frames_to_qudi())
 
     @staticmethod
     async def _output_notifications(subscription, out):
         while True:
             message = await subscription.receive()
             with out:
-                out.append_stdout("Received: {} {}\n".format(message.topic, message.contents))
+                out.append_stdout("Received: {} {}\n".format(message.topic, message.body))
 
     async def start_logic_module(self, module):
         await self.send_control_command('start_logic_module', module)
@@ -193,6 +203,6 @@ class QudiClient(metaclass=Plugin):
                 message = await subscription.receive()
                 with o:
                     o.append_stdout("Received: {} {}\n".format(message.topic, message.body))
-
+''
         self.output_task = asyncio.create_task(output_task(out))
 

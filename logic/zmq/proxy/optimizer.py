@@ -2,7 +2,7 @@ from . base import ZmqProxy
 from core.connector import Connector
 from logic.optimizer_logic import OptimizerLogic
 from logic.confocal_logic import ConfocalLogic
-from logic.zmq.message import PubMessage
+from logic.zmq.message import PubMessage, Message
 
 
 class OptimizerProxy(ZmqProxy):
@@ -45,17 +45,24 @@ class OptimizerProxy(ZmqProxy):
     def handle_refocus(self, msg: Message):
         # call optimizer to start refocus
         self.log.debug("Starting refocus")
-        if 'poi' in msg.contents:
+        if 'poi' in msg.body:
             self.optimizer().start_refocus(caller_tag="zmq")
         else:
             self.optimizer().start_refocus(caller_tag="zmq")
 
     def handle_setup(self, msg: Message):
-        self.optimizer().set_refocus_XY_size(msg.contents['xy_res'])
-        self.optimizer().set_refocus_Z_size(msg.contents['z_res'])
+        self.optimizer().set_refocus_XY_size(msg.body['xy_res'])
+        self.optimizer().set_refocus_Z_size(msg.body['z_res'])
 
-    def handle_pushdata(self, msg: Message):
+    def handle_pushdata(self, _):
         self.emit_data()
+
+    def handle_goto_current(self, _):
+        x = self.optimizer().optim_pos_x
+        y = self.optimizer().optim_pos_y
+        z = self.optimizer().optim_pos_z
+
+        self.scanner().set_position('zmq', x=x, y=y, z=z)
 
     def emit_data(self):
         data = {}
@@ -65,8 +72,8 @@ class OptimizerProxy(ZmqProxy):
                 data[a] = v
             except AttributeError as e:
                 pass
-        self.notify(PubMessage(topic='optimizer.data', body=data))
+        self.notify(topic='data', body=data)
 
     def emit_refocused(self, caller_tag, position):
-        self.notify(PubMessage(topic='optimizer.refocused', body=position))
+        self.notify(topic='refocused', body=position)
         self.emit_data()

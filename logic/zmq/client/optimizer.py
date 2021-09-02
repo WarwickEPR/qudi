@@ -17,10 +17,11 @@ class Refocus:
 
     log = logging.getLogger('client.optimizer')
 
-    def __init__(self, client, poi=None, lazy=False):
+    def __init__(self, client, poi=None, lazy=False, goto=True):
 
         self.client = client
         self.poi = poi
+        self.goto = goto
         self.plot_area = widgets.Output()
         self.cancel_area = widgets.Output()
         self.layout = AppLayout(center=self.plot_area, right_sidebase=self.cancel_area, pane_widths=[2, 4, 1])
@@ -35,6 +36,12 @@ class Refocus:
             self.log.debug("Refocusing")
             self.bg_task = BgTask(self._refocus())
             self.layout.right_sidebar = self.bg_task.cancel_button
+
+    async def _goto_current(self):
+        try:
+            await self.client.send_command('goto_current')
+        except Exception as e:
+            self.log.error("'Goto current' exception: {}".format(e))
 
     async def _fetch(self):
         try:
@@ -52,6 +59,8 @@ class Refocus:
             else:
                 await self.client.send_command('refocus', body='')
             await self._display()
+            if self.goto:
+                await self._goto_current()
         except Exception as e:
             self.log.error("Fetch exception: {}".format(e))
 
@@ -72,25 +81,26 @@ class Refocus:
     async def _display(self):
         s = self.client.subscribe('optimizer.data')
         data = await s.receive()
-        self.result = data.contents
+        self.result = data.body
         self.position = (self.result['x'], self.result['y'], self.result['z'])
         self.log.debug("Displaying optimizer data: {}".format(self.position))
-        if 'xy_counts' in data.contents:
+        if 'xy_counts' in data.body:
             with self.plot_area:
                 fig, axs = plt.subplots(nrows=1, ncols=2)
-                xy = data.contents['xy_counts']
+                xy = data.body['xy_counts']
                 img = xy[:, :, 3]
-                axs[0].imshow(img, cmap='magma')
+                axs[0].imshow(img, cmap='inferno')
                 axs[0].set_xlabel(r'X ($\mu m$)')
                 axs[0].set_ylabel(r'Y ($\mu m$)')
                 axs[0].set_xlim(xy[0, 0, 0])
-                axs[1].scatter(data.contents['z_position'], data.contents['z_counts'], marker='x')
-                axs[1].plot(data.contents['z_fit_position'], data.contents['z_fit'], linestyle='--')
+                axs[1].scatter(data.body['z_position'], data.body['z_counts'], marker='x')
+                axs[1].plot(data.body['z_fit_position'], data.body['z_fit'], linestyle='--')
                 plt.show(fig)
                 self.fig = fig
                 self.axs = axs
 
-class Optimizer(QudiClient):
+
+class OptimizerClient(QudiClient):
 
     name = "optimizer"
 

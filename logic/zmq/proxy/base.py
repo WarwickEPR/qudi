@@ -4,6 +4,7 @@ from core.connector import Connector
 from core.configoption import ConfigOption
 from logic.zmq.message import Message, PubMessage
 from PyQt5.QtCore import QThread, pyqtSignal, Qt, QEventLoop
+from importlib import reload
 
 
 class ZmqProxyThread(QThread):
@@ -57,7 +58,7 @@ class ZmqProxyThread(QThread):
                 # prod Qt to process signals
                 self.eventDispatcher().processEvents(QEventLoop.AllEvents)
 
-            self.log.info("{} proxy exiting")
+            self.log.info("{} proxy exiting".format(self._channel))
             poller.unregister(sock)
             sock.close()
         except zmq.ContextTerminated:
@@ -134,6 +135,10 @@ class ZmqProxy(GenericLogic):
         # | client_envelope || channel | function | body |
         # The router strips off the envelope and the client receives: | channel | function | body |
         self._reply(msg.frames_reply_from_backend())
+
+    def reply_done(self, msg: Message, body=''):
+        msg.body = body
+        self.reply(msg)
 
     def handle_unimplemented(self, msg: Message):
         self.log.warning("handle_{} not implemented by {}".format(self.f, type(self)))
