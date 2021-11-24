@@ -49,7 +49,7 @@ class PoiProxy(ZmqProxy):
             self.poimanager().add_poi(name=poi, position=[x, y, z], emit_change=False)
         [poi, x, y, z] = pois[-1]
         self.poimanager().add_poi(name=poi, position=[x, y, z], emit_change=True)
-        self.reply_done(msg)
+        self.reply_ok(msg)
 
     def handle_save_roi(self, msg: Message):
         if msg.body and 'name' in msg.body:

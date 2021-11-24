@@ -73,6 +73,7 @@ class ZmqProxyThread(QThread):
 class ZmqProxy(GenericLogic):
 
     frontend = Connector(interface='ZmqFrontend')
+    storage = Connector(interface='HdfStorage')
     channel = ConfigOption('channel', '', missing='error')
     sigReply = pyqtSignal(list)
     LINGER_TIME = 0
@@ -127,7 +128,9 @@ class ZmqProxy(GenericLogic):
         handler_fn = getattr(self, "handle_" + msg.f, "handle_unimplemented")
         handler_fn(msg)
 
-    def reply(self, msg: Message):
+    def reply(self, msg: Message, body=None):
+        if body is not None:
+            msg.body = body
         # sends to the backend router a message:
         # |function|client_envelope|body| which the router receives and prepends with |channel||
         # the application broker then decodes this, extracts client_envelope and sends via the frontend to that client
@@ -136,9 +139,8 @@ class ZmqProxy(GenericLogic):
         # The router strips off the envelope and the client receives: | channel | function | body |
         self._reply(msg.frames_reply_from_backend())
 
-    def reply_done(self, msg: Message, body=''):
-        msg.body = body
-        self.reply(msg)
+    def reply_done(self, msg: Message):
+        self.reply(msg, body='OK')
 
     def handle_unimplemented(self, msg: Message):
         self.log.warning("handle_{} not implemented by {}".format(self.f, type(self)))

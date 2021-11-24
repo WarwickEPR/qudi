@@ -1,4 +1,4 @@
-from .QudiControl import QudiClient, BgTask
+from .QudiControl import QudiClient
 
 
 class PoiClient(QudiClient):

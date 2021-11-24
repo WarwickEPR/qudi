@@ -1,7 +1,7 @@
 import zmq
 from logic.generic_logic import GenericLogic
 from core.configoption import ConfigOption
-from logic.zmq.message import Message
+from logic.zmq.message import Message, PubMessage
 from threading import Thread
 
 
@@ -161,7 +161,8 @@ class ZmqFrontend(GenericLogic):
                 active = dict(poller.poll(50))
                 if capture in active:
                     frames = capture.recv_multipart()
-                    self.log.debug("Notification: {}".format(frames))
+                    msg = PubMessage(frames)
+                    self.log.debug(str(msg))
 
         except zmq.ContextTerminated:
             self.log.info("Notification capture loop exiting as context terminated")

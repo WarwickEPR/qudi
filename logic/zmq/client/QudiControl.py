@@ -12,7 +12,7 @@ import ipywidgets as widgets
 
 class Subscription:
 
-    def __init__(self, ctx: zmq.Context, publisher, topics=[]):
+    def __init__(self, ctx: zmq.Context, publisher, topics=None):
         self.log = logging.getLogger('broadcast.notifications')
         self.socket = ctx.socket(zmq.SUB)
         try:
@@ -20,12 +20,19 @@ class Subscription:
             if not topics:
                 self.log.debug("Subscribing to all")
                 self.socket.subscribe('')
+                return
+            elif type(topics) == str:
+                self._subscribe(topics)
             else:
                 for topic in topics:
-                    self.log.debug("Subscribing to {}".format(topic))
-                    self.socket.subscribe(topic)
+                    self._subscribe(topic)
+
         except zmq.ZMQError as e:
             self.log.error("Failed to subscribe to {}: {}".format(topics, e))
+
+    def _subscribe(self, topic):
+        self.log.debug("Subscribing to {}".format(topic))
+        self.socket.subscribe(topic)
 
     def __del__(self):
         # wait half a sec for any operations to finish
@@ -87,7 +94,8 @@ class QudiControl:
             else:
                 filename = self.session_name + '.hdf5'
             try:
-                self.storage = h5py.File(filename, 'a', swmr_mode=True)
+                self.storage = h5py.File(filename, 'a', libver='latest')
+                self.storage.swmr_mode = True
                 # open in SWMR mode to allow readers at same time as writing consistently
                 # allowing online processing of results from file
             except Exception as e:
@@ -132,6 +140,8 @@ class QudiControl:
 
 
 class Plugin(type):
+    name = ''
+
     def __new__(mcs, name, bases, class_dict):
         cls = type.__new__(mcs, name, bases, class_dict)
         QudiControl.register(cls.name, cls)
@@ -203,6 +213,7 @@ class QudiClient(metaclass=Plugin):
                 message = await subscription.receive()
                 with o:
                     o.append_stdout("Received: {} {}\n".format(message.topic, message.body))
-''
+
         self.output_task = asyncio.create_task(output_task(out))
+
 
