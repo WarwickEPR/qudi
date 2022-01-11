@@ -50,8 +50,8 @@ class HdfStorage(GenericLogic):
     def on_deactivate(self):
         pass
 
-    @staticmethod
-    def timestamp():
+    @classmethod
+    def timestamp(cls):
         return datetime.now().strftime("%Y%m%d-%H%M%S")
 
     @property
@@ -105,7 +105,7 @@ class HdfStorage(GenericLogic):
     # Yields a timestamped subgroup for storing measurement data of a particular type
     # Optionally also link to a particular site/POI
     @contextmanager
-    def measurement_folder(self, measurement, site=None, timestamp=None):
+    def folder(self, measurement, site=None, timestamp=None):
 
         # store multiple measurements of the same thing by using a timestamp as a unique key
         if timestamp is None:
@@ -129,6 +129,22 @@ class HdfStorage(GenericLogic):
                 self.log.debug("Creating group {} under {}".format(timestamp, g.name))
 
             yield g.require_group(timestamp)
+
+    @classmethod
+    def dataset_site_path(cls, site, measurement, timestamp=None):
+        if timestamp is None:
+            timestamp = cls.timestamp()
+        # to hard link this dataset to for convenience e.g. /site/poi-99/psat/20211225090059
+        return '/'.join(['', 'site', site, measurement, timestamp])
+
+    @classmethod
+    def dataset_path(cls, folder, timestamp=None, site=None):
+        if timestamp is None:
+            timestamp = cls.timestamp()
+        if site is None:
+            site = '_'
+        # to hard link this dataset to for convenience e.g. /psat/poi-99/20211225090059 or /psat/_/20220101004929
+        return '/'.join(['', folder, site, timestamp])
 
     def copy_to_remote(self):
         if self.remote_directory:

@@ -5,9 +5,9 @@ from core.connector import Connector
 class HbtProxy(ZmqProxy):
 
     frontend = Connector(interface='ZmqFrontend')
-    storage = Connector(interface='HdfStorage')
+    storage = Connector(interface='TablesStorage')
     hbt = Connector(interface='HbtLogic')
-    poi_manager = Connector(interface='PoiManager')
+    poi_manager = Connector(interface='PoiManagerLogic')
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -16,11 +16,11 @@ class HbtProxy(ZmqProxy):
         # get hold of a handle to optimizer_logic, load if necessary
         # subscribe to key events, emit a message when done
         super().on_activate()
-        self.hbt().updated.connect(self.notify_hbt)
+        self.hbt().hbt_updated.connect(self.notify_hbt)
 
     def on_deactivate(self):
         super().on_deactivate()
-        self.hbt().updated.disconnect(self.notify_hbt)
+        self.hbt().hbt_updated.disconnect(self.notify_hbt)
 
     def handle_start(self, _):
         self.hbt().start()
@@ -35,7 +35,7 @@ class HbtProxy(ZmqProxy):
         self.hbt().save_hbt()
 
     def handle_save_hdf(self, _):
-        with self.storage().measurement_folder('hbt', site=self.poi_manager().active_poi) as m:
+        with self.storage().folder('hbt', site=self.poi_manager().active_poi) as m:
             m.create_dataset('t', data=self.hbt().t)
             m.create_dataset('g2', data=self.hbt().data)
 

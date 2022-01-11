@@ -1,14 +1,18 @@
 from . base import ZmqProxy
 from core.connector import Connector
-from . message import Message
+from .. message import Message
+from logic.zmq.common import TablesContext
+import tables
+import numpy as np
+from logic.zmq.format.psat import Psat
 
 
 class AomProxy(ZmqProxy):
 
     frontend = Connector(interface='ZmqFrontend')
-    storage = Connector(interface='HdfStorage')
-    aom = Connector(interface='AomLogic')
-    poi_manager = Connector(interface='PoiManager')
+    storage = Connector(interface='TablesStorage')
+    aomlogic = Connector(interface='AomLogic')
+    poimanager = Connector(interface='PoiManagerLogic')
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -17,35 +21,43 @@ class AomProxy(ZmqProxy):
         # get hold of a handle to optimizer_logic, load if necessary
         # subscribe to key events, emit a message when done
         super().on_activate()
-        self.aom().psat_updated.connect(self.notify_psat)
+        self.aomlogic().psat_done.connect(self.notify_psat)
+        self.aomlogic().psat_done.connect(self._save_psat)
 
     def on_deactivate(self):
         super().on_deactivate()
-        self.aom().psat_updated.disconnect(self.notify_psat)
+        self.aomlogic().psat_done.disconnect(self.notify_psat)
 
     def handle_take_psat(self, _):
-        self.aom().run_psat()
+        self.aomlogic().run_psat()
 
     def handle_emit_psat(self, _):
         self.notify_psat()
 
     def handle_save(self, _):
-        self.aom().save_psat()
+        self.aomlogic().save_psat()
 
     def handle_set_power(self, msg: Message):
-        self.aom().set_power(msg.body)
+        self.aomlogic().set_power(msg.body)
 
     def handle_get_power(self, msg: Message):
-        power = self.aom().get_power()
+        power = self.aomlogic().get_power()
+        self.log.debug("AOM controller power: {} mW".format(power))
         self.reply(msg, body=power)
 
-    def handle_save_hdf(self, _):
-        with self.storage().measurement_folder('psat', site=self.poi_manager().active_poi) as m:
-            m.create_dataset('powers', data=self.aom().powers)
-            m.create_dataset('voltages', data=self.aom().psat_voltages)
-            m.create_dataset('counts', data=self.aom().psat_data)
+    def handle_save_psat(self, msg: Message):
+        self._save_psat()
+        self.reply_ok(msg)
 
-    def notify_hbt(self):
-        self.notify('data', body={'powers': self.aom().powers,
-                                  'voltages': self.aom().psat_voltages,
-                                  'counts': self.aom().psat_data })
+    def _save_psat(self):
+        poi = self.poimanager().active_poi
+        with self.storage().tables_context() as t:
+            dataset = t.create_measurement_table('Psat', Psat, poi)
+            dataset.append(list(zip(self.aomlogic().powers, self.aomlogic().psat_data)))
+            t.flush()
+        return dataset
+
+    def notify_psat(self):
+        aom = self.aomlogic()
+        self.notify('psat_data', body={'powers': aom.powers,
+                                       'counts': aom.psat_data})

@@ -34,21 +34,35 @@ class Confocal(QudiClient):
         await self.send_command('save_depth')
 
     async def scan_stopped(self):
-        s = self.client.subscribe('confocal.stopped')
+        s = self.subscribe('confocal.stopped')
         await s.receive()
 
     async def scan_updates(self):
-        s = self.client.subscribe('confocal.update')
+        s = self.subscribe('confocal.update')
         await s.receive()
 
     async def xy_image_started(self):
-        s = self.client.subscribe('confocal.xy_image_started')
+        s = self.subscribe('confocal.xy_image_started')
         msg = await s.receive()
         self.log("XY image started: {}", msg)
         return msg
 
     async def depth_image_started(self):
-        s = self.client.subscribe('confocal.depth_image_started')
+        s = self.subscribe('confocal.depth_image_started')
         msg = await s.receive()
         self.log("Depth image started: {}", msg)
         return msg
+
+    async def get_position(self):
+        await self.send_command('get_position')
+        msg = await self.receive_message()
+        return msg.body
+
+    async def set_position(self, x=None, y=None, z=None, a=None):
+        p = {}
+        if x is not None: p['x'] = x
+        if y is not None: p['y'] = y
+        if z is not None: p['z'] = z
+        if a is not None: p['a'] = a
+        await self.send_command('set_position', body=p)
+

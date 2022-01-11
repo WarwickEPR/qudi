@@ -6,99 +6,51 @@ from .. common import Orientation
 from contextlib import contextmanager
 
 
-class ConfocalProxy(ZmqProxy):
+class ScanProxy(ZmqProxy):
 
     frontend = Connector(interface='ZmqFrontend')
-    storage = Connector(interface='TablesStorage')
-    confocal = Connector(interface='ConfocalLogic')
+    storage = Connector(interface='HdfStorage')
+    scanner = Connector(interface='ScanLogic')
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
-        self._xy_image_timestamp = None
-        self._depth_image_timestamp = None
-        self._disable_hdf_updates = False
 
     def on_activate(self):
         super().on_activate()
-        self.confocal().module_state.sigStateChanged.connect(self._notify_state_change)
-        # just save every scan started
-        self.confocal().sigImageXYInitialized.connect(self._setup_xy_image_storage, Qt.QueuedConnection)
-        self.confocal().sigImageDepthInitialized.connect(self._setup_depth_image_storage, Qt.QueuedConnection)
-        self.confocal().signal_xy_image_updated.connect(self._update_xy_hdf, Qt.QueuedConnection)
-        self.confocal().signal_depth_image_updated.connect(self._update_depth_hdf, Qt.QueuedConnection)
-        self.confocal().signal_stop_scanning.connect(self._notify_scan_stopped, Qt.QueuedConnection)
+        self.scanner().sigScanFinished.connect(self._notify_scan_stopped)
+        self.scanner().sigScanFinished.connect(self._save_image)
 
     def on_deactivate(self):
         super().on_deactivate()
-        self.confocal().module_state.sigStateChanged.disconnect(self._notify_state_change)
-        self.confocal().sigImageXYInitialized.disconnect(self._setup_xy_image_storage)
-        self.confocal().sigImageDepthInitialized.disconnect(self._setup_depth_image_storage)
-        self.confocal().signal_xy_image_updated.disconnect(self._update_xy_hdf)
-        self.confocal().signal_depth_image_updated.disconnect(self._update_depth_hdf)
-        self.confocal().signal_stop_scanning.disconnect(self._notify_scan_stopped)
-
-    def _notify_state_change(self, e):
-        self.notify('state_change')
 
     def _notify_scan_stopped(self):
-        self.notify('stopped')
+        self.notify('finished')
 
-    def _notify_xy_scan_started(self):
-        self.notify('xy_image_started', body={'file': self._xy_image_file,
-                                              'timestamp': self._xy_image_timestamp,
-                                              'dataset': self._xy_image_path})
-
-    def _notify_depth_scan_started(self):
-        self.notify('depth_image_started', body={'file': self._depth_image_file,
-                                                 'timestamp': self._depth_image_timestamp,
-                                                 'dataset': self._depth_image_path})
+    def _notify_scan_started(self):
+        self.notify('started', body={'file': self._xy_image_file,
+                                     'timestamp': self._xy_image_timestamp,
+                                     'dataset': self._xy_image_path})
 
     def handle_start_scan(self, msg: Message):
-        if self.confocal().module_state.current != 'idle':
+        if self.scanner().module_state.current != 'idle':
             # scanner is currently busy
             self.reply(msg, body='Scanner busy')
             return
 
-        orientation = self._setup_scan(msg)
-        self._start_scan(orientation)
+        if 'points' not in msg:
+            self.reply(msg, body='No points supplied')
+            return
 
-    def _setup_scan(self, msg: Message):
+        points = msg['points']
+        clock_frequency = msg.get('clock', 100)
+        return_speed = msg.get('return_speed', 3e-4)  # defaults to 0.3 mm/s
 
-        # set the area to scan
-        if 'x0' in msg.body: self.confocal().image_x_range[0] = msg.body['x0']
-        if 'x1' in msg.body: self.confocal().image_x_range[1] = msg.body['x1']
-        if 'y0' in msg.body: self.confocal().image_y_range[0] = msg.body['y0']
-        if 'y1' in msg.body: self.confocal().image_y_range[1] = msg.body['y1']
-        if 'xy_resolution' in msg.body: self.confocal().xy_resolution = msg.body['xy_resolution']
-        if 'orientation' in msg.body:
-            orientation = Orientation[msg.body['orientation']]
+        self._start_scan(points, clock_frequency=clock_frequency, return_speed=return_speed)
+        self.reply(msg, body='OK')
 
-            # Set scan orientation
-            if orientation == Orientation.XZ:
-                self.confocal().depth_img_is_xz = True
-            elif orientation == Orientation.YZ:
-                self.confocal().depth_img_is_yz = False
-            return orientation
-        else:
-            return Orientation.XY
+    def _setup_image_storage(self):
 
-    def _start_scan(self, orientation):
-
-        # Hook into the confocal_logic module's set up to avoid duplicating initialisation
-        if orientation == Orientation.XY:
-            self.confocal().start_scanning(zscan=False, tag='zmq')
-        else:
-            self.confocal().start_scanning(zscan=True, tag='zmq')
-
-    def _depth_orientation(self):
-        if self.confocal().depth_img_is_xz:
-            return Orientation.XZ
-        else:
-            return Orientation.XY
-
-    def _setup_xy_image_storage(self):
-
-        self._xy_image_timestamp = self.storage().timestamp()
+        self._image_timestamp = self.storage().timestamp()
         with self._initialize_image_hdf(self._xy_image_timestamp,
                                         Orientation.XY,
                                         self.confocal().xy_image.shape) as ds:

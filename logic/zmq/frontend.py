@@ -3,6 +3,7 @@ from logic.generic_logic import GenericLogic
 from core.configoption import ConfigOption
 from logic.zmq.message import Message, PubMessage
 from threading import Thread
+from logic.zmq.common import abbreviate_frames
 
 
 class ZmqFrontend(GenericLogic):
@@ -119,12 +120,21 @@ class ZmqFrontend(GenericLogic):
                 #self.log.debug("Active sockets: {}".format(active))
                 if frontend in active:
                     frames = frontend.recv_multipart()
-                    self.log.debug("Frontend received: {}".format(frames))
+                    self.log.debug("Frontend received: {}".format(abbreviate_frames(frames)))
                     msg = Message.frontend_from_client(frames)
                     backend.send_multipart(msg.frames_to_backend())
+                    # if msg.channel == 'control':
+                    #     # special message from client
+                    #     if msg.f == 'start_logic_module':
+                    #         module = msg.body
+                    #         if module in self._manager.tree['defined']['logic']:
+                    #             self.log.info("Loading module {}".format(module))
+                    #             self._manager.loadConfigureModule('logic', module)
+                    #     else:
+                    #         self.log.debug("Unrecognised control message".format(msg))
                 if backend in active:
                     frames = backend.recv_multipart()
-                    self.log.debug("Backend received: {}".format(frames))
+                    self.log.debug("Backend received: {}".format(abbreviate_frames(frames)))
                     msg = Message.frontend_from_backend(frames)
                     if msg.channel == 'broker':
                         self.log.debug("Message received for broker: {}".format(msg))
@@ -134,7 +144,8 @@ class ZmqFrontend(GenericLogic):
                             pass
                     else:
                         frames = msg.frames_reply_to_client()
-                        self.log.debug("Replying to client: {}".format(frames))
+
+                        self.log.debug("Replying to client: {}".format(abbreviate_frames(frames)))
                         frontend.send_multipart(frames)
 
         except zmq.ContextTerminated:
@@ -161,8 +172,8 @@ class ZmqFrontend(GenericLogic):
                 active = dict(poller.poll(50))
                 if capture in active:
                     frames = capture.recv_multipart()
-                    msg = PubMessage(frames)
-                    self.log.debug(str(msg))
+                    msg = str(PubMessage(frames))[:30]
+                    self.log.debug(msg)
 
         except zmq.ContextTerminated:
             self.log.info("Notification capture loop exiting as context terminated")

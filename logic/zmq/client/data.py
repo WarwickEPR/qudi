@@ -1,69 +1,50 @@
-import h5py
-import time
+import logging
+from .QudiControl import QudiClient
+from .. common import TablesContext
 
 
-class DataStore:
+class FilepathNotSet(Exception):
+    pass
 
-    def __init__(self, filename, prefix=None):
-        try:
-            # open in SWMR mode to allow readers at same time as writing consistently
-            # allowing online processing of results from file
-            # Ask for the latest version (rather than most compatible) to ensure features such as
-            # SWMR are available
-            self.storage = h5py.File(filename, 'a', libver='latest')
-            self.storage.swmr_mode = True
 
-            if prefix:
-                self._root = self.storage.require_group(prefix)
-            else:
-                self._root = self.storage
+class DataStorage(QudiClient):
 
-        except Exception as e:
-            # Mapped from underlying HDFS but not documented
-            # self.log.error("Exception opening HDF file: {}".format(e))
-            raise e
+    name = "data"
+    log = logging.getLogger('client.data')
 
-    # Use my_store.root to access the
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._local_filepath = None
+
+    # sets the name of the archive where data will be stored
+    # returns the name in use
+    async def open_session(self, name=None, title=''):
+        return await self.query('open_session', body={'name': name, 'title': title})
+
+    # sets the archive name back to an anonymous timestamped location
+    async def close_session(self, name=None, title=''):
+        await self.send_command('open_session', body={'name': name, 'title': title})
+
+    async def get_session_name(self):
+        return await self.query('get_session_name')
+
+    async def update_filepath(self):
+        self._local_filepath = await self.query('local_filepath')
+
+    async def local_filepath(self):
+        if not self._local_filepath:
+            self._local_filepath = await self.query('local_filepath')
+        return self._local_filepath
+
     @property
-    def root(self):
-        return self._root
-
-    # possibly add helpers in here later but the HDF5 API is pretty straightforward
-
-    # Get a HDF5 group object to put a measurement in (like a Python dict of data)
-    # Set up structure here so it's reasonably consistent
-    #
-    # Multiple NumPy array-like datasets from one measurement can be put in this folder
-    # such as raw pulse data + extracted data
-    # e.g. d = ds.folder('hahn-echo', 'site-A')
-    #      d["raw"] = raw_data
-    #      d["extracted"] = extracted
-    #
-    # data can also be annotated with associated parameters
-    #      d.attrs['rabi-period'] = 100e-9
-    #      d["extracted"].attrs['extraction-window'] = [0, 150e-9]
-    #
-    # This location can also be used later for analysis output e.g. fitted parameters or plotted images
-    def measurement_folder(self, measurement, site=None, timestamp=None):
-
-        # easy way to allow for multiple measurements of the same thing
-        if timestamp is None:
-            timestamp = time.strftime("%Y%m%d-%H%M%S")
-
-        # get a "directory" to put this data in
-        # e.g. /image/site-C or /image
-        if site:
-            # so something like /psat/poi-99
-            g = self.storage.require_group('/'.join(['', measurement, site]))
-            # hard link this also to e.g. /site/poi-99/psat
-            self.storage['/'.join(['/site', site, measurement])] = g
+    def filepath(self):
+        if self._local_filepath:
+            return self._local_filepath
         else:
-            # no POI site (e.g. for images or unassigned)
-            # path something like: /confocal
-            g = self.storage.require_group('/'.join(['', measurement]))
+            raise FilepathNotSet
 
-        return g.create_group(timestamp)
+    async def shared_filepath(self):
+        await self.query('shared_filepath')
 
-    def __del__(self):
-        # "hard close" the HDF5 file which will invalidate any handles to it
-        self.storage.close()
+    def tables_context(self):
+        return TablesContext(self.filepath, logger=self.log)

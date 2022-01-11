@@ -4,6 +4,7 @@ from core.connector import Connector
 from core.configoption import ConfigOption
 from logic.zmq.message import Message, PubMessage
 from PyQt5.QtCore import QThread, pyqtSignal, Qt, QEventLoop
+from logic.zmq.common import abbreviate_frames
 from importlib import reload
 
 
@@ -20,7 +21,7 @@ class ZmqProxyThread(QThread):
         self.sock = None
 
     def _send_reply(self, frames):
-        self.log.debug("Sending reply: {}".format(frames))
+        self.log.debug("Sending reply: {}".format(abbreviate_frames(frames)))
         self.sock.send_multipart(frames)
 
     def run(self):
@@ -32,7 +33,7 @@ class ZmqProxyThread(QThread):
         sock.connect('inproc://broker')
         self.sock = sock
         frames = Message(channel=self._channel, f='hello').frames_reply_from_backend()
-        self.log.debug("Saying hello from {}: {}".format(self._channel, frames))
+        self.log.debug("Saying hello from {}: {}".format(self._channel, abbreviate_frames(frames)))
         sock.send_multipart(frames)
         self.proxy.sigReply.connect(self._send_reply, Qt.QueuedConnection)
 
@@ -53,7 +54,7 @@ class ZmqProxyThread(QThread):
                 if sock in active:
                     # something waiting
                     frames = sock.recv_multipart()
-                    self.log.debug('{} proxy received: {}'.format(self._channel, frames))
+                    self.log.debug('{} proxy received: {}'.format(self._channel, abbreviate_frames(frames)))
                     self.sigMessageReceived.emit(frames)
                 # prod Qt to process signals
                 self.eventDispatcher().processEvents(QEventLoop.AllEvents)
@@ -107,7 +108,7 @@ class ZmqProxy(GenericLogic):
         return self._ctx
 
     def _reply(self, frames):
-        self.log.debug("Replying: {}".format(frames))
+        self.log.debug("Replying: {}".format(abbreviate_frames(frames)))
         self.sigReply.emit(frames)
 
     def _handle_frames(self, frames):
@@ -139,7 +140,7 @@ class ZmqProxy(GenericLogic):
         # The router strips off the envelope and the client receives: | channel | function | body |
         self._reply(msg.frames_reply_from_backend())
 
-    def reply_done(self, msg: Message):
+    def reply_ok(self, msg: Message):
         self.reply(msg, body='OK')
 
     def handle_unimplemented(self, msg: Message):
@@ -158,6 +159,6 @@ class ZmqProxy(GenericLogic):
             topic = '.'.join([self.channel, topic])
         else:
             topic = self.channel
-        notification = PubMessage(topic=topic, body=body).encoded()
+        notification = PubMessage(topic=topic, body=body)
         self.log.debug("Notification: {}".format(notification))
-        self.pub.send_multipart(notification)
+        self.pub.send_multipart(notification.encoded())

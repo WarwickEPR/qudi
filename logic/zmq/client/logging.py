@@ -7,7 +7,7 @@ import os
 
 # take the basics for setting up logging from Qudi core logging module
 
-def initialize_logger(path=''):
+def initialize_logger(path='', name='qudi-client', suffix=None):
     """sets up the logger including a console, file and qt handler
     """
     # initialize logger
@@ -25,7 +25,11 @@ def initialize_logger(path=''):
     logger.handlers[0].setLevel(logging.INFO)
 
     # add file logger
-    logfile_path = os.path.join(path, 'qudi-client.log')
+    if suffix:
+        logfile_path = os.path.join(path, '{}.log'.format(name))
+    else:
+        logfile_path = os.path.join(path, '{}_{}.log'.format(name, suffix))
+
     rotating_file_handler = logging.handlers.RotatingFileHandler(
         logfile_path, maxBytes=10*1024*1024, backupCount=5)
     rotating_file_handler.setFormatter(logging.Formatter(

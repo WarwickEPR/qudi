@@ -6,7 +6,7 @@ from logic.zmq.message import PubMessage, Message
 class OptimizerProxy(ZmqProxy):
 
     frontend = Connector(interface='ZmqFrontend')
-    storage = Connector(interface='HdfStorage')
+    storage = Connector(interface='TablesStorage')
     optimizer = Connector(interface='OptimizerLogic')
     scanner = Connector(interface='ConfocalLogic')
 
@@ -65,7 +65,7 @@ class OptimizerProxy(ZmqProxy):
             except AttributeError as e:
                 pass
 
-        with self.storage().measurement_folder('optimizer') as f:
+        with self.storage().folder('optimizer') as f:
             # TODO: change to save as datasets and attributes
             f[''] = data
 

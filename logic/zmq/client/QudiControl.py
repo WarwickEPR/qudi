@@ -3,9 +3,8 @@ import asyncio
 import zmq.asyncio
 from logic.zmq.message import Message, PubMessage
 import logging
-import time
-import h5py
 
+from . logging import initialize_logger
 from IPython.display import display
 import ipywidgets as widgets
 
@@ -79,29 +78,18 @@ class QudiControl:
     channel_client = {}
     log = logging.getLogger('core.qudicontrol')
 
-    def __init__(self, data_store=None, do_not_store=False, hostname='127.0.0.1', control_port=7081, pub_port=7082):
+    def __init__(self, hostname='127.0.0.1', control_port=7081, pub_port=7082, session=None, log_suffix=None, title=''):
+
+        if session:
+            initialize_logger(name=session, suffix=log_suffix)
+        else:
+            initialize_logger(name='qudi-client', suffix=log_suffix)
+        self.session = session
+        self.title = title
 
         # create an asyncio based ZMQ context
         # this will use the existing event loop
         self.ctx = zmq.asyncio.Context()
-        self.storage = None
-
-        # open an HDF storage file (unless explicitly asked not to)
-        self.session_name = 'session-' + time.strftime("%Y%m%d-%H%M%S")
-        if not do_not_store:
-            if data_store:
-                filename = data_store
-            else:
-                filename = self.session_name + '.hdf5'
-            try:
-                self.storage = h5py.File(filename, 'a', libver='latest')
-                self.storage.swmr_mode = True
-                # open in SWMR mode to allow readers at same time as writing consistently
-                # allowing online processing of results from file
-            except Exception as e:
-                # Mapped from underlying HDFS but not documented
-                self.log.error("Exception opening HDF file: {}".format(e))
-                raise e
 
         # remember where we're connecting to but only make connections when requested
         self.host = hostname
@@ -110,6 +98,11 @@ class QudiControl:
         self.control_uri = 'tcp://{}:{}'.format(hostname, control_port)
         self.pub_uri = 'tcp://{}:{}'.format(hostname, pub_port)
         self.control = self.connect('control')
+        self.data = self.connect('data')
+
+    async def init_session(self):
+        session_params = await self.data.open_session(name=self.session, title=self.title)
+        self.log.info("Session name set to {}. HDFS5 storage at {}".format(session_params['name'], session_params['path']))
 
     @classmethod
     def register(cls, name, client):
@@ -184,6 +177,11 @@ class QudiClient(metaclass=Plugin):
         m = Message(channel='control', f=instruction, body=body)
         await self.control_socket.send_multipart(m.frames_to_qudi())
 
+    async def query(self, instruction, body=None):
+        await self.send_command(instruction, body=body)
+        reply = await self.receive_message()
+        return reply.body
+
     @staticmethod
     async def _output_notifications(subscription, out):
         while True:
@@ -203,6 +201,11 @@ class QudiClient(metaclass=Plugin):
     async def broadcast(self, message):
         await self.send_command('broadcast', message)
 
+    async def echo(self, x):
+        await self.send_command('echo', body=x)
+        reply = await self.receive_message()
+        return reply.body
+
     async def display_notifications(self, subscription):
 
         out = widgets.Output(layout={'border': '1px solid black'})
@@ -215,5 +218,3 @@ class QudiClient(metaclass=Plugin):
                     o.append_stdout("Received: {} {}\n".format(message.topic, message.body))
 
         self.output_task = asyncio.create_task(output_task(out))
-
-
