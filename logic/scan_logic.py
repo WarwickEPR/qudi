@@ -18,38 +18,39 @@ class ScanLogic(GenericLogic):
     # declare connectors
     confocal_scanner = Connector(interface='ConfocalScannerInterface')
 
-    _sigStartScan = QtCore.Signal()
+    _sigStartScan = QtCore.Signal(float, float)
+    sigScanStarted = QtCore.Signal()
     _sigStopScan = QtCore.Signal()
+    sigScanStopped = QtCore.Signal()
     _sigNextChunk = QtCore.Signal()
+    sigScanFinished = QtCore.Signal()
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
 
         self._stopRequested = False
-        self._scanner = None
+        self._scanning_device = None
         self._update_period = 5
-        self._parameters = None
+        self._pending_points = None
+        self._scan_data = None
         self._points = []
-        self._scan_chunks = None
-        self._scan_chunk_index = 0
-        self._scan_data_indices = None
-        self._scan_data_wanted = None
-        self._scan_data_raw = None
-        self._update_period = 5
 
     def on_activate(self):
-        self._scanner = self.confocal_scanner()
+        self._scanning_device = self.confocal_scanner()
 
         self._sigStartScan.connect(self._start_scan, QtCore.Qt.QueuedConnection)
         self._sigStopScan.connect(self._stop_scan, QtCore.Qt.QueuedConnection)
-        self._sigStartScan.connect(self._start_scan, QtCore.Qt.QueuedConnection)
+        self._sigNextChunk.connect(self._scan_next_chunk, QtCore.Qt.QueuedConnection)
+        self.sigScanStopped.connect(self._release_scanner)
+        self.sigScanFinished.connect(self._release_scanner)
 
         return 0
 
     def on_deactivate(self):
         self._sigStartScan.disconnect(self._start_scan)
         self._sigStopScan.disconnect(self._stop_scan)
-        self._sigStartScan.disconnect(self._start_scan)
+        self.sigScanStopped.disconnect(self._release_scanner)
+        self.sigScanFinished.disconnect(self._release_scanner)
 
         return 0
 
@@ -89,13 +90,6 @@ class ScanLogic(GenericLogic):
         yield p, -1
 
     @classmethod
-    def _expand_interpolation_for_fromiter(cls, z):
-        for p, n, v in z:
-            for i in range(0, n):
-                yield from np.multiply(v, i) + p
-                yield i == 0
-
-    @classmethod
     def _expand_points(cls, z):
         for p, n, v in z:
             for i in range(0, n):
@@ -112,27 +106,32 @@ class ScanLogic(GenericLogic):
 
     @classmethod
     def _chunk(cls, points, chunk_size):
-        # taken from discussion in:
-        # https://stackoverflow.com/questions/24527006/split-a-generator-into-chunks-without-pre-walking-it
-        iterator = iter(points)
-        for chunk in iterator:
-            yield itertools.chain([chunk], itertools.islice(iterator, chunk_size-1))
+        # Return first n items of the iterable as a list
+        # taken from itertools documentation
+        return list(itertools.islice(points, chunk_size))
 
-    def start_scan(self, points, clock_frequency, return_speed):
+    def start_scan(self, points, clock_frequency=100, return_speed=1e-3):
         if not self._check_in_bounds(points):
             self.log.warn("Scan not started. Some points are out of bounds.")
             raise OutOfBounds
 
-        self._parameters = (points, clock_frequency, return_speed)
-        self._sigStartScan.emit()
+        self._pending_points = points
+        self._sigStartScan.emit(clock_frequency, return_speed)
 
     def _stop_scan(self):
         self._stopRequested = True
 
     def _check_in_bounds(self, points):
-        bounds = self._scanner().get_position_range()
-        return np.all(np.logical_and(np.greater_equal(points, bounds[0]),
-                                     np.less_equal(points, bounds[1])))
+        bounds = np.array(self._scanning_device.get_position_range())
+        return np.all(np.logical_and(np.greater_equal(points, bounds[:, 0]),
+                                     np.less_equal(points, bounds[:, 1])))
+
+    def _release_scanner(self):
+        self._scanning_device.close_scanner()
+        self._scanning_device.close_scanner_clock()
+        if self._scanning_device.module_state.current == 'locked':
+            self._scanning_device.module_state.unlock()
+        self.module_state.unlock()
 
     def _start_scan(self, clock_frequency, return_speed):
 
@@ -151,43 +150,93 @@ class ScanLogic(GenericLogic):
 
         # Keep the actual points requested. Let the caller reshape into whatever form is needed
         self._points = self._pending_points
-        self._scan_data = np.zeros_like(self._points)
-        self._pending_points = []
+        self.log.info("Starting scan of {} points".format(self._points.shape[0]))
+        self._number_of_channels = len(self.confocal_scanner().get_scanner_count_channels())
+        self._scan_data = np.zeros((len(self._points), self._number_of_channels))
+        self._pending_points = None
 
         # add "flyback" points to slow large movements down
         # use generators to avoid copying around large arrays
         # includes a boolean for which points are actually wanted
         interpolated_points = self._interpolate_speed_limit(self._points, return_speed, clock_frequency)
 
+        # also add "flyback" from current position and back
+        route = self._to_and_from(self._scanning_device.get_scanner_position()[0:3], self._points[0, :], interpolated_points, return_speed, clock_frequency)
+
         # chunk the point list generator so updates can be sent out periodically
-        chunk_size = self._update_period * clock_frequency
-        self._chunked_points = self._chunk(interpolated_points, chunk_size)
+        chunk_size = int(self._update_period * clock_frequency)
+        self._chunked_points = iter(lambda: self._chunk(route, chunk_size), [])
 
         # start scanning
         self._sigNextChunk.emit()
 
+    @classmethod
+    def _to_and_from(cls, current: np.array, start: np.array, points: np.array, speed_limit, clock_frequency):
+        d_per_tick = speed_limit / clock_frequency
+        v = start - current
+        d = cls.distance(np.array([start]), np.array([current]))[0]
+        steps = int(np.floor(d / d_per_tick)+1)
+        dv = np.true_divide(v, steps)
+        for i in range(1, int(steps)):
+            yield current + i * dv, -1
+        yield from points
+        for i in range(steps, -1, -1):
+            yield current + i * dv, -1
+
     def _scan_next_chunk(self):
         if self._stopRequested:
             self._stopRequested = False
-            self.scan_finished.emit()
+            self.sigScanStopped.emit()
             # stop scanning chunks
             return
         # otherwise, try getting more points to scan
         try:
-            points, wanted = next(self._chunked_points)
+            chunk = next(self._chunked_points, None)
+            if not chunk:
+                self.log.debug("Finished iteration")
+                self._stopRequested = False
+                self.sigScanFinished.emit()
+                return
+            points = np.array([p for p, _ in chunk])
+            wanted = np.array([i for _, i in chunk])
+
+            self.log.debug("Scanning chunk {}".format(points))
             # scan this list of points and throw away the ones we don't need
-            counts = ([i, w] for w, i in zip(self.confocal().scan_line(points), wanted) if i >= 0)
-            # save the ones we actually want to the index we passed through
-            np.put(self._scan_data, counts[:, 0], counts[:, 1])
+            scan_line_points = points.T
+            self.log.debug("Scan line input shape: {} {}".format(scan_line_points.shape, scan_line_points))
+            data = self._scanning_device.scan_line(scan_line_points)
+            self.wanted = wanted
+            self.data = data
+            wanted_counts = list(itertools.filterfalse(lambda t: t[1] < 0, zip(data, wanted)))
+            self.wanted_counts = wanted_counts
+            #counts = list(((i, cts) for cts, i in zip(data.T, wanted) if i >= 0))
+            self.log.debug("returned_counts {}".format(data))
+            self.log.debug("wanted {}".format(wanted))
+            self.log.debug("counts {}".format(wanted_counts))
+            self.log.debug("Acquired {} points, {} wanted".format(len(data), len(wanted_counts)))
+            if wanted_counts:
+                # save the ones we actually want to the index we passed through
+                # conveniently, put_along_axis does just the right thing in one call
+                indices = np.array([[i] for _, i in wanted_counts]).astype(int)
+                count_data = np.array([cts for cts, _ in wanted_counts])
+                self.log.debug("I: {} D: {}".format(indices.shape, count_data.shape))
+                np.put_along_axis(self._scan_data, indices, count_data, 0)
         except StopIteration:
+            self.log.debug("Finished iteration")
             self._stopRequested = False
-            self.scan_finished.emit()
+            self.sigScanFinished.emit()
             return
 
         self._sigNextChunk.emit()
 
+    def _scan_line_format(self, points):
+        # points is an array in form [n][axes]
+        # scan line needs it in the form [px py pz][channels]
+        # i.e. with a third dimension of [0:n_ch]
+        pass
+
     def scan_data(self):
-        return self._scan_data
+        return self._scan_data.T
 
     # Accept any list of points to permit e.g. distortion compensation, arbitrary orientation scans, volume
     # scans and generally separate the scanning process from how the resulting data is interpreted and used
