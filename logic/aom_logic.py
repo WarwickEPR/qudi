@@ -42,6 +42,7 @@ class AomLogic(GenericLogic):
     fitlogic = Connector(interface='FitLogic')
 
     psat_updated = QtCore.Signal()
+    psat_done = QtCore.Signal()
     psat_fit_updated = QtCore.Signal()
     psat_saved = QtCore.Signal()
     aom_updated = QtCore.Signal()
@@ -186,6 +187,7 @@ class AomLogic(GenericLogic):
         self.psat_collected = True
 
         self.psat_updated.emit()
+        self.psat_done.emit()
 
         return self.powers, v, self.psat_data
 
