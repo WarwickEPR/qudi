@@ -29,14 +29,41 @@ class TablesHandle:
     def flush(self):
         self.tables.flush()
 
-    def create_measurement_table(self, measurement, data_format, poi):
+    @property
+    def filepath(self):
+        return self.tables.filename
+
+    def create_measurement_table(self, measurement, data_format, poi=None):
         folder, dataset_name = TablesContext.dataset_path(measurement, site=poi)
         dataset = self.tables.create_table(folder, dataset_name, description=data_format, createparents=True)
         if self.logger:
             self.logger.info("Created table {}".format(dataset._v_pathname))
-        # Link the dataset under the site also
-        self.link_to_site(poi, measurement, dataset_name, dataset)
+        if poi:
+            # Link the dataset under the site also
+            self.link_to_site(poi, measurement, dataset_name, dataset)
         return dataset
+
+    def create_array(self, measurement, data, poi=None):
+        folder, dataset_name = TablesContext.dataset_path(measurement, site=poi)
+        dataset = self.tables.create_array(folder, dataset_name, data, createparents=True)
+        if self.logger:
+            self.logger.info("Created array {}".format(dataset._v_pathname))
+        # Link the dataset under the site also
+        if poi:
+            # Link the dataset under the site also
+            self.link_to_site(poi, measurement, dataset_name, dataset)
+        return dataset
+
+    def create_group(self, measurement, poi=None):
+        folder, group_name = TablesContext.dataset_path(measurement, site=poi)
+        group = self.tables.create_array(folder, group_name, createparents=True)
+        if self.logger:
+            self.logger.info("Created group {}".format(group._v_pathname))
+        # Link the dataset under the site also
+        if poi:
+            # Link the dataset under the site also
+            self.link_to_site(poi, measurement, group_name, group)
+        return group
 
     def link_to_site(self, site, measurement, name, node):
         site_folder = TablesContext.dataset_site_folder(site, measurement)
@@ -59,7 +86,7 @@ class TablesContext:
         # Might not be necessary if SWMR was implemented in PyTables
         # As that's the case, only open the file to use it to avoid blocking access
         try:
-            with filelock.FileLock(self.filepath + '.lock', timeout=self.timeout) as lock:
+            with filelock.FileLock(self.filepath + '.lock', timeout=self.timeout):
 
                 try:
                     th = tables.open_file(self.filepath, mode=self.mode)

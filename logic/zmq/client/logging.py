@@ -24,11 +24,12 @@ def initialize_logger(path='', name='qudi-client', suffix=None):
     # set level of stream handler which logs to stderr
     logger.handlers[0].setLevel(logging.INFO)
 
-    # add file logger
+    # add file
+    os.makedirs('logs', mode=775, exist_ok=True)
     if suffix:
-        logfile_path = os.path.join(path, '{}.log'.format(name))
+        logfile_path = os.path.join(path, 'logs/{}_{}.log'.format(name, suffix))
     else:
-        logfile_path = os.path.join(path, '{}_{}.log'.format(name, suffix))
+        logfile_path = os.path.join(path, 'logs/{}.log'.format(name))
 
     rotating_file_handler = logging.handlers.RotatingFileHandler(
         logfile_path, maxBytes=10*1024*1024, backupCount=5)
@@ -41,3 +42,5 @@ def initialize_logger(path='', name='qudi-client', suffix=None):
 
     for logger_name in ['core', 'client', 'backend', 'broadcast']:
         logging.getLogger(logger_name).setLevel(logging.DEBUG)
+
+    logging.getLogger('client').info('Starting log ')

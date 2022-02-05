@@ -1,9 +1,6 @@
 from . base import ZmqProxy
 from core.connector import Connector
 from .. message import Message
-from logic.zmq.common import TablesContext
-import tables
-import numpy as np
 from logic.zmq.format.psat import Psat
 
 

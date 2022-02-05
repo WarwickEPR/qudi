@@ -74,7 +74,6 @@ class ZmqProxyThread(QThread):
 class ZmqProxy(GenericLogic):
 
     frontend = Connector(interface='ZmqFrontend')
-    storage = Connector(interface='HdfStorage')
     channel = ConfigOption('channel', '', missing='error')
     sigReply = pyqtSignal(list)
     LINGER_TIME = 0

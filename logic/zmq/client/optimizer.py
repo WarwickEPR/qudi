@@ -113,5 +113,8 @@ class OptimizerClient(QudiClient):
     def get_current(self):
         return Refocus(self, lazy=True)
 
+    async def save_data(self):
+        await self.send_command('save_data')
+
 
 
