@@ -358,8 +358,13 @@ class PulseBlock(object):
         return
 
     def extend(self, iterable):
-        for element in iterable:
-            self.append(element=element)
+        try:
+            for element in iterable:
+                self.append(element=element)
+        except TypeError:
+            # not an iterable, revert to append
+            element = iterable
+            self.append(element)
         return
 
     def clear(self):
@@ -1101,7 +1106,7 @@ class PredefinedGeneratorBase:
     #                                   Helper methods                                          ####
     ################################################################################################
 
-    def tau_2_pulse_spacing(self, t, inverse=False,
+    def tau_2_pulse_spacing(self, t, inverse=False, rabi_period=None,
                            custom_func=[None, None], **custom_kwwargs):
         """
         Converts tau to the physical pulse spacing between (microwave) pulses.
@@ -1116,12 +1121,14 @@ class PredefinedGeneratorBase:
         :param custom_kwwargs: kwargs to the custom transformation functions
         :return:
         """
+        if rabi_period is None:
+            rabi_period = self.rabi_period
 
         def subtract_pi(t, **kwargs):
-            return t - np.asarray(self.rabi_period) / 2
+            return t - np.asarray(rabi_period) / 2
 
         def add_pi(t, **kwargs):
-            return t + np.asarray(self.rabi_period) / 2
+            return t + np.asarray(rabi_period) / 2
 
         def check_sanity(tau, t_phys):
             t_phys = np.asarray(t_phys)
@@ -1142,8 +1149,11 @@ class PredefinedGeneratorBase:
             func_inverse = custom_func[1]
 
         if inverse:
-            return func_inverse(t, **custom_kwwargs)
-        return check_sanity(t, func(t, **custom_kwwargs))
+            tau = func_inverse(t, **custom_kwwargs)
+            return tau.item() if np.isscalar(t) else tau
+        else:
+            pulse_spacing = check_sanity(t, func(t, **custom_kwwargs))
+            return pulse_spacing.item() if np.isscalar(t) else pulse_spacing
 
     def _get_idle_element(self, length, increment):
         """

@@ -35,7 +35,8 @@ class DDPredefinedGenerator(PredefinedGeneratorBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def generate_xy8_tau(self, name='xy8_tau', tau_start=0.5e-6, tau_step=0.01e-6, num_of_points=50,
+    def generate_xy8_tau(self, name='xy8tau', tau_start=0.5e-6, tau_step=0.01e-6, num_of_points=50,
+                         rabi_period_x=100e-9, rabi_period_y=100e-9,
                          xy8_order=4, alternating=True):
         """
 
@@ -47,36 +48,36 @@ class DDPredefinedGenerator(PredefinedGeneratorBase):
         # get tau array for measurement ticks
         tau_array = tau_start + np.arange(num_of_points) * tau_step
         # calculate "real" start length of tau due to finite pi-pulse length
-        tau_pspacing_start = self.tau_2_pulse_spacing(tau_start)
+        tau_pspacing_start = self.tau_2_pulse_spacing(tau_start, rabi_period=np.mean([rabi_period_x, rabi_period_y]))
 
         # create the elements
         waiting_element = self._get_idle_element(length=self.wait_time, increment=0)
         laser_element = self._get_laser_gate_element(length=self.laser_length, increment=0)
         delay_element = self._get_delay_gate_element()
-        pihalf_element = self._get_mw_element(length=self.rabi_period / 4,
+        pihalf_element = self._get_mw_element(length=rabi_period_x / 4,
                                               increment=0,
                                               amp=self.microwave_amplitude,
                                               freq=self.microwave_frequency,
                                               phase=0)
         # Use a 180 deg phase shifted pulse as 3pihalf pulse if microwave channel is analog
         if self.microwave_channel.startswith('a'):
-            pi3half_element = self._get_mw_element(length=self.rabi_period / 4,
+            pi3half_element = self._get_mw_element(length=rabi_period_x / 4,
                                                    increment=0,
                                                    amp=self.microwave_amplitude,
                                                    freq=self.microwave_frequency,
                                                    phase=180)
         else:
-            pi3half_element = self._get_mw_element(length=3 * self.rabi_period / 4,
+            pi3half_element = self._get_mw_element(length=3 * rabi_period_x / 4,
                                                    increment=0,
                                                    amp=self.microwave_amplitude,
                                                    freq=self.microwave_frequency,
                                                    phase=0)
-        pix_element = self._get_mw_element(length=self.rabi_period / 2,
+        pix_element = self._get_mw_element(length=rabi_period_x / 2,
                                            increment=0,
                                            amp=self.microwave_amplitude,
                                            freq=self.microwave_frequency,
                                            phase=0)
-        piy_element = self._get_mw_element(length=self.rabi_period / 2,
+        piy_element = self._get_mw_element(length=rabi_period_y / 2,
                                            increment=0,
                                            amp=self.microwave_amplitude,
                                            freq=self.microwave_frequency,
