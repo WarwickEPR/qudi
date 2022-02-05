@@ -144,6 +144,16 @@ class TimeTaggerFastCounter(Base, FastCounterInterface):
         self._record_length = 1 + int(record_length_s / bin_width_s)
         self.statusvar = 1
 
+        settings = {'click': self._channel_apd,
+                    'start': self._channel_detect,
+                    'next': self._channel_detect,
+                    'sync': self._channel_sequence,
+                    'binwidth': self._bin_width,
+                    'n_bins': self._record_length,
+                    'n_gates': self._number_of_gates,
+                    'measurement_window': self._bin_width * self._record_length}
+        self.log.debug("Configuring TimeTagger -\n" + "\n".join(["{}: {}".format(k, v) for k, v in settings.items()]))
+
         self.pulsed = tt.TimeDifferences(
             tagger=self._tagger,
             click_channel=self._channel_apd,

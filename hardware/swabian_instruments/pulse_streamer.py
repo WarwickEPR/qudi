@@ -32,6 +32,7 @@ from interface.pulser_interface import PulserInterface, PulserConstraints
 from collections import OrderedDict
 import pulsestreamer as ps
 import os
+import math
 
 
 class PulseStreamer(Base, PulserInterface):
@@ -60,6 +61,7 @@ class PulseStreamer(Base, PulserInterface):
         self.sample_rate = 1e9
         self.current_loaded_asset = None
         self.pulse_streamer = None
+        self._wfm = None
 
     @staticmethod
     def numeric_channel(channel_name):
@@ -138,7 +140,7 @@ class PulseStreamer(Base, PulserInterface):
         # sample file length max is not well-defined for PulseStreamer, which collates sequential identical pulses into
         # one. Total number of not-sequentially-identical pulses which can be stored: 1 M.
         constraints.waveform_length.min = 1
-        constraints.waveform_length.max = 134217728
+        constraints.waveform_length.max = math.inf
         constraints.waveform_length.step = 1
         constraints.waveform_length.default = 1
 
@@ -686,6 +688,7 @@ a
 
     def load_waveform(self, load_dict):
         self._wfm = load_dict
+        return self.get_loaded_assets()[0]
 
     def write_waveform(self, name, analog_samples, digital_samples, is_first_chunk, is_last_chunk,
                        total_number_of_samples):
@@ -712,10 +715,11 @@ a
 
     def get_loaded_assets(self):
         asset = self.current_loaded_asset
-        if asset is not None:
-            return {asset: asset}, 'waveform'
+        channels = [PulseStreamer.numeric_channel(ch) for ch, active in self.get_active_channels().items() if active]
+        if asset is None:
+            return {}, None
         else:
-            return {}, 'waveform'
+            return {ch: asset for ch in channels}, 'waveform'
 
 
 
