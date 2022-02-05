@@ -19,6 +19,7 @@ along with Qudi. If not, see <http://www.gnu.org/licenses/>.
 Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
+import re
 
 import numpy as np
 import os
@@ -91,6 +92,7 @@ class SequenceGeneratorLogic(GenericLogic):
                                                             ('laser_delay', 500e-9),
                                                             ('wait_time', 1e-6),
                                                             ('analog_trigger_voltage', 0.0)]))
+
 
     # The created pulse objects (PulseBlock, PulseBlockEnsemble, PulseSequence) are saved in
     # these dictionaries. The keys are the names.
@@ -176,6 +178,13 @@ class SequenceGeneratorLogic(GenericLogic):
             else:
                 self.log.error('ConfigOption additional_predefined_methods_path needs to either be a string or '
                                'a list of strings.')
+
+        # Support adding additional microwave channels according to the convention used in pulse_objects to the
+        # generator_parameters (if not already loaded from StatusVars)
+        # Bypass ConfigOption to discover these optional params of form microwave_<>_channel for use in predefined generators
+        microwave_channels = {k: v for k, v in self._configuration.items()
+                              if re.fullmatch('microwave_\w+_channel', k) and not k in self._generation_parameters}
+        self._generation_parameters.update(microwave_channels)
 
         # Initialize SamplingFunctions class by handing over a list of paths to import
         # sampling functions from.
