@@ -2,6 +2,7 @@ from core.connector import Connector
 from logic.generic_logic import GenericLogic
 from PyQt5.QtCore import Qt
 
+
 class OptimizerPauseLogic(GenericLogic):
 
     _modclass = 'optimizerpauselogic'
@@ -10,8 +11,12 @@ class OptimizerPauseLogic(GenericLogic):
     # Just plumbs in queued signals between modules. Does nothing itself after activation
     _threaded = False
 
-    pulsed_measurement = Connector(interface='PulsedMeasurementLogic')
+    pulsedmeasurement = Connector(interface='PulsedMeasurementLogic')
     optimizer = Connector(interface='OptimizerLogic')
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._optimizer_paused = False
 
     def on_activate(self):
         self.optimizer().sigRefocusStarted.connect(self.refocus_started, Qt.QueuedConnection)
@@ -22,8 +27,12 @@ class OptimizerPauseLogic(GenericLogic):
         self.optimizer().sigRefocusFinished.disconnect(self.refocus_finished)
 
     def refocus_started(self, _):
-        self.pulsed_measurement().pause_pulsed_measurement()
+        if self.pulsedmeasurement().module_state() == 'locked':
+            self.pulsedmeasurement().pause_pulsed_measurement()
+            self._optimizer_paused = True
 
-    def refocus_finished(self, _, _):
-        self.pulsed_measurement().continue_pulsed_measurement()
+    def refocus_finished(self, _, _x):
+        if self._optimizer_paused:
+            self.pulsedmeasurement().continue_pulsed_measurement()
+            self._optimizer_paused = False
 
