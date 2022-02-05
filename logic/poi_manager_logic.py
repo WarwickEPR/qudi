@@ -427,6 +427,7 @@ class PoiManagerLogic(GenericLogic):
     def on_deactivate(self):
         # Stop active processes/loops
         self.stop_periodic_refocus()
+        time.sleep(5)
 
         # Disconnect signals
         self.optimiserlogic().sigRefocusFinished.disconnect()
