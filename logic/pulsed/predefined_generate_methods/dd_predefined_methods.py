@@ -162,6 +162,132 @@ class DDPredefinedGenerator(PredefinedGeneratorBase):
         created_ensembles.append(block_ensemble)
         return created_blocks, created_ensembles, created_sequences
 
+    def generate_xy8_tau_corrected(self, name='xy8taucorr', tau_start=0.5e-6, tau_step=0.01e-6, num_of_points=50,
+                                         rabi_period_x=100e-9, rabi_period_y=100e-9,
+                                         xy8_order=4, alternating=True):
+        """
+
+        """
+        created_blocks = list()
+        created_ensembles = list()
+        created_sequences = list()
+
+        # get tau array for measurement ticks
+        tau_array = tau_start + np.arange(num_of_points) * tau_step
+        # calculate "real" start length of tau due to finite pi-pulse length
+        tau_pspacing_x_start = self.tau_2_pulse_spacing(tau_start, rabi_period=rabi_period_x)
+        tau_pspacing_y_start = self.tau_2_pulse_spacing(tau_start, rabi_period=rabi_period_y)
+
+        # create the elements
+        waiting_element = self._get_idle_element(length=self.wait_time, increment=0)
+        laser_element = self._get_laser_gate_element(length=self.laser_length, increment=0)
+        delay_element = self._get_delay_gate_element()
+        pihalf_element = self._get_mw_element(length=rabi_period_x / 4,
+                                              increment=0,
+                                              amp=self.microwave_amplitude,
+                                              freq=self.microwave_frequency,
+                                              phase=0)
+        # Use a 180 deg phase shifted pulse as 3pihalf pulse if microwave channel is analog
+        if self.microwave_channel.startswith('a'):
+            pi3half_element = self._get_mw_element(length=rabi_period_x / 4,
+                                                   increment=0,
+                                                   amp=self.microwave_amplitude,
+                                                   freq=self.microwave_frequency,
+                                                   phase=180)
+        else:
+            pi3half_element = self._get_mw_element(length=3 * rabi_period_x / 4,
+                                                   increment=0,
+                                                   amp=self.microwave_amplitude,
+                                                   freq=self.microwave_frequency,
+                                                   phase=0)
+        pix_element = self._get_mw_element(length=rabi_period_x / 2,
+                                           increment=0,
+                                           amp=self.microwave_amplitude,
+                                           freq=self.microwave_frequency,
+                                           phase=0)
+        piy_element = self._get_mw_element(length=rabi_period_y / 2,
+                                           increment=0,
+                                           amp=self.microwave_amplitude,
+                                           freq=self.microwave_frequency,
+                                           phase=90)
+        x_tauhalf_element = self._get_idle_element(length=tau_pspacing_x_start / 2, increment=tau_step / 2)
+        y_tauhalf_element = self._get_idle_element(length=tau_pspacing_y_start / 2, increment=tau_step / 2)
+
+        x_echo = [x_tauhalf_element, pix_element, x_tauhalf_element]
+        y_echo = [y_tauhalf_element, piy_element, y_tauhalf_element]
+
+        xy8_seq = []
+        # some echos, paired by phase and interleaved
+        # these include compensation for pulse length
+        for n in range(xy8_order):
+            xy8_seq.extend(x_echo)
+            xy8_seq.extend(y_echo)
+            xy8_seq.extend(x_echo)
+            xy8_seq.extend(y_echo)
+            xy8_seq.extend(y_echo)
+            xy8_seq.extend(x_echo)
+            xy8_seq.extend(y_echo)
+            xy8_seq.extend(x_echo)
+
+        # Create block and append to created_blocks list
+        xy8_block = PulseBlock(name=name)
+
+        # superposition pulse
+        xy8_block.append(pihalf_element)
+        xy8_block.append(x_tauhalf_element)
+
+        # XY8 pulse train with tau between corrected for pulse lengths
+        xy8_block.extend(xy8_seq)
+
+        # now project back into population
+        xy8_block.append(x_tauhalf_element)
+        xy8_block.append(pihalf_element)
+        xy8_block.append(laser_element)
+        xy8_block.append(delay_element)
+        xy8_block.append(waiting_element)
+
+        if alternating:
+            # same again but with additional pi on projection
+
+            # superposition pulse
+            xy8_block.append(pihalf_element)
+            xy8_block.append(x_tauhalf_element)
+
+            # XY8 pulse train with tau between corrected for pulse lengths
+            xy8_block.extend(xy8_seq)
+
+            # now project back into inverted population
+            xy8_block.append(x_tauhalf_element)
+            xy8_block.append(pi3half_element)
+            xy8_block.append(laser_element)
+            xy8_block.append(delay_element)
+            xy8_block.append(waiting_element)
+
+        created_blocks.append(xy8_block)
+
+        # Create block ensemble
+        block_ensemble = PulseBlockEnsemble(name=name, rotating_frame=True)
+        block_ensemble.append((xy8_block.name, num_of_points - 1))
+
+        # Create and append sync trigger block if needed
+        self._add_trigger(created_blocks=created_blocks, block_ensemble=block_ensemble)
+
+        # add metadata to invoke settings later on
+        number_of_lasers = num_of_points * 2 if alternating else num_of_points
+        block_ensemble.measurement_information['alternating'] = alternating
+        block_ensemble.measurement_information['laser_ignore_list'] = list()
+        block_ensemble.measurement_information['controlled_variable'] = tau_array
+        block_ensemble.measurement_information['units'] = ('s', '')
+        block_ensemble.measurement_information['labels'] = ('Tau', 'Signal')
+        block_ensemble.measurement_information['number_of_lasers'] = number_of_lasers
+        block_ensemble.measurement_information['counting_length'] = self._get_ensemble_count_length(
+            ensemble=block_ensemble, created_blocks=created_blocks)
+
+        # append ensemble to created ensembles
+        created_ensembles.append(block_ensemble)
+        return created_blocks, created_ensembles, created_sequences
+
+
     def generate_xy8_freq(self, name='xy8_freq', freq_start=0.1e6, freq_step=0.01e6,
                           num_of_points=50, xy8_order=4, alternating=True):
         """
