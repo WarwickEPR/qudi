@@ -234,13 +234,11 @@ class DDPredefinedGenerator(PredefinedGeneratorBase):
 
         # superposition pulse
         xy8_block.append(pihalf_element)
-        xy8_block.append(x_tauhalf_element)
 
         # XY8 pulse train with tau between corrected for pulse lengths
         xy8_block.extend(xy8_seq)
 
         # now project back into population
-        xy8_block.append(x_tauhalf_element)
         xy8_block.append(pihalf_element)
         xy8_block.append(laser_element)
         xy8_block.append(delay_element)
@@ -251,13 +249,11 @@ class DDPredefinedGenerator(PredefinedGeneratorBase):
 
             # superposition pulse
             xy8_block.append(pihalf_element)
-            xy8_block.append(x_tauhalf_element)
 
             # XY8 pulse train with tau between corrected for pulse lengths
             xy8_block.extend(xy8_seq)
 
             # now project back into inverted population
-            xy8_block.append(x_tauhalf_element)
             xy8_block.append(pi3half_element)
             xy8_block.append(laser_element)
             xy8_block.append(delay_element)
