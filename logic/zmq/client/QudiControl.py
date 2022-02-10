@@ -1,3 +1,7 @@
+import datetime
+import threading
+import time
+
 import zmq
 import asyncio
 import zmq.asyncio
@@ -69,6 +73,56 @@ class BgTask:
     def add_cancel_button(self, out):
         return widgets.HBox(children=[out, self.cancel_button],
                             layout=widgets.Layout(display='flex', justify_content='space-between'))
+
+
+class BgWait(BgTask):
+
+    def __init__(self, duration, after_wait):
+        super().__init__(asyncio.sleep(duration), after_wait)
+        self._duration = duration
+        self._start_time = time.time()
+        self._end_time = self._start_time + duration
+        self._progress_task = None
+        self._progress_bar = None
+        self._update_thread = None
+
+    def time_remaining(self):
+        return self._end_time - time.time()
+
+    def time_elapsed(self):
+        return time.time() - self._start_time
+
+    @classmethod
+    def seconds_to_string(cls, secs):
+        return str(datetime.timedelta(seconds=secs))
+
+    def remaining_str(self):
+        return '{} remaining of {}'.format(self.seconds_to_string(self.time_remaining()),
+                                           self.seconds_to_string(self._duration))
+
+    def update(self):
+        self._progress_bar.description = self.remaining_str()
+        self._progress_bar.value = self.time_remaining()
+
+    def add_progress_bar(self):
+
+        self._progress_bar = widgets.FloatProgress(value=self.time_remaining(),
+                                                   description=self.remaining_str(),
+                                                   min=0.0,
+                                                   max=self._duration,
+                                                   orientation='horizontal',
+                                                   bar_style='',
+                                                   style='{ bar-color: #ffc0c0 }')
+
+        def bgloop():
+            while not self._done:
+                self.update()
+                time.sleep(0.4)
+
+        self._update_thread = threading.Thread(target=bgloop)
+        self._update_thread.start()
+
+        return self._progress_bar
 
 
 # The interface for users to use
