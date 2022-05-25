@@ -81,6 +81,7 @@ class ScanLogic(GenericLogic):
         # Then make a generator for the new list of points with interpolated steps
         scan_steps = zip(points, n_steps, v_between)
 
+        # wanted_points remembers the index in the points/scan_data arrays of the points we need to record
         expanded_points = zip(cls._expand_points(scan_steps), cls._wanted_points(range(0, len(points)), n_steps))
         return cls._append_return_point(expanded_points, points[0, :])
 
@@ -207,6 +208,7 @@ class ScanLogic(GenericLogic):
             data = self._scanning_device.scan_line(scan_line_points)
             self.wanted = wanted
             self.data = data
+            # select only the measurements where wanted is the index in the  (not -1)
             wanted_counts = list(itertools.filterfalse(lambda t: t[1] < 0, zip(data, wanted)))
             self.wanted_counts = wanted_counts
             #counts = list(((i, cts) for cts, i in zip(data.T, wanted) if i >= 0))
@@ -221,6 +223,9 @@ class ScanLogic(GenericLogic):
                 count_data = np.array([cts for cts, _ in wanted_counts])
                 self.log.debug("I: {} D: {}".format(indices.shape, count_data.shape))
                 np.put_along_axis(self._scan_data, indices, count_data, 0)
+                #requested_points_in_this_chunk = map(lambda i: self._points[i], indices)
+                #chunk_data = list(zip(requested_points_in_this_chunk, count_data))
+                #self.sigChunkData(chunk_data)
         except StopIteration:
             self.log.debug("Finished iteration")
             self._stopRequested = False
@@ -293,6 +298,9 @@ class ScanLogic(GenericLogic):
         v_b = np.array(b - o) / (b_px - 1)
         v_c = np.array(c - o) / (c_px - 1)
 
+        p_a = v_a * range(0, a_px)
+
+
         # set up for automatic broadcasting by using an array of [x]
         p_a = np.array([i*v_a     for i in range(0, a_px)])
         p_b = np.array([[j*v_b]   for j in range(0, b_px)])
@@ -300,12 +308,13 @@ class ScanLogic(GenericLogic):
 
         # use broadcasting to add all combinations of A[i] B[j] C[k]
         # order of scanning fastest to slowest is oa, ob, oc
-        return np.reshape(o + p_a + p_b + p_c, (a_px * b_px * c_px, len(o)))
+        return np.reshape(o + p_c + p_b + p_a, (a_px * b_px * c_px, len(o)))
 
     @classmethod
     def generate_xyz_path(cls, x_min, x_max, y_min, y_max, z_min, z_max, x_px, y_px, z_px):
         o = np.array([x_min, y_min, z_min])
-        a = np.array([x_min, y_min, z_max])
-        b = np.array([x_max, y_min, z_min])
-        c = np.array([x_min, y_max, z_min])
+        # scan Z first at each point (arguably should be shortest axis) to minimize impact of drift
+        a = np.array([x_max, y_min, z_min])
+        b = np.array([x_min, y_max, z_min])
+        c = np.array([x_min, y_min, z_max])
         return cls.generate_parallelepiped_path_from_corners(o, a, b, c, x_px, y_px, z_px)
