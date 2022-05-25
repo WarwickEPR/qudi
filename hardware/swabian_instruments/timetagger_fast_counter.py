@@ -18,6 +18,7 @@ along with Qudi. If not, see <http://www.gnu.org/licenses/>.
 Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
+import time
 
 from interface.fast_counter_interface import FastCounterInterface
 import numpy as np
@@ -47,6 +48,19 @@ class TimeTaggerFastCounter(Base, FastCounterInterface):
     _channel_detect = ConfigOption('timetagger_channel_detect', missing='error')
     _channel_sequence = ConfigOption('timetagger_channel_sequence', missing='error')
     _sum_channels = ConfigOption('timetagger_sum_channels', True, missing='warn')
+
+    def __init__(self, config, ** kwargs):
+        super().__init__(config=config, **kwargs)
+        self._tagger = None
+        self.pulsed = None
+        self._number_of_gates = 0
+        self._bin_width = 1
+        self._record_length = 0
+        self._channel_combined = None
+        self._channel_apd = None
+        self.statusvar = None
+        self._accumulated_time = 0
+        self._start_time = 0
 
     def on_activate(self):
         """ Connect and configure the access to the FPGA.
@@ -163,10 +177,27 @@ class TimeTaggerFastCounter(Base, FastCounterInterface):
             binwidth=int(np.round(self._bin_width * 1000)),
             n_bins=int(self._record_length),
             n_histograms=number_of_gates)
-
         self.pulsed.stop()
 
+        self._accumulated_time = 0
+        self._start_time = 0
+
         return bin_width_s, record_length_s, number_of_gates
+
+    def _start_measurement_timer(self, reset=False):
+        # add latest measurement time to total
+        if reset:
+            self._accumulated_time = 0
+        self._start_time = time.time()
+
+    def _stop_measurement_timer(self):
+        # add latest measurement time to total
+        if self._start_time > 0:
+            self._accumulated_time += time.time() - self._start_time
+            self._start_time = 0
+
+    def _measurement_time(self):
+        return self._accumulated_time + time.time() - self._start_time if self._start_time > 0 else self._accumulated_time
 
     def start_measure(self):
         """ Start the fast counter. """
@@ -174,6 +205,7 @@ class TimeTaggerFastCounter(Base, FastCounterInterface):
         self.pulsed.clear()
         self.pulsed.start()
         self.statusvar = 2
+        self._start_measurement_timer(reset=True)
         return 0
 
     def stop_measure(self):
@@ -181,6 +213,7 @@ class TimeTaggerFastCounter(Base, FastCounterInterface):
         if self.module_state() == 'locked':
             self.pulsed.stop()
             self.module_state.unlock()
+        self._stop_measurement_timer()
         self.statusvar = 1
         return 0
 
@@ -192,6 +225,7 @@ class TimeTaggerFastCounter(Base, FastCounterInterface):
         if self.module_state() == 'locked':
             self.pulsed.stop()
             self.statusvar = 3
+            self._stop_measurement_timer()
         return 0
 
     def continue_measure(self):
@@ -202,6 +236,7 @@ class TimeTaggerFastCounter(Base, FastCounterInterface):
         if self.module_state() == 'locked':
             self.pulsed.start()
             self.statusvar = 2
+            self._start_measurement_timer(reset=False)
         return 0
 
     def is_gated(self):
@@ -224,8 +259,8 @@ class TimeTaggerFastCounter(Base, FastCounterInterface):
         care of in this hardware class. A possible overflow of the histogram
         bins must be caught here and taken care of.
         """
-        info_dict = {'elapsed_sweeps': None,
-                     'elapsed_time': None}  # TODO : implement that according to hardware capabilities
+        info_dict = {'elapsed_sweeps': self.pulsed.getCounts(),
+                     'elapsed_time': self._measurement_time()}
         return np.array(self.pulsed.getData(), dtype='int64'), info_dict
 
 
