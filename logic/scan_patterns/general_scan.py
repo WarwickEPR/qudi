@@ -1,0 +1,66 @@
+from abc import ABC, abstractmethod
+import numpy as np
+
+
+class ArbitraryScan(ABC):
+
+    @abstractmethod
+    def points(self):
+        return iter(())
+
+    @abstractmethod
+    def extremal_points(self):
+        return list()
+
+    @abstractmethod
+    def record(self, indices, count_data):
+        return
+
+    @abstractmethod
+    def data(self):
+        return np.array([])
+
+    @abstractmethod
+    def length(self):
+        return 0
+
+
+class ParallelipedScan(ArbitraryScan):
+
+    def __init__(self, o: np.array, a: np.array, b: np.array, c: np.array, a_px: int, b_px: int, c_px: int, data_dim=1):
+        self.o = o
+        self.a = a
+        self.b = b
+        self.c = c
+        self.a_px = a_px
+        self.b_px = b_px
+        self.c_px = c_px
+        self._data = np.zeros((a_px*b_px*c_px,data_dim))
+
+    def points(self):
+        for u in np.linspace(0, 1, self.a_px):
+            for v in np.linspace(0, 1, self.b_px):
+                for w in np.linspace(0, 1, self.c_px):
+                    yield self.o + (self.a-self.o) * u + (self.b-self.o) * v + (self.c-self.o) * w
+
+    def extremal_points(self):
+        return [self.o, self.a, self.b, self.c]
+
+    def data(self):
+        return np.reshape(self._data, (self.a_px, self.b_px, self.c_px, self._data.shape[1]))
+
+    def record(self, indices, count_data):
+        np.put_along_axis(self._data, indices, count_data, 0)
+
+    def length(self):
+        return self.a_px * self.b_px * self.c_px
+
+
+class XYZScan(ParallelipedScan):
+
+    def __init__(self, x0: float, x1: float, x_px: int, y0: float, y1: float, y_px: int, z0, z1, z_px: int, data_dim=1):
+        o = np.array([x0, y0, z0])
+        a = np.array([x1, y0, z0])
+        b = np.array([x0, y1, z0])
+        c = np.array([z0, y0, z1])
+        super().__init__(o, a, b, c, x_px, y_px, z_px, data_dim)
