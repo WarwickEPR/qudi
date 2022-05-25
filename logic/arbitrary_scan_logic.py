@@ -2,23 +2,25 @@ from qtpy import QtCore
 from logic.generic_logic import GenericLogic
 from core.connector import Connector
 import numpy as np
-import itertools
+from itertools import tee, count, chain, starmap, filterfalse
+from more_itertools import pairwise, chunked
+from logic.scan_patterns.general_scan import ArbitraryScan
 
 
 class OutOfBounds(Exception):
     pass
 
 
-class ScanLogic(GenericLogic):
+class ArbitraryScanLogic(GenericLogic):
 
-    """A bare-bones confocal image scanner module. Just captures an image given a list of points.
+    """A bare-bones confocal image scanner module. Just captures an image given an iterator of points.
     Fills in slowed down flyback points
     """
 
     # declare connectors
     confocal_scanner = Connector(interface='ConfocalScannerInterface')
 
-    _sigStartScan = QtCore.Signal(float, float)
+    _sigStartScan = QtCore.Signal()
     sigScanStarted = QtCore.Signal()
     _sigStopScan = QtCore.Signal()
     sigScanStopped = QtCore.Signal()
@@ -31,9 +33,9 @@ class ScanLogic(GenericLogic):
         self._stopRequested = False
         self._scanning_device = None
         self._update_period = 5
-        self._pending_points = None
-        self._scan_data = None
-        self._points = []
+        self._scan = None
+        self._clock_frequency = 100
+        self._return_speed = 0.01
 
     def on_activate(self):
         self._scanning_device = self.confocal_scanner()
@@ -43,7 +45,6 @@ class ScanLogic(GenericLogic):
         self._sigNextChunk.connect(self._scan_next_chunk, QtCore.Qt.QueuedConnection)
         self.sigScanStopped.connect(self._release_scanner)
         self.sigScanFinished.connect(self._release_scanner)
-
         return 0
 
     def on_deactivate(self):
@@ -51,81 +52,61 @@ class ScanLogic(GenericLogic):
         self._sigStopScan.disconnect(self._stop_scan)
         self.sigScanStopped.disconnect(self._release_scanner)
         self.sigScanFinished.disconnect(self._release_scanner)
-
         return 0
 
     @classmethod
     def distance(cls, a: np.array, b: np.array):
-        # where a, b are 3, n arrays of coords of equal length
-        # tips on efficient methods gleaned from:
-        # https://stackoverflow.com/questions/1401712/how-can-the-euclidean-distance-be-calculated-with-numpy
-        return np.sqrt(np.sum((b-a) ** 2, 1))
+        return np.sqrt(np.sum((b-a) ** 2))
 
     @classmethod
-    def _interpolate_speed_limit(cls, points: np.array, speed, clock_frequency):
+    def _interpolate_points(cls, points, starting_position, final_position, speed, clock_frequency):
         # with speed limit in m/s, maximum distance per tick
         d_per_tick = speed / clock_frequency
 
+        # Add journey to and from the scan before interpolation of flyback points
+        points1, points2 = tee(points)
+        points_with_return = chain([starting_position], points1, [final_position])
+        i_points_with_return = chain([(-1, starting_position)],
+                                     zip(count(), points2),
+                                     [(-1, final_position)])
+
+
         # calculate the distances between successive points
-        points_shifted = np.roll(points, -1, 0)
-        d = cls.distance(points, points_shifted)
+        pwr1, pwr2 = tee(points_with_return)
+        distance_between_points = starmap(cls.distance, pairwise(pwr1))
+        # and hence the number of interpolated steps needed to restrict stage speed
+        n_steps = map(lambda d: np.floor(d / d_per_tick).astype(int)+1, distance_between_points)
 
-        # find the number of interpolated steps each takes
-        n_steps = np.floor(d / d_per_tick).astype(int)+1
+        # calculate vectors between points
+        v = starmap(lambda a, b: b-a, pairwise(pwr2))
 
-        # work out the steps
-        axes = points.shape[1]
-        step_fraction = np.reciprocal(n_steps.astype(float)) * np.ones((axes, 1))
-        v_between = np.multiply(points_shifted - points, step_fraction.T)
+        # put it all together and label the points we don't need with -1
+        for point, n, v in zip(i_points_with_return, n_steps, v):
+            index, p = point
+            yield index, p
+            s = 1.0/n
+            for i in range(1, n):
+                yield -1, p + i * s * v
 
-        # Then make a generator for the new list of points with interpolated steps
-        scan_steps = zip(points, n_steps, v_between)
-
-        # wanted_points remembers the index in the points/scan_data arrays of the points we need to record
-        expanded_points = zip(cls._expand_points(scan_steps), cls._wanted_points(range(0, len(points)), n_steps))
-        return cls._append_return_point(expanded_points, points[0, :])
-
-    @classmethod
-    def _append_return_point(cls, g, p):
-        yield from g
-        yield p, -1
-
-    @classmethod
-    def _expand_points(cls, z):
-        for p, n, v in z:
-            for i in range(0, n):
-                yield p + i * v
-
-    @classmethod
-    def _wanted_points(cls, point_index, number_of_steps):
-        for i, n in zip(point_index, number_of_steps):
-            for step in range(0, n):
-                if step == 0:
-                    yield i
-                else:
-                    yield -1
-
-    @classmethod
-    def _chunk(cls, points, chunk_size):
-        # Return first n items of the iterable as a list
-        # taken from itertools documentation
-        return list(itertools.islice(points, chunk_size))
-
-    def start_scan(self, points, clock_frequency=100, return_speed=1e-3):
-        if not self._check_in_bounds(points):
+    def start_scan(self, scan: ArbitraryScan, clock_frequency=100, return_speed=1e-2):
+        if not self._check_in_bounds(scan):
             self.log.warn("Scan not started. Some points are out of bounds.")
             raise OutOfBounds
 
-        self._pending_points = points
-        self._sigStartScan.emit(clock_frequency, return_speed)
+        self._scan = scan
+        self._clock_frequency = clock_frequency
+        self._return_speed = return_speed
+        self._sigStartScan.emit()
 
     def _stop_scan(self):
         self._stopRequested = True
 
-    def _check_in_bounds(self, points):
+    def _check_in_bounds(self, scan):
         bounds = np.array(self._scanning_device.get_position_range())
-        return np.all(np.logical_and(np.greater_equal(points, bounds[:, 0]),
-                                     np.less_equal(points, bounds[:, 1])))
+        for p in scan.extremal_points():
+            if np.logical_or(np.any(np.less(p, bounds[:, 0])), np.any(np.greater(p, bounds[:, 1]))):
+                return False
+        return True
 
     def _release_scanner(self):
         self._scanning_device.close_scanner()
@@ -134,11 +115,11 @@ class ScanLogic(GenericLogic):
             self._scanning_device.module_state.unlock()
         self.module_state.unlock()
 
-    def _start_scan(self, clock_frequency, return_speed):
+    def _start_scan(self):
 
         # get control of the scanning device
         self.module_state.lock()
-        clock_status = self._scanning_device.set_up_scanner_clock(clock_frequency=clock_frequency)
+        clock_status = self._scanning_device.set_up_scanner_clock(clock_frequency=self._clock_frequency)
         if clock_status < 0:
             self.module_state.unlock()
             return
@@ -150,39 +131,22 @@ class ScanLogic(GenericLogic):
             return
 
         # Keep the actual points requested. Let the caller reshape into whatever form is needed
-        self._points = self._pending_points
-        self.log.info("Starting scan of {} points".format(self._points.shape[0]))
-        self._number_of_channels = len(self.confocal_scanner().get_scanner_count_channels())
-        self._scan_data = np.zeros((len(self._points), self._number_of_channels))
-        self._pending_points = None
+        self.log.info("Starting scan of {} points".format(self._scan.length()))
 
         # add "flyback" points to slow large movements down
         # use generators to avoid copying around large arrays
         # includes a boolean for which points are actually wanted
-        interpolated_points = self._interpolate_speed_limit(self._points, return_speed, clock_frequency)
-
-        # also add "flyback" from current position and back
-        route = self._to_and_from(self._scanning_device.get_scanner_position()[0:3], self._points[0, :], interpolated_points, return_speed, clock_frequency)
+        current_position = np.array(self._scanning_device.get_scanner_position()[0:3])
+        interpolated_points = self._interpolate_points(self._scan.points(),
+                                                       current_position, current_position,
+                                                       self._return_speed, self._clock_frequency)
 
         # chunk the point list generator so updates can be sent out periodically
-        chunk_size = int(self._update_period * clock_frequency)
-        self._chunked_points = iter(lambda: self._chunk(route, chunk_size), [])
+        chunk_size = int(self._update_period * self._clock_frequency)
+        self._chunked_points = chunked(interpolated_points, chunk_size)
 
         # start scanning
         self._sigNextChunk.emit()
-
-    @classmethod
-    def _to_and_from(cls, current: np.array, start: np.array, points: np.array, speed_limit, clock_frequency):
-        d_per_tick = speed_limit / clock_frequency
-        v = start - current
-        d = cls.distance(np.array([start]), np.array([current]))[0]
-        steps = int(np.floor(d / d_per_tick)+1)
-        dv = np.true_divide(v, steps)
-        for i in range(1, int(steps)):
-            yield current + i * dv, -1
-        yield from points
-        for i in range(steps, -1, -1):
-            yield current + i * dv, -1
 
     def _scan_next_chunk(self):
         if self._stopRequested:
@@ -190,6 +154,7 @@ class ScanLogic(GenericLogic):
             self.sigScanStopped.emit()
             # stop scanning chunks
             return
+
         # otherwise, try getting more points to scan
         try:
             chunk = next(self._chunked_points, None)
@@ -198,34 +163,24 @@ class ScanLogic(GenericLogic):
                 self._stopRequested = False
                 self.sigScanFinished.emit()
                 return
-            points = np.array([p for p, _ in chunk])
-            wanted = np.array([i for _, i in chunk])
+            points = np.array([p for _, p in chunk])
+            indices = np.array([i for i, _ in chunk])
 
-            self.log.debug("Scanning chunk {}".format(points))
+            self.log.debug("Scanning chunk of {} points".format(len(points)))
             # scan this list of points and throw away the ones we don't need
             scan_line_points = points.T
-            self.log.debug("Scan line input shape: {} {}".format(scan_line_points.shape, scan_line_points))
             data = self._scanning_device.scan_line(scan_line_points)
-            self.wanted = wanted
-            self.data = data
-            # select only the measurements where wanted is the index in the  (not -1)
-            wanted_counts = list(itertools.filterfalse(lambda t: t[1] < 0, zip(data, wanted)))
-            self.wanted_counts = wanted_counts
-            #counts = list(((i, cts) for cts, i in zip(data.T, wanted) if i >= 0))
-            self.log.debug("returned_counts {}".format(data))
-            self.log.debug("wanted {}".format(wanted))
-            self.log.debug("counts {}".format(wanted_counts))
-            self.log.debug("Acquired {} points, {} wanted".format(len(data), len(wanted_counts)))
+            wanted_counts = list(filterfalse(lambda t: t[1] < 0, zip(data, indices)))
+            wanted_n = len(wanted_counts)
+            flyback_n = len(data) - wanted_n
+            self.log.debug("Avg {} c/s from {} points with {} interpolated to restrict speed".
+                           format(np.mean(wanted_counts), wanted_n, flyback_n))
             if wanted_counts:
                 # save the ones we actually want to the index we passed through
                 # conveniently, put_along_axis does just the right thing in one call
                 indices = np.array([[i] for _, i in wanted_counts]).astype(int)
                 count_data = np.array([cts for cts, _ in wanted_counts])
-                self.log.debug("I: {} D: {}".format(indices.shape, count_data.shape))
-                np.put_along_axis(self._scan_data, indices, count_data, 0)
-                #requested_points_in_this_chunk = map(lambda i: self._points[i], indices)
-                #chunk_data = list(zip(requested_points_in_this_chunk, count_data))
-                #self.sigChunkData(chunk_data)
+                self._scan.record(indices, count_data)
         except StopIteration:
             self.log.debug("Finished iteration")
             self._stopRequested = False
@@ -234,14 +189,6 @@ class ScanLogic(GenericLogic):
 
         self._sigNextChunk.emit()
 
-    def _scan_line_format(self, points):
-        # points is an array in form [n][axes]
-        # scan line needs it in the form [px py pz][channels]
-        # i.e. with a third dimension of [0:n_ch]
-        pass
-
-    def scan_data(self):
-        return self._scan_data.T
 
     # Accept any list of points to permit e.g. distortion compensation, arbitrary orientation scans, volume
     # scans and generally separate the scanning process from how the resulting data is interpreted and used
@@ -298,9 +245,6 @@ class ScanLogic(GenericLogic):
         v_b = np.array(b - o) / (b_px - 1)
         v_c = np.array(c - o) / (c_px - 1)
 
-        p_a = v_a * range(0, a_px)
-
-
         # set up for automatic broadcasting by using an array of [x]
         p_a = np.array([i*v_a     for i in range(0, a_px)])
         p_b = np.array([[j*v_b]   for j in range(0, b_px)])
@@ -308,13 +252,19 @@ class ScanLogic(GenericLogic):
 
         # use broadcasting to add all combinations of A[i] B[j] C[k]
         # order of scanning fastest to slowest is oa, ob, oc
-        return np.reshape(o + p_c + p_b + p_a, (a_px * b_px * c_px, len(o)))
+        return np.reshape(o + p_a + p_b + p_c, (a_px * b_px * c_px, len(o)))
 
     @classmethod
     def generate_xyz_path(cls, x_min, x_max, y_min, y_max, z_min, z_max, x_px, y_px, z_px):
         o = np.array([x_min, y_min, z_min])
-        # scan Z first at each point (arguably should be shortest axis) to minimize impact of drift
-        a = np.array([x_max, y_min, z_min])
-        b = np.array([x_min, y_max, z_min])
-        c = np.array([x_min, y_min, z_max])
+        a = np.array([x_min, y_min, z_max])
+        b = np.array([x_max, y_min, z_min])
+        c = np.array([x_min, y_max, z_min])
         return cls.generate_parallelepiped_path_from_corners(o, a, b, c, x_px, y_px, z_px)
+
+    @classmethod
+    def generate_paralleliped(cls, o: np.array, a: np.array, b: np.array, c: np.array, a_px: int, b_px: int, c_px: int):
+        for u in np.linspace(0, 1, a_px):
+            for v in np.linspace(0, 1, b_px):
+                for w in np.linspace(0, 1, c_px):
+                    yield o + (a-o) * u + (b-o) * v + (c-o) * w
