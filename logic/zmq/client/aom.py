@@ -112,7 +112,6 @@ class Aom(QudiClient):
 
     def take_psat(self):
         return Psat(self)
-        # await self.send_command('take_psat')
 
     async def wait_for_psat_fit(self):
         s = self.subscribe('aom.fit')

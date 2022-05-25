@@ -1,7 +1,7 @@
 from . base import ZmqProxy
 from core.connector import Connector
 from .. message import Message
-from logic.zmq.format.psat import Psat
+from logic.zmq.format.psat import PsatTable
 
 
 class AomProxy(ZmqProxy):
@@ -49,7 +49,7 @@ class AomProxy(ZmqProxy):
     def _save_psat(self):
         poi = self.poimanager().active_poi
         with self.storage().tables_context() as t:
-            dataset = t.create_measurement_table('Psat', Psat, poi)
+            dataset = t.create_measurement_table('Psat', PsatTable, poi)
             dataset.append(list(zip(self.aomlogic().powers, self.aomlogic().psat_data)))
             t.flush()
         return dataset

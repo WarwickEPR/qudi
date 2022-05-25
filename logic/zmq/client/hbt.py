@@ -91,16 +91,17 @@ class HbtMeasurement:
                 plt.show()
 
 
-
 class Hbt(QudiClient):
 
     name = "hbt"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.measurement = None
 
     async def start(self):
-        await self.send_command('start')
+        self.measurement = HbtMeasurement(client=self)
+        await self.measurement.start()
 
     async def stop(self):
         await self.send_command('stop')

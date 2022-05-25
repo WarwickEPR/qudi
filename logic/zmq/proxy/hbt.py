@@ -1,7 +1,7 @@
 from . base import ZmqProxy
 from core.connector import Connector
 from .. message import Message
-from logic.zmq.format.hbt import HBT
+from logic.zmq.format.hbt import HbtTable
 
 
 class HbtProxy(ZmqProxy):
@@ -9,13 +9,9 @@ class HbtProxy(ZmqProxy):
     frontend = Connector(interface='ZmqFrontend')
     storage = Connector(interface='TablesStorage')
     hbt = Connector(interface='HbtLogic')
-    poi_manager = Connector(interface='PoiManagerLogic')
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
-        self.hbt().sigStart.connect(self.notify_hbt_start)
-        self.hbt().sigStop.connect(self.notify_hbt_stop)
-        self.hbt().sigStop.connect(self._save_hbt)
 
     def on_activate(self):
         # get hold of a handle to optimizer_logic, load if necessary
@@ -27,13 +23,15 @@ class HbtProxy(ZmqProxy):
 
     def on_deactivate(self):
         super().on_deactivate()
+        self.hbt().sigStart.disconnect(self.notify_start)
+        self.hbt().sigStop.disconnect(self.notify_stop)
         self.hbt().hbt_updated.disconnect(self.notify_hbt)
 
     def handle_start(self, _):
-        self.hbt().start()
+        self.hbt().start_hbt()
 
     def handle_stop(self, _):
-        self.hbt().start()
+        self.hbt().stop_hbt()
 
     def handle_qudi_save(self, _):
         self.hbt().save_hbt()
@@ -50,8 +48,7 @@ class HbtProxy(ZmqProxy):
 
     def _save_hbt(self):
         with self.storage().tables_context() as t:
-            poi = self.poimanager().active_poi
-            dataset = t.create_measurement_table('HBT', HBT, poi)
+            dataset = t.create_measurement_table('HBT', HbtTable)
             dataset.append(list(zip(self.hbt().bin_times, self.hbt().g2_data, self.hbt().g2_data_normalised)))
             t.flush()
         return dataset

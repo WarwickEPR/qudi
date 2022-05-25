@@ -5,7 +5,7 @@ from tables import *
 # Point in any order, with or without transformed coordinates
 # see attributes for which interpretation to use
 # (this may be interpreted more simply if the scan pattern is known)
-class ScanData(IsDescription):
+class ScanTable(IsDescription):
     x = Float32Col(pos=0)
     y = Float32Col(pos=1)
     z = Float32Col(pos=2)

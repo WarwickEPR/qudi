@@ -3,9 +3,11 @@ from logic.generic_logic import GenericLogic
 from core.connector import Connector
 from core.configoption import ConfigOption
 from logic.zmq.message import Message, PubMessage
-from PyQt5.QtCore import QThread, pyqtSignal, Qt, QEventLoop
+from PyQt5.QtCore import QThread, pyqtSignal, Qt, QEventLoop, QTimer, QObject
 from logic.zmq.common import abbreviate_frames
 from importlib import reload
+import time
+import math
 
 
 class ZmqProxyThread(QThread):
@@ -66,10 +68,64 @@ class ZmqProxyThread(QThread):
             self.log.info("Context terminated, socket closed")
 
 
+class ZmqTimer(QObject):
+
+    update   = pyqtSignal(int, int)
+    done     = pyqtSignal()
+    update_period = 1
+
+    def __init__(self):
+        super().__init__()
+        self._timer = QTimer()
+        self.start_time = 0
+        self._duration = 0
+        self._final_elapsed = 0
+        self._timer.timeout.connect(self._tick)
+
+    def start(self, duration):
+        self.start_time = time.time()
+        self._duration = duration
+        self._final_elapsed = 0
+        self._timer.start(ZmqTimer.update_period * 1000)
+
+    def stop(self):
+        self._duration = self.time_elapsed
+        self._final_elapsed = self.time_elapsed
+        self._timer.stop()
+
+    @property
+    def time_remaining(self):
+        remaining = self._duration - self.time_elapsed
+        if remaining < 0:
+            return 0
+        else:
+            return remaining
+
+    @property
+    def time_elapsed(self):
+        return self._final_elapsed if self._final_elapsed else time.time() - self.start_time
+
+    def change_duration(self, duration):
+        if self.time_elapsed > duration:
+            # already done - stop
+            self.stop()
+        else:
+            self._duration = duration
+
+    def update(self):
+        pass
+
+    def _tick(self):
+        self.update()
+        self.update.emit(self.time_remaining, self.time_elapsed)
+        if self.time_remaining == 0 and self._timer.isActive():
+            self.stop()
+            self.done.emit()
+
+
 # A base for specific ZMQ-Qt proxies. Threaded Qudi logic layer module that
 # connects to other logic modules and handles signalling etc
-# Also runs a Poller to receive and send ZMQ messages
-
+# Also runs. a Poller to receive and send ZMQ messages
 
 class ZmqProxy(GenericLogic):
 
@@ -82,6 +138,7 @@ class ZmqProxy(GenericLogic):
         super().__init__(config=config, **kwargs)
         self._ctx = None
         self._proxy_thread = None
+        self._timers = {}
         self.pub = None
 
     def on_activate(self):
@@ -161,3 +218,14 @@ class ZmqProxy(GenericLogic):
         notification = PubMessage(topic=topic, body=body)
         self.log.debug("Notification: {}".format(notification))
         self.pub.send_multipart(notification.encoded())
+
+    # gather and remap data from a module
+    @staticmethod
+    def gather(place, keymap):
+        data = {}
+        for a, b in keymap.items():
+            try:
+                v = getattr(place, b)
+                data[a] = v
+            except AttributeError as e:
+                pass

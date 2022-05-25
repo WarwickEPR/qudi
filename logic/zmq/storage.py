@@ -1,6 +1,7 @@
 import tables
 from logic.generic_logic import GenericLogic
 from core.configoption import ConfigOption
+from core.connector import Connector
 import os.path
 from logic.zmq.common import TablesContext
 
@@ -11,6 +12,7 @@ class TablesStorage(GenericLogic):
     local_directory = ConfigOption('local_directory', 'session_data')
     # remote file server location
     filer_directory = ConfigOption('shared_directory', '', missing='warn')
+    poimanager = Connector(interface='PoiManagerLogic')
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -50,8 +52,9 @@ class TablesStorage(GenericLogic):
         # just to ensure the session name isn't reused by someone else
         self.session_name = 'session-' + self.timestamp()
 
-    def tables_context(self):
-        return TablesContext(self.local_filepath, writable=True, logger=self.log)
+    def tables_context(self, use_poi=True):
+        poi = self.poimanager().active_poi if use_poi else None
+        return TablesContext(self.local_filepath, writable=True, logger=self.log, active_poi=poi)
 
     @property
     def local_filepath(self):

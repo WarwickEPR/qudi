@@ -5,6 +5,11 @@ import time
 import zmq
 import asyncio
 import zmq.asyncio
+
+import math
+
+from ipywidgets import Layout
+
 from logic.zmq.message import Message, PubMessage
 import logging
 
@@ -78,23 +83,31 @@ class BgTask:
 class BgWait(BgTask):
 
     def __init__(self, duration, after_wait):
-        super().__init__(asyncio.sleep(duration), after_wait)
+        async def bg_wait():
+            await asyncio.sleep(duration)
+            if after_wait is not None:
+                await after_wait
+            self._done = True
+        super().__init__(bg_wait())
+        self._done = False
         self._duration = duration
         self._start_time = time.time()
-        self._end_time = self._start_time + duration
         self._progress_task = None
         self._progress_bar = None
         self._update_thread = None
 
     def time_remaining(self):
-        return self._end_time - time.time()
+        remaining = self._end_time - time.time()
+        if remaining < 0:
+            remaining = 0
+        return remaining
 
     def time_elapsed(self):
         return time.time() - self._start_time
 
     @classmethod
     def seconds_to_string(cls, secs):
-        return str(datetime.timedelta(seconds=secs))
+        return str(datetime.timedelta(seconds=math.floor(secs)))
 
     def remaining_str(self):
         return '{} remaining of {}'.format(self.seconds_to_string(self.time_remaining()),
@@ -112,7 +125,7 @@ class BgWait(BgTask):
                                                    max=self._duration,
                                                    orientation='horizontal',
                                                    bar_style='',
-                                                   style='{ bar-color: #ffc0c0 }')
+                                                   layout=Layout(width='500px'))
 
         def bgloop():
             while not self._done:
@@ -152,7 +165,6 @@ class QudiControl:
         self.control_uri = 'tcp://{}:{}'.format(hostname, control_port)
         self.pub_uri = 'tcp://{}:{}'.format(hostname, pub_port)
         self.control = self.connect('control')
-        self.data = self.connect('data')
 
     async def init_session(self):
         session_params = await self.data.open_session(name=self.session, title=self.title)
@@ -243,8 +255,9 @@ class QudiClient(metaclass=Plugin):
             with out:
                 out.append_stdout("Received: {} {}\n".format(message.topic, message.body))
 
-    async def start_logic_module(self, module):
-        await self.send_control_command('start_logic_module', module)
+    async def start_logic_module(self, modules):
+        for module in modules:
+            await self.send_control_command('start_logic_module', module)
 
     async def receive_message(self):
         reply = await self.control_socket.recv_multipart()
