@@ -1773,11 +1773,18 @@ class SequenceGeneratorLogic(GenericLogic):
                 self.log.warn('Extending waveform {0} by {2} bins. New length {1}.'.format(
                     ensemble.name, ensemble_info['number_of_samples'], extension_samples))
 
-        # Non-sampling pulsers may have all they need to generate the pulse pattern at this point
-        if self.pulsegenerator().set_pulse_ensemble(ensemble.name, ensemble_info):
+        # Non-sampling pulsers may have all they need to generate the pulse pattern at this point,
+        # given the pulse block descriptions required. Return True if that's the case.
+        required_pulse_blocks = dict((pb, self.saved_pulse_blocks[pb]) for pb, n in ensemble.block_list)
+        if self.pulsegenerator().set_pulse_ensemble(ensemble, required_pulse_blocks):
             self.sigLoadedAssetUpdated.emit(*self.loaded_asset)
             self.log.info("Successfully loaded pulse sequence '{}'".format(ensemble.name))
-            # let the rest of the loading continue so that measurement etc are set up
+            # That should be everything set up that's needed, just return
+            waveforms = list({block for block, n in ensemble.block_list})
+            if not self.__sequence_generation_in_progress:
+                self.module_state.unlock()
+            self.sigSampleEnsembleComplete.emit(None)
+            return 0, waveforms, ensemble_info
 
         # Calculate the byte size per sample.
         # One analog sample per channel is 4 bytes (np.float32) and one digital sample per channel
@@ -1862,12 +1869,11 @@ class SequenceGeneratorLogic(GenericLogic):
 
                         # Calculate respective part of the sample arrays
                         for chnl in digital_high:
-                            digital_samples[chnl][array_write_index:array_write_index + samples_to_add] = digital_high[
-                                chnl]
+                            digital_samples[chnl][array_write_index:array_write_index + samples_to_add] \
+                                = digital_high[chnl]
                         for chnl in pulse_function:
-                            analog_samples[chnl][array_write_index:array_write_index + samples_to_add] = pulse_function[
-                                                                                                             chnl].get_samples(
-                                time_arr) / (self.__analog_levels[0][chnl] / 2)
+                            analog_samples[chnl][array_write_index:array_write_index + samples_to_add] \
+                                = pulse_function[chnl].get_samples(time_arr) / (self.__analog_levels[0][chnl] / 2)
 
                         # Free memory
                         if pulse_function:

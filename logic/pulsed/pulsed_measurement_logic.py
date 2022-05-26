@@ -549,7 +549,7 @@ class PulsedMeasurementLogic(GenericLogic):
                        'counting_length')
         if not isinstance(info_dict, dict) or not all(param in info_dict for param in mand_params):
             self.log.debug('The set measurement_information did not contain all the necessary '
-                           'information or was not a dict. Setting empty dict.')
+                           'information or was not a dict.\n{}\nSetting empty dict.'.format(info_dict))
             self._measurement_information = dict()
             return
 
