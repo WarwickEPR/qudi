@@ -29,8 +29,10 @@ from interface.microwave_interface import MicrowaveMode
 from interface.microwave_interface import TriggerEdge
 import time
 
+from interface.microwave_modulation_interface import MicrowaveModulationInterface
 
-class MicrowaveDummy(Base, MicrowaveInterface):
+
+class MicrowaveDummy(Base, MicrowaveModulationInterface):
     """ A dummy class to emulate a microwave source.
 
     Example config for copy-paste:
@@ -278,3 +280,9 @@ class MicrowaveDummy(Base, MicrowaveInterface):
 
         time.sleep(self._FREQ_SWITCH_SPEED)  # that is the switching speed
         return
+
+    def turn_off_external_iq_modulation(self):
+        pass
+
+    def turn_on_external_iq_modulation(self):
+        pass

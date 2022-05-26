@@ -32,11 +32,11 @@ from interface.microwave_interface import MicrowaveInterface
 from interface.microwave_interface import MicrowaveLimits
 from interface.microwave_interface import MicrowaveMode
 from interface.microwave_interface import TriggerEdge
+from interface.microwave_modulation_interface import MicrowaveModulationInterface
 
 
-class MicrowaveKeysight(Base, MicrowaveInterface):
-    """ This is the Interface class to define the controls for the simple
-        microwave hardware.
+class MicrowaveKeysight(Base, MicrowaveModulationInterface):
+    """ Microwave hardware configuration for Keysight N5172A and compatible microwave sources..
     """
 
     _modclass = 'MicrowaveKeysight'
@@ -274,7 +274,6 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         self._connection.write('*WAI')
         return 0
 
-
     def set_sweep(self, start, stop, step, power):
         """
         @param start:
@@ -306,7 +305,6 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
 
         return freq_start, freq_stop, freq_step, freq_power, mode
 
-
     def sweep_on(self):
         """ Switches on the list mode.
 
@@ -316,7 +314,6 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
 
         return 1
 
-
     def list_on(self):
         """ Switches on the list mode.
 
@@ -325,7 +322,6 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
         self._connection.write(':OUTP:STAT ON')
 
         return 1
-
 
     def set_ext_trigger(self, pol, timing):
         """ Set the external trigger for this device with proper polarization.
@@ -357,3 +353,12 @@ class MicrowaveKeysight(Base, MicrowaveInterface):
             return pol, timing
 
         return pol, timing
+
+    def turn_on_external_iq_modulation(self):
+        self._connection.write(':DM:SOURCE EXT')
+        self._connection.write(':DM:CORR:OPT RFO')
+        self._connection.write(':AM:DEEP ON')
+        self._connection.write(':DM:STATE ON')
+
+    def turn_off_external_iq_modulation(self):
+        self._connection.write("DM:STATE OFF")
