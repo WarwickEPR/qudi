@@ -12,6 +12,10 @@ class Pulsed(QudiClient):
         s = self.subscribe('pulsed.sequence_generated')
         await self.send_command('generate_predefined', body={'name': sequence, 'parameters': params})
         await s.receive()
+    
+    async def wait_for_measurement_to_finish(self):
+        s = self.subscribe('pulsed.measurement_finished')
+        await s.receive()
 
     async def start(self, name=None, duration=None):
         body = {}

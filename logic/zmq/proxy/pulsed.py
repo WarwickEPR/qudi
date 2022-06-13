@@ -70,6 +70,9 @@ class PulsedProxy(ZmqProxy):
         # results in errors due to measurement being None if started manually
         # self.pulsed_measurement().sigMeasurementDataUpdated.connect(self._data_updated)
 
+        # notify user when measurement is finished - will return whether timer elapses or user stops measurement
+        self.pulsed_measurement().sigMeasurementStatusUpdated.connect(self.notify_measurement_finished)            
+
         self._timer.start(duration)
 
     def handle_stop(self, _):
@@ -140,6 +143,11 @@ class PulsedProxy(ZmqProxy):
 
     def notify_progress(self):
         self.notify('progress')
+
+    def notify_measurement_finished(self, is_running, is_paused):
+        if not is_running and not is_paused:
+            self.pulsed_measurement().sigMeasurementStatusUpdated.disconnect(self.notify_measurement_finished)            
+            self.notify('measurement_finished')
 
     def handle_save_qudi(self, _):
         self.pulsed_measurement().save_measurement_data()
