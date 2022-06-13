@@ -11,15 +11,16 @@ class PulsedTimer(ZmqTimer):
         super().__init__()
         self._logic = logic
 
+    @property
     def time_elapsed(self):
-        self._logic.elapsed_time()
+        return self._logic.elapsed_time
 
     def start(self, duration):
-        super(ZmqTimer, self).start(duration)
+        super().start(duration)
         self._logic.start_pulsed_measurement()
 
     def stop(self):
-        super(ZmqTimer, self).stop()
+        super().stop()
         self._logic.stop_pulsed_measurement()
 
 
@@ -62,17 +63,17 @@ class PulsedProxy(ZmqProxy):
         else:
             duration = 60
 
-        with self.storage().tables_context() as h:
-            self._measurement = PulsedMeasurement.create_group(h, name, self._predefined_parameters())
+        # with self.storage().tables_context() as h:
+        #     self._measurement = PulsedMeasurement.create_group(h, name, self._predefined_parameters())
 
         # only connect signal when the measurement is started via zmq, otherwise
         # results in errors due to measurement being None if started manually
-        self.pulsed_measurement().sigMeasurementDataUpdated.connect(self._data_updated)
+        # self.pulsed_measurement().sigMeasurementDataUpdated.connect(self._data_updated)
 
         self._timer.start(duration)
 
     def handle_stop(self, _):
-        self.pulsed_measurement().sigMeasurementDataUpdated.disconnect(self._data_updated)
+        # self.pulsed_measurement().sigMeasurementDataUpdated.disconnect(self._data_updated)
         self._timer.stop()
 
     def handle_pause(self, _):

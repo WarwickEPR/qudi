@@ -122,7 +122,6 @@ class ZmqTimer(QObject):
     #    pass
 
     def _tick(self):
-    #    self.update()
         self.update.emit(self.time_remaining, self.time_elapsed)
         if self.time_remaining == 0 and self._timer.isActive():
             self.stop()
