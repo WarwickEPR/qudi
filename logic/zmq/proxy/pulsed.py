@@ -96,6 +96,9 @@ class PulsedProxy(ZmqProxy):
         (_, fr) = self.pulsed_measurement().do_fit(fit_name)
         self.notify('fit_updated', fr.values)
 
+    def handle_set_microwave_settings(self, msg: Message):
+        self.pulsed_measurement().set_microwave_settings(settings_dict=msg.body)
+
     def _save_data(self):
         with self.storage().tables_context() as h:
             attrs = self.gather(self.pulsed_measurement(), {'elapsed_sweeps': 'elapsed_sweeps',

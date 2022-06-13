@@ -23,6 +23,16 @@ class Pulsed(QudiClient):
         response = await s.receive()
         return response.body
 
+    async def set_microwave_settings(self, power=None, frequency_in_GHz=None, use_external_generator=True):
+        body = {}
+        if power is not None:
+            body.update({'power': power})
+        if frequency_in_GHz is not None:
+            body.update({'frequency': frequency_in_GHz*1e9})
+        body.update({'use_ext_microwave': use_external_generator})
+
+        await self.send_command('set_microwave_settings', body=body)
+
     async def start(self, name=None, duration=None):
         body = {}
         if name is not None:
