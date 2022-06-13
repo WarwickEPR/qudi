@@ -17,6 +17,12 @@ class Pulsed(QudiClient):
         s = self.subscribe('pulsed.measurement_finished')
         await s.receive()
 
+    async def perform_fit(self, fit_name):
+        s = self.subscribe('pulsed.fit_updated')
+        await self.send_command('perform_fit', body={'fit_name': fit_name})
+        response = await s.receive()
+        return response.body
+
     async def start(self, name=None, duration=None):
         body = {}
         if name is not None:

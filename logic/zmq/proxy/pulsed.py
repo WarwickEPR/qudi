@@ -50,7 +50,6 @@ class PulsedProxy(ZmqProxy):
         super().on_deactivate()
         if self._timer and self._timer.isActive():
             self._timer.stop()
-        self.pulsed_measurement().sigMeasurementDataUpdated.disconnect(self.notify_data_updated)
 
     def handle_start(self, msg: Message):
         timestamp = self.storage().timestamp()
@@ -91,6 +90,11 @@ class PulsedProxy(ZmqProxy):
         predef_parameters = msg.body['parameters']
         self._pending_predef = (predef_name, predef_parameters)
         self.sequence_generator().generate_predefined_sequence(predef_name, predef_parameters)
+
+    def handle_perform_fit(self, msg: Message):
+        fit_name = msg.body['fit_name']
+        (_, fr) = self.pulsed_measurement().do_fit(fit_name)
+        self.notify('fit_updated', fr.values)
 
     def _save_data(self):
         with self.storage().tables_context() as h:
