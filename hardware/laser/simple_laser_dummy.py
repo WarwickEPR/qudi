@@ -45,7 +45,7 @@ class SimpleLaserDummy(Base, SimpleLaserInterface):
         self.shutter = ShutterState.CLOSED
         self.mode = ControlMode.POWER
         self.current_setpoint = 0
-        self.power_setpoint = 0
+        self.power_setpoint = 0.1
 
     def on_activate(self):
         """ Activate module.
