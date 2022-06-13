@@ -43,7 +43,6 @@ class PulsedProxy(ZmqProxy):
         super().on_activate()
         self._timer = PulsedTimer(self.pulsed_measurement())
         self._timer.update.connect(self.notify_progress)
-        self.pulsed_measurement().sigMeasurementDataUpdated.connect(self._data_updated)
         self.sequence_generator().sigPredefinedSequenceGenerated.connect(self._sequence_generated)
 
     def on_deactivate(self):
@@ -66,9 +65,14 @@ class PulsedProxy(ZmqProxy):
         with self.storage().tables_context() as h:
             self._measurement = PulsedMeasurement.create_group(h, name, self._predefined_parameters())
 
+        # only connect signal when the measurement is started via zmq, otherwise
+        # results in errors due to measurement being None if started manually
+        self.pulsed_measurement().sigMeasurementDataUpdated.connect(self._data_updated)
+
         self._timer.start(duration)
 
     def handle_stop(self, _):
+        self.pulsed_measurement().sigMeasurementDataUpdated.disconnect(self._data_updated)
         self._timer.stop()
 
     def handle_pause(self, _):
