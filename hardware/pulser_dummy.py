@@ -332,9 +332,10 @@ class PulserDummy(Base, PulserInterface):
         for waveform_tuple, param_dict in sequence_parameter_list:
             for waveform in waveform_tuple:
                 if waveform not in self.waveform_set:
-                    self.log.error('Failed to create sequence "{0}" due to waveform "{1}" not '
-                                   'present in device memory.'.format(name, waveform))
-                    return -1
+                    # self.log.error('Failed to create sequence "{0}" due to waveform "{1}" not '
+                                #    'present in device memory.'.format(name, waveform))
+                    # return -1
+                    pass
 
         if name in self.sequence_dict:
             del self.sequence_dict[name]
