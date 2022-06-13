@@ -25,3 +25,6 @@ class Pulsed(QudiClient):
     async def unpause(self):
         await self.send_command('continue')
 
+    async def save_qudi(self):
+        await self.send_command('save_qudi')
+

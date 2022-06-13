@@ -31,6 +31,9 @@ class PoiClient(QudiClient):
     async def poi_dict(self):
         return await self.query('poi_dict')
 
+    async def set_active_poi(self, poi):
+        await self.send_command('set_active_poi', poi)
+
     async def start_tracking(self, poi=None):
         await self.send_command('start_tracking', poi)
         await self.receive_message()

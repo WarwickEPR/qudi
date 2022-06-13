@@ -27,7 +27,6 @@ class PulsedProxy(ZmqProxy):
 
     frontend = Connector(interface='ZmqFrontend')
     storage = Connector(interface='TablesStorage')
-    poimanager = Connector(interface='PoiManagerLogic')
     pulsed_measurement = Connector(interface='PulsedMeasurementLogic')
     sequence_generator = Connector(interface='SequenceGeneratorLogic')
 
@@ -133,3 +132,9 @@ class PulsedProxy(ZmqProxy):
 
     def notify_sequence_generated(self, name):
         self.notify('sequence_generated', name)
+
+    def notify_progress(self):
+        self.notify('progress')
+
+    def handle_save_qudi(self, _):
+        self.pulsed_measurement().save_measurement_data()

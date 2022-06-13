@@ -280,6 +280,7 @@ class PulsedMeasurementLogic(GenericLogic):
                 self.__fast_counter_record_length = float(settings_dict['record_length'])
             if 'number_of_gates' in settings_dict:
                 if self.fastcounter().is_gated():
+                    self.log.debug("Setting number of gates to {}".format(settings_dict['number_of_gates']))
                     self.__fast_counter_gates = int(settings_dict['number_of_gates'])
                 else:
                     self.__fast_counter_gates = 0

@@ -133,3 +133,20 @@ class TablesContext:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.tables_handle.close()
 
+    @classmethod
+    def timestamp(cls):
+        return time.strftime("%Y%m%d_%H%M%S", time.gmtime())
+
+    @classmethod
+    def dataset_site_folder(cls, site, measurement):
+        # to hard link this dataset to for convenience e.g. /site/poi-99/psat/20211225090059
+        return '/'.join(['', 'site', site, measurement])
+
+    @classmethod
+    def dataset_path(cls, folder, timestamp=None, site=None):
+        if timestamp is None:
+            timestamp = cls.timestamp()
+        if not site:
+            site = '_'
+        # to hard link this dataset to for convenience e.g. /psat/20211225090059 or /psat/20220101004929
+        return '/'.join(['', folder]), '_'.join([folder, timestamp])

@@ -81,16 +81,19 @@ class ZmqTimer(QObject):
         self._duration = 0
         self._final_elapsed = 0
         self._timer.timeout.connect(self._tick)
+        self._active = False
 
     def start(self, duration):
         self.start_time = time.time()
         self._duration = duration
+        self._active = True
         self._final_elapsed = 0
         self._timer.start(ZmqTimer.update_period * 1000)
 
     def stop(self):
         self._duration = self.time_elapsed
         self._final_elapsed = self.time_elapsed
+        self._active = False
         self._timer.stop()
 
     @property
@@ -112,11 +115,14 @@ class ZmqTimer(QObject):
         else:
             self._duration = duration
 
-    def update(self):
-        pass
+    def isActive(self):
+        return self._active
+
+    #def update(self):
+    #    pass
 
     def _tick(self):
-        self.update()
+    #    self.update()
         self.update.emit(self.time_remaining, self.time_elapsed)
         if self.time_remaining == 0 and self._timer.isActive():
             self.stop()

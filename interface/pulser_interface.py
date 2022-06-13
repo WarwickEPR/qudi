@@ -206,7 +206,7 @@ class PulserInterface(metaclass=InterfaceMetaclass):
         pass
 
     @interface_method
-    def set_pulse_ensemble(self, ensemble, pulse_blocks):
+    def set_pulse_ensemble(self, ensemble, ensemble_info):
         """ Set up the pulse ensemble on the pulser device. For use in non-sampling pulsers that
         take a programmatic description of pulse trains. Complementary to load_waveforms and
         ignored for devices which do not implement a method of high-level configuration without

@@ -1745,8 +1745,7 @@ class SequenceGeneratorLogic(GenericLogic):
             # TODO: take care of rounding errors!
             extension_samples = granularity - ensemble_info['number_of_samples'] % granularity
             target_total_samples = ensemble_info['number_of_samples'] + extension_samples
-            extension_seconds = (target_total_samples / self.__sample_rate) - ensemble_info[
-                'ideal_length']
+            extension_seconds = (target_total_samples / self.__sample_rate) - ensemble_info['ideal_length']
 
             pb_element = PulseBlockElement(
                 init_length_s=extension_seconds,
@@ -1775,8 +1774,10 @@ class SequenceGeneratorLogic(GenericLogic):
 
         # Non-sampling pulsers may have all they need to generate the pulse pattern at this point,
         # given the pulse block descriptions required. Return True if that's the case.
-        required_pulse_blocks = dict((pb, self.saved_pulse_blocks[pb]) for pb, n in ensemble.block_list)
-        if self.pulsegenerator().set_pulse_ensemble(ensemble, required_pulse_blocks):
+        pulse_setup_completed = self.pulsegenerator().set_pulse_ensemble(ensemble, ensemble_info=ensemble_info, sequence_generator=self)
+        if pulse_setup_completed:
+            ensemble.sampling_information = ensemble_info
+            self.save_ensemble(ensemble)
             self.sigLoadedAssetUpdated.emit(*self.loaded_asset)
             self.log.info("Successfully loaded pulse sequence '{}'".format(ensemble.name))
             # That should be everything set up that's needed, just return
@@ -1784,7 +1785,7 @@ class SequenceGeneratorLogic(GenericLogic):
             if not self.__sequence_generation_in_progress:
                 self.module_state.unlock()
             self.sigSampleEnsembleComplete.emit(None)
-            return 0, waveforms, ensemble_info
+            return ensemble_info['number_of_samples'], waveforms, ensemble_info
 
         # Calculate the byte size per sample.
         # One analog sample per channel is 4 bytes (np.float32) and one digital sample per channel

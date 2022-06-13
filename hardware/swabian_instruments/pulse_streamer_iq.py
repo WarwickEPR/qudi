@@ -20,14 +20,19 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
 import math
+import re
 import time
 from collections import OrderedDict
 import itertools
+from more_itertools import pairwise
 
 from core.configoption import ConfigOption
 from core.connector import Connector
 from core.module import Base
 from interface.pulser_interface import PulserInterface, PulserConstraints
+import pulsestreamer as ps
+
+from logic.pulsed.sequence_generator_logic import SequenceGeneratorLogic
 
 
 class PulseStreamer(Base, PulserInterface):
@@ -42,7 +47,7 @@ class PulseStreamer(Base, PulserInterface):
             microwave_source: keysight
         ip_address: '192.168.1.100'
         laser_channel: d_ch1
-        uw_x_channel: d_ch2
+        microwave_blanking_channel: d_ch2
         i_channel: 0
         q_channel: 1
 
@@ -53,10 +58,10 @@ class PulseStreamer(Base, PulserInterface):
 
     _ip_address = ConfigOption('ip_address', '169.254.8.2', missing='warn')
     _laser_channel = ConfigOption('laser_channel', 'd_ch1', missing='warn')
-    _uw_x_channel = ConfigOption('uw_x_channel', 'd_ch2', missing='warn')
-    _uw_y_channel = ConfigOption('uw_y_channel', 'd_ch3', missing='warn')
+    _microwave_blanking_channel = ConfigOption('microwave_blanking_channel', 'd_ch2', missing='warn')
     _i_channel = ConfigOption('i_channel', '0', missing='warn')
     _q_channel = ConfigOption('q_channel', '1', missing='warn')
+    _iq_voltage = ConfigOption('iq_voltage', 0.5, missing='nothing')
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -67,33 +72,70 @@ class PulseStreamer(Base, PulserInterface):
         self._pulse_ensemble = None
         self.pulse_streamer = None
         self._wfm = None
-        self.laser_channel = 0
-        self.uw_x_channel = 0
-        self.uw_y_channel = 0
+        self._laser_numeric = 0
+        self._mw_numeric = 1
         self.i_channel = 0
         self.q_channel = 0
+        self.iq_voltage = 0.5
         self.current_loaded_asset = ''
         self.current_ensemble = None
         self.current_ensemble_info = None
         self.current_pulse_blocks = dict()
+        self.power_frac = 1.0
 
     def on_activate(self):
         """ Establish connection to pulse streamer and tell it to cancel all operations """
 
         self.sample_rate = 1e9
         self._pulse_ensemble = None
-        self.laser_channel = self.numeric_channel(self._laser_channel)
-        self.uw_x_channel = self.numeric_channel(self._uw_x_channel)
-        self.uw_y_channel = self.numeric_channel(self._uw_y_channel)
+        self.iq_voltage = float(self._iq_voltage)
+        self._laser_numeric = self.numeric_channel(self._laser_channel)
+        self._mw_numeric = self.numeric_channel(self._microwave_blanking_channel)
         self.i_channel = self._i_channel
         self.q_channel = self._q_channel
         self.mw_source = self.microwave_source()
 
-        from unittest.mock import Mock
-        self.pulse_streamer = Mock()
+        #from unittest.mock import Mock
+        #self.pulse_streamer = Mock()
 
-        #self.pulse_streamer = ps.PulseStreamer(self._ip_address)
+        self.pulse_streamer = ps.PulseStreamer(self._ip_address)
         self.pulser_off()
+
+    @property
+    def laser_channel(self):
+        return self._laser_numeric
+
+    @property
+    def laser_channel_qudi(self):
+        return self.qudi_digital_channel(self._laser_numeric)
+
+    @laser_channel.setter
+    def laser_channel(self, value):
+        ch_match = re.match(r'^d_ch(\d)$', value)
+        if ch_match:
+            self._laser_numeric = int(ch_match.group(1))-1
+        elif value.isnumeric():
+            self._laser_numeric = value
+        else:
+            self.log.error("Invalid laser channel {}".format(value))
+
+    @property
+    def microwave_blanking_channel(self):
+        return self._mw_numeric
+
+    @property
+    def microwave_blanking_channel_qudi(self):
+        return self.qudi_digital_channel(self._mw_numeric)
+
+    @microwave_blanking_channel.setter
+    def microwave_blanking_channel(self, value):
+        ch_match = re.match(r'^d_ch(\d)$', value)
+        if ch_match:
+            self._mw_numeric = int(ch_match.group(1))-1
+        elif value.isnumeric():
+            self._mw_numeric = value
+        else:
+            self.log.error("Invalid microwave blanking channel {}".format(value))
 
     def on_deactivate(self):
         del self.pulse_streamer
@@ -103,6 +145,11 @@ class PulseStreamer(Base, PulserInterface):
     def numeric_channel(channel_name):
         # 8 channels so one digit will do
         return int(channel_name[-1])-1
+
+    # Map Qudi channel names to numeric channel used by PulseStreamer
+    @staticmethod
+    def qudi_digital_channel(channel_number):
+        return 'd_ch{}'.format(channel_number+1)
 
     def get_constraints(self):
         constraints = PulserConstraints()
@@ -146,13 +193,13 @@ class PulseStreamer(Base, PulserInterface):
         @return int: error code (0:OK, -1:error)
         """
         # start the pulse sequence
-        if self._pulse_ensemble is None:
+        if self.current_ensemble is None:
             self.log.warn("Pulser cannot be started without loading a pulse sequence")
             return -1
 
         self.pulse_streamer.stream(self._sequence)
-        self.log.info('Asset {} uploaded to PulseStreamer'.format(self._pulse_ensemble.name))
-        self.mw_source.turn_on_external_iq_modulation()
+        self.log.info('Asset {} uploaded to PulseStreamer'.format(self.current_ensemble.name))
+        #self.mw_source.turn_on_external_iq_modulation()
         time.sleep(0.2)
         self.pulse_streamer.startNow()
         self.current_status = 1
@@ -166,9 +213,9 @@ class PulseStreamer(Base, PulserInterface):
         # stop the pulse sequence, set all channels LOW except laser and cw microwave x phase
         # set analogue outputs to 0V
         self.log.debug("Pulse mode off. Resetting output for non-pulse operation.")
-        self.pulse_streamer.constant(([self.laser_channel, self.uw_x_channel], 0, 0))
+        self.pulse_streamer.constant(([self.laser_channel, self.microwave_blanking_channel], 0.5, 0))
         self.log.debug("Laser channel {} set on".format(self.laser_channel))
-        self.log.debug("X microwave channel {} set on".format(self.uw_x_channel))
+        self.log.debug("Microwave blanking channel {} set on/transmissive".format(self.microwave_blanking_channel_qudi))
         self.log.debug("Turning off I/Q modulation")
         self.mw_source.turn_off_external_iq_modulation()
         self.current_status = 0
@@ -235,69 +282,100 @@ class PulseStreamer(Base, PulserInterface):
         self.pulser_off()
         return 0
 
-    def set_pulse_ensemble(self, ensemble, pulse_blocks):
+    def set_pulse_ensemble(self, ensemble, ensemble_info=dict(), sequence_generator=None):
         # We're given the additional information needed to set up analogue channels
-        self.log.debug("ensemble: {}\npulse_blocks: {}".format(ensemble, pulse_blocks))
+        self.log.debug("Setting ensemble: {}".format(ensemble))
         self.current_loaded_asset = ensemble.name
         self.current_ensemble = ensemble
-        self.current_pulse_blocks = pulse_blocks
 
         # assemble the RLE output for the 8 digital channels and 2 analog channels
-        digital_output = itertools.repeat(list(), 8)
+        digital_output = [list() for _ in range(8)]
         analog_output = []
 
-        blanking_channel = self.numeric_channel(blanking_channel)
-
-        for pulse_block, count in ensemble.block_list:
-            for n in range(count):
-                for pb in pulse_blocks[pulse_block]:
-                    length = pb.init_length_s + pb.increment_s * count
-
-                    # state of digital channels
-                    for ch, on in pb.digital_high.items():
-                        ch_n = self.numeric_channel(ch)
-                        digital_output[ch_n].append((length, 1 if on else 0))
-
-                    # laser on - already covered by digital as far as pulse output is concerned
-                    # - also used for measurement analysis
-
-                    # "analog" output i.e. IQ modulation control
-
-                    # type of pulse_function doesn't compare normally as a type so take a circuitous route
-                    pulse_function_dict = pb.pulse_function.get_dict_representation()
-                    pulse_function_type = pulse_function_dict['name']
+        # get the microwave control channel from the ensemble info
+        microwave_gen_channel = sequence_generator.generation_parameters['microwave_channel']
+        if microwave_gen_channel == 'a_ch0':
+            # update the pulse blocks to open the blanking switch and show that explicitly
+            for pulse_block_name, _ in ensemble.block_list:
+                pulse_block = sequence_generator.get_block(pulse_block_name)
+                for pbe in pulse_block:
+                    pulse_function_type, pulse_function_params = self._pulse_function_type(pbe.pulse_function['a_ch0'])
                     if pulse_function_type == 'Sin':
-                        # get the phase and amplitude to calculate I/Q values
-                        phase_in_degrees = pulse_function_dict['phase']
-                        amplitude_in_dbm = pulse_function_dict['amplitude']
-                        amplitude_full = 0
-                        iq_Vmax = 0.5
-                        amplitude_fraction = math.pow(10, amplitude_in_dbm - amplitude_full)*.1
-                        phase_radians = phase_in_degrees/180*math.pi
-                        iq_I = math.cos(phase_radians) * amplitude_fraction * iq_Vmax
-                        iq_Q = math.sin(phase_radians) * amplitude_fraction * iq_Vmax
-                        analog_output.append((length, iq_I, iq_Q))
-                        # TODO: merge the analog RLE analogue units with zero output backwards to change early
-                        digital_output[blanking_channel][-1] = (length, 1)
+                        microwave_on = True
                     else:
-                        analog_output.append((length, 0, 0))
-                        digital_output[blanking_channel][-1] = (length, 0)
+                        microwave_on = False
+                    pbe.digital_high[self.qudi_digital_channel(self.microwave_blanking_channel)] = microwave_on
+                sequence_generator.save_block(pulse_block)
 
+        # Now actually generate the pulse sequence to upload
+        for pulse_block_name, repetitions in ensemble.block_list:
+            # reload - may have updated the blanking output channel
+            pulse_block = sequence_generator.get_block(pulse_block_name)
+            for n in range(1 + repetitions):  # horrible way to define the number of iterations ...
+                for pbe in pulse_block:
+                    length = int((pbe.init_length_s + pbe.increment_s * n)*1e9)
 
-        zero_length = 0
-        channel_i = []
-        channel_q = []
-        for length, iV, qV in analog_output:
-            if iV == 0 and qV == 0:
-                # rather than zeroing the I-Q output, change to the next output early and let the switch blank it
-                zero_length += length
-                continue
-            else:
-                # output to the voltage arrays
-                channel_i.append(zero_length+length, iV)
-                channel_q.append(zero_length+length, qV)
+                    if microwave_gen_channel == 'a_ch0':
+                        pulse_function_type, pulse_function_params = self._pulse_function_type(pbe.pulse_function['a_ch0'])
+                        # "analogue" output i.e. IQ modulation control
+                        if pulse_function_type == 'Sin':
+                            # get the phase and amplitude to calculate I/Q values
+                            phase_in_degrees = pulse_function_params['phase']
+                            amplitude_in_dbm = pulse_function_params['amplitude']
+                            amplitude_full = self.mw_source.get_power()
+                            amplitude_fraction = math.pow(10, amplitude_in_dbm - amplitude_full)*.1
+                            amplitude_fraction = self.power_frac
+                            #self.log.debug("I/Q output amplitude fraction {}".format(amplitude_fraction))
+                            phase_radians = phase_in_degrees/180*math.pi
+                            iq_I = math.cos(phase_radians) * amplitude_fraction * self.iq_voltage
+                            iq_Q = math.sin(phase_radians) * amplitude_fraction * self.iq_voltage
+                            analog_output.append((length, iq_I, iq_Q))
+                        else:
+                            analog_output.append((length, 0, 0))
 
-        # ensure we initially switch early enough so the first pulse can settle
+                    # state of digital channels - whether or not we're using the I/Q modulation
+                    for ch, on in pbe.digital_high.items():
+                        ch_n = self.numeric_channel(ch)
+                        # override laser on
+                        if ch_n == self.laser_channel:
+                            digital_output[ch_n].append((length, 1 if pbe.laser_on else 0))
+                        else:
+                            digital_output[ch_n].append((length, 1 if on else 0))
+
+            # Now concatenate analogue output instructions
+            self.log.debug("Analogue prep {}".format(analog_output))
+            zero_length = 0
+            channel_i = []
+            channel_q = []
+            for length, iV, qV in analog_output:
+                if iV == 0 and qV == 0:\
+                    # rather than zeroing the I-Q output, change to the next output early and let the switch blank it
+                    zero_length += length
+                    continue
+                else:
+                    # output to the voltage arrays
+                    channel_i.append((zero_length+length, iV))
+                    channel_q.append((zero_length+length, qV))
+                    zero_length = 0
+
+        # ensures we initially switch early enough so the first pulse can settle
+
+        # Finally set up the sequence
+        self._sequence = self.pulse_streamer.createSequence()
+        for ch in range(8):
+            self._sequence.setDigital(ch, digital_output[ch])
+            rising = 0
+            falling = 0
+            for a, b in pairwise(map(lambda x: x[1], digital_output[ch])):
+                if a and not b:
+                    falling += 1
+                elif b and not a:
+                    rising += 1
+
+            self.log.debug("Digital channel {} has {} rising and {} falling".format(ch, rising, falling))
+        self.log.debug("Set analog channels:\nanalog0{}\nanalog1{}".format(channel_i, channel_q))
+        self._sequence.setAnalog(0, channel_i)
+        self._sequence.setAnalog(1, channel_q)
 
         # We don't need any sampling done so just return True to signal that
         return True
@@ -344,3 +422,9 @@ class PulseStreamer(Base, PulserInterface):
 
     def set_interleave(self, state=False):
         pass
+
+    @staticmethod
+    def _pulse_function_type(pf):
+        # type of pulse_function doesn't compare normally as a type for some reason so take a circuitous route
+        pulse_function_dict = pf.get_dict_representation()
+        return pulse_function_dict['name'], pulse_function_dict['params']

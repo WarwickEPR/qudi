@@ -594,8 +594,9 @@ a
             bits = bits | (1<< channel)
         return bits
 
-    def set_pulse_ensemble(self, ensemble_name, ensemble):
+    def set_pulse_ensemble(self, ensemble, ensemble_info=dict(), sequence_generator=None):
         # Here we actually set up the pulse sequence on the PulseStreamer
+        ensemble_name = ensemble.name
         active_channels = [channel for channel, active in self.get_active_channels().items() if active]
         sq = self.pulse_streamer.createSequence()
         self._current_pulse_ensemble = ensemble
@@ -607,9 +608,10 @@ a
                 channel_num = PulseStreamer.numeric_channel(channel)
                 # TODO: check what the correct number of elements supplied is
                 # n_elem = ensemble['number_of_elements']
-                n_samples = ensemble['number_of_samples'] # total time in ns for PulseStreamer
-                rising = ensemble['digital_rising_bins'][channel]
-                falling = ensemble['digital_falling_bins'][channel]
+                self.log.debug("Ensemble info: {}".format(ensemble_info))
+                n_samples = ensemble_info['number_of_samples']  # total time in ns for PulseStreamer
+                rising = ensemble_info['digital_rising_bins'][channel]
+                falling = ensemble_info['digital_falling_bins'][channel]
                 n_elem = len(rising)  # will serve for now
 
                 # not all channels have pulses to configure

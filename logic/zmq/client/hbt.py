@@ -26,7 +26,6 @@ class HbtMeasurement:
         self.layout = AppLayout(center=self.plot_area, pane_widths=[1, 4, 4])
         IPython.display.display(self.layout)
 
-        # measure psat and display the result
         self.log.debug("Taking Hbt")
         self.hbt_data = None
         self._bg_task = BgTask(self._take_hbt())
@@ -64,6 +63,8 @@ class HbtMeasurement:
         self.layout.right_sidebar = widgets.Output(layout={'border': '1px solid black'})
 
     async def _update(self):
+        s = self.client.subscribe('hbt.data')
+        response = await s.receive()
         self.hbt_data = response.body
         return self.hbt_data
 
@@ -112,5 +113,5 @@ class Hbt(QudiClient):
     async def save(self):
         await self.send_command('save')
 
-    async def save_hdf(self):
-        await self.send_command('save_hdf')
+    async def save_qudi(self):
+        await self.send_command('save_qudi')

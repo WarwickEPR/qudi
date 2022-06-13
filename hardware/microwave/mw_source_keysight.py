@@ -357,8 +357,15 @@ class MicrowaveKeysight(Base, MicrowaveModulationInterface):
     def turn_on_external_iq_modulation(self):
         self._connection.write(':DM:SOURCE EXT')
         self._connection.write(':DM:CORR:OPT RFO')
-        self._connection.write(':AM:DEEP ON')
+        #self._connection.write(':AM:DEEP ON')
+        #self._connection.write(':AM:WIDEBAND:STATE ON')
         self._connection.write(':DM:STATE ON')
+        #self._connection.write(':AM:STATE ON')
+        self._connection.write(':OUTPUT:MODULATION:STATE ON')
 
     def turn_off_external_iq_modulation(self):
-        self._connection.write("DM:STATE OFF")
+        self._connection.write(':OUTPUT:MODULATION:STATE OFF')
+        self._connection.write(':DM:STATE:OFF')
+        #self._connection.write(":AM:STATE OFF")
+        #self._connection.write(":AM:WIDEBAND:STATE OFF")
+        #self._connection.write(":AM:DEEP OFF")

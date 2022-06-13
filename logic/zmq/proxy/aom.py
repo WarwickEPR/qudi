@@ -31,7 +31,7 @@ class AomProxy(ZmqProxy):
     def handle_emit_psat(self, _):
         self.notify_psat()
 
-    def handle_save(self, _):
+    def handle_save_qudi(self, _):
         self.aomlogic().save_psat()
 
     def handle_set_power(self, msg: Message):
@@ -42,14 +42,13 @@ class AomProxy(ZmqProxy):
         self.log.debug("AOM controller power: {} mW".format(power))
         self.reply(msg, body=power)
 
-    def handle_save_psat(self, msg: Message):
+    def handle_save(self, msg: Message):
         self._save_psat()
         self.reply_ok(msg)
 
     def _save_psat(self):
-        poi = self.poimanager().active_poi
         with self.storage().tables_context() as t:
-            dataset = t.create_measurement_table('Psat', PsatTable, poi)
+            dataset = t.create_measurement_table('Psat', PsatTable)
             dataset.append(list(zip(self.aomlogic().powers, self.aomlogic().psat_data)))
             t.flush()
         return dataset

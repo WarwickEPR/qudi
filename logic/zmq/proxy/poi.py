@@ -49,6 +49,9 @@ class PoiProxy(ZmqProxy):
     def handle_goto_poi(self, msg: Message):
         self.poimanager().go_to_poi(name=msg.body)
 
+    def handle_set_active_poi(self, msg: Message):
+        self.poimanager().active_poi = msg.body
+
     def handle_optimize_poi(self, msg: Message):
         name = msg.body['name']
         update = msg.body.get('update', True)
@@ -81,16 +84,13 @@ class PoiProxy(ZmqProxy):
         self.reply_ok(msg)
 
     def handle_start_tracking(self, msg: Message):
-        poi = None
-        if msg.body:
-            poi = msg.body
-        self.log.debug("Starting tracking {}".format(poi))
-        self.poimanager().start_periodic_refocus(name=poi)
+        self.log.debug("Starting tracking periodically")
+        self.poimanager().toggle_periodic_refocus(True)
         self.reply_ok(msg)
 
     def handle_stop_tracking(self, msg: Message):
         self.log.debug("Stopping tracking")
-        self.poimanager().stop_periodic_refocus()
+        self.poimanager().toggle_periodic_refocus(False)
         self.reply_ok(msg)
 
     # def handle_initialise_registration(self, msg: Message):
