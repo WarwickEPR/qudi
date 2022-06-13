@@ -62,6 +62,11 @@ class Psat:
     async def done(self):
         await self.data()
 
+    async def fitted(self):
+        await self.done()
+        self.fit_with_bg()
+        return
+
     async def _display(self):
         data = await self.data()
         self.log.debug("Displaying psat data: {}".format(data))
