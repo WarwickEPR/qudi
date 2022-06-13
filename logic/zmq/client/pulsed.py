@@ -13,8 +13,17 @@ class Pulsed(QudiClient):
         await self.send_command('generate_predefined', body={'name': sequence, 'parameters': params})
         await s.receive()
 
-    async def start(self):
-        await self.send_command('start')
+    async def start(self, name=None, duration=None):
+        body = {}
+        if name is not None:
+            body = {'name': name}
+        if duration is not None:
+            body.update({'duration': duration})
+
+        if body != {}:
+            await self.send_command('start', body=body)
+        else: 
+            await self.send_command('start')
 
     async def stop(self):
         await self.send_command('stop')

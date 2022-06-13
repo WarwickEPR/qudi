@@ -59,7 +59,10 @@ class Message:
 
     @property
     def body(self):
-        return pickle.loads(self._body)
+        if self._body != b'':
+            return pickle.loads(self._body)
+        else: 
+            return {}
 
     @body.setter
     def body(self, body):
