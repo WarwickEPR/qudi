@@ -514,6 +514,9 @@ class PulserDummy(Base, PulserInterface):
         self.current_loaded_assets = new_loaded_assets
         return self.get_loaded_assets()[0]
 
+    def set_pulse_ensemble(self, ensemble, ensemble_info=None, sequence_generator=None):
+        return True
+
     def get_loaded_assets(self):
         """
         Retrieve the currently loaded asset names for each active channel of the device.
