@@ -17,15 +17,15 @@ class HbtProxy(ZmqProxy):
         # get hold of a handle to optimizer_logic, load if necessary
         # subscribe to key events, emit a message when done
         super().on_activate()
-        self.hbt().sigStart.connect(self.notify_start)
-        self.hbt().sigStop.connect(self.notify_stop)
-        self.hbt().sigStop.connect(self._save_hbt)
+        #self.hbt().sigStart.connect(self.notify_start)
+        #self.hbt().sigStop.connect(self.notify_stop)
+        #self.hbt().sigStop.connect(self._save_hbt)
 
     def on_deactivate(self):
         super().on_deactivate()
-        self.hbt().sigStart.disconnect(self.notify_start)
-        self.hbt().sigStop.disconnect(self.notify_stop)
-        self.hbt().hbt_updated.disconnect(self.notify_hbt)
+        #self.hbt().sigStart.disconnect(self.notify_start)
+        #self.hbt().sigStop.disconnect(self.notify_stop)
+        #self.hbt().hbt_updated.disconnect(self.notify_hbt)
 
     def handle_start(self, _):
         self.hbt().start_hbt()
@@ -33,7 +33,7 @@ class HbtProxy(ZmqProxy):
     def handle_stop(self, _):
         self.hbt().stop_hbt()
 
-    def handle_qudi_save(self, _):
+    def handle_save_qudi(self, _):
         self.hbt().save_hbt()
 
     def handle_save(self, _):

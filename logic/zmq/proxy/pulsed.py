@@ -29,7 +29,7 @@ class PulsedProxy(ZmqProxy):
     frontend = Connector(interface='ZmqFrontend')
     storage = Connector(interface='TablesStorage')
     pulsed_measurement = Connector(interface='PulsedMeasurementLogic')
-    sequence_generator = Connector(interface='SequenceGeneratorLogic')
+    pulsed_master_logic = Connector(interface='PulsedMasterLogic')
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -44,10 +44,11 @@ class PulsedProxy(ZmqProxy):
         super().on_activate()
         self._timer = PulsedTimer(self.pulsed_measurement())
         self._timer.update.connect(self.notify_progress)
-        self.sequence_generator().sigPredefinedSequenceGenerated.connect(self._sequence_generated)
+        self.pulsed_master_logic().sigLoadedAssetUpdated.connect(self._sequence_generated)
 
     def on_deactivate(self):
         super().on_deactivate()
+        self.pulsed_master_logic().sigLoadedAssetUpdated.disconnect(self._sequence_generated)
         if self._timer and self._timer.isActive():
             self._timer.stop()
 
@@ -89,7 +90,7 @@ class PulsedProxy(ZmqProxy):
         predef_name = msg.body['name']
         predef_parameters = msg.body['parameters']
         self._pending_predef = (predef_name, predef_parameters)
-        self.sequence_generator().generate_predefined_sequence(predef_name, predef_parameters)
+        self.pulsed_master_logic().generate_predefined_sequence(predef_name, predef_parameters, sample_and_load=True)
 
     def handle_perform_fit(self, msg: Message):
         fit_name = msg.body['fit_name']
@@ -125,18 +126,15 @@ class PulsedProxy(ZmqProxy):
         alt_err = self.logic().measurement_error[2] if self.logic()._alternating else itertools.repeat(0)
         return zip(x, y, y_err, alt, alt_err)
 
-    def _sequence_generated(self, name, success):
+    def _sequence_generated(self, name, type):
         # the first sequence generated event after this module evokes it is expected to be "pending"
         if self._pending_predef:
-            if success:
-                self._loaded_predef = self._pending_predef
-            self._pending_predef = None
+            self._loaded_predef = self._pending_predef
         else:
             # if another is loaded by the user after, we don't know about it
             self._loaded_predef = None
 
-        if success:
-            self.notify_sequence_generated(name)
+        self.notify_sequence_generated(name)
 
     def _data_updated(self):
         self._save_data()

@@ -104,6 +104,9 @@ class Hbt(QudiClient):
         self.measurement = HbtMeasurement(client=self)
         await self.measurement.start()
 
+    async def start_naive(self):
+        await self.send_command('start')
+
     async def stop(self):
         await self.send_command('stop')
 
