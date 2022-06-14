@@ -90,6 +90,8 @@ class PulsedProxy(ZmqProxy):
         predef_name = msg.body['name']
         predef_parameters = msg.body['parameters']
         self._pending_predef = (predef_name, predef_parameters)
+        if 'rabi_period' in predef_parameters:
+            self.pulsed_master_logic().sequencegeneratorlogic().set_generation_parameters({'rabi_period': predef_parameters['rabi_period']})
         self.pulsed_master_logic().generate_predefined_sequence(predef_name, predef_parameters, sample_and_load=True)
 
     def handle_perform_fit(self, msg: Message):
