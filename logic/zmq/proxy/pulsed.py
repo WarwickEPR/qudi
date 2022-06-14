@@ -154,5 +154,8 @@ class PulsedProxy(ZmqProxy):
             self.pulsed_measurement().sigMeasurementStatusUpdated.disconnect(self.notify_measurement_finished)            
             self.notify('measurement_finished')
 
-    def handle_save_qudi(self, _):
-        self.pulsed_measurement().save_measurement_data()
+    def handle_save_qudi(self, msg: Message):
+        if msg.body != {}:
+            self.pulsed_measurement().save_measurement_data(tag=msg.body)
+        else:
+            self.pulsed_measurement().save_measurement_data()

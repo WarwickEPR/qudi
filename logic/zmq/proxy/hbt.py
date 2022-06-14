@@ -33,11 +33,14 @@ class HbtProxy(ZmqProxy):
     def handle_stop(self, _):
         self.hbt().stop_hbt()
 
-    def handle_save_qudi(self, _):
-        self.hbt().save_hbt()
-
     def handle_save(self, _):
         self._save_hbt()
+
+    def handle_save_qudi(self, msg: Message):
+        if msg.body != {}:
+            self.hbt().save_hbt(msg.body)
+        else:
+            self.hbt().save_hbt()
 
     def notify_start(self):
         self.notify('starting')

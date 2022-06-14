@@ -31,8 +31,11 @@ class AomProxy(ZmqProxy):
     def handle_emit_psat(self, _):
         self.notify_psat()
 
-    def handle_save_qudi(self, _):
-        self.aomlogic().save_psat()
+    def handle_save_qudi(self, msg: Message):
+        if msg.body != {}:
+            self.aomlogic().save_psat(msg.body)
+        else:
+            self.aomlogic().save_psat()
 
     def handle_set_power(self, msg: Message):
         self.aomlogic().set_power(msg.body)

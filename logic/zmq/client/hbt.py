@@ -116,5 +116,8 @@ class Hbt(QudiClient):
     async def save(self):
         await self.send_command('save')
 
-    async def save_qudi(self):
-        await self.send_command('save_qudi')
+    async def save_qudi(self, tag=''):
+        if tag != '':
+            await self.send_command('save_qudi', tag)
+        else:
+            await self.send_command('save_qudi')

@@ -238,7 +238,7 @@ class AomLogic(GenericLogic):
         if self.fitted_Psat:
             self.set_power(self.fitted_Psat)
 
-    def save_psat(self):
+    def save_psat(self, tag=''):
         # File path and name
         filepath = self._save_logic.get_path_for_module(module_name='Psat')
 
@@ -254,7 +254,12 @@ class AomLogic(GenericLogic):
         data['Voltage (V)'] = np.array(voltage)
         data['Count rate (/s)'] = np.array(counts)
 
-        self._save_logic.save_data(data, filepath=filepath, filelabel='Psat', fmt=['%.6e', '%.6e', '%.6e'])
+        if tag != '':
+            filelabel = tag + '_Psat'
+        else:
+            filelabel = 'Psat'
+
+        self._save_logic.save_data(data, filepath=filepath, filelabel=filelabel, fmt=['%.6e', '%.6e', '%.6e'])
         self.log.info('Psat saved to:\n{0}'.format(filepath))
 
         self.psat_saved.emit()

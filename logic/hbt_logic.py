@@ -140,7 +140,7 @@ class HbtLogic(GenericLogic):
         # self.fitted_Psat = fit.best_values['P_sat']
         # self.fitted_Isat = fit.best_values['I_sat']
 
-    def save_hbt(self):
+    def save_hbt(self, tag=''):
         # File path and name
         filepath = self._save_logic.get_path_for_module(module_name='HBT')
 
@@ -150,7 +150,12 @@ class HbtLogic(GenericLogic):
         data['g2(t)'] = np.array(self.g2_data)
         data['g2(t) normalised'] = np.array(self.g2_data_normalised)
 
-        self._save_logic.save_data(data, filepath=filepath, filelabel='g2data', fmt=['%.6e', '%.6e', '%.6e'])
+        if tag != '':
+            filelabel = tag + '_g2data'
+        else:
+            filelabel = 'g2data'
+
+        self._save_logic.save_data(data, filepath=filepath, filelabel=filelabel, fmt=['%.6e', '%.6e', '%.6e'])
         self.log.debug('HBT data saved to:\n{0}'.format(filepath))
 
         self.hbt_saved.emit()
