@@ -187,7 +187,7 @@ class ZmqProxy(GenericLogic):
         # 3 parts
         # Invoke the relevant handler function if one exists and hand over the message
         # This may/may not result in outgoing replies to 'client_envelope' or notifications
-        handler_fn = getattr(self, "handle_" + msg.f, "handle_unimplemented")
+        handler_fn = getattr(self, "handle_" + msg.f, self.handle_unimplemented)
         handler_fn(msg)
 
     def reply(self, msg: Message, body=None):
@@ -205,7 +205,7 @@ class ZmqProxy(GenericLogic):
         self.reply(msg, body='OK')
 
     def handle_unimplemented(self, msg: Message):
-        self.log.warning("handle_{} not implemented by {}".format(self.f, type(self)))
+        self.log.warning("handle_{} not implemented by {}".format(msg.f, type(self)))
 
     def handle_echo(self, msg: Message):
         self.log.debug("Echoing: {}".format(msg.body))

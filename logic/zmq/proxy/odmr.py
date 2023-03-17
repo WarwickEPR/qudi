@@ -1,8 +1,9 @@
 from . base import ZmqProxy
+from core.module import ModuleStateMachine
 from core.connector import Connector
 from .. message import Message
-from contextlib import contextmanager
 import tables
+from qtpy import QtCore
 
 
 class OdmrProxy(ZmqProxy):
@@ -14,6 +15,13 @@ class OdmrProxy(ZmqProxy):
     poimanager = Connector(interface='PoiManagerLogic')
     aom = Connector(interface='AomLogic')
 
+    # mirroring Gui invocation
+    sigStartScan = QtCore.Signal()
+    sigStopScan = QtCore.Signal()
+    sigContinueScan = QtCore.Signal()
+    sigFit = QtCore.Signal(str, object, object, int, int)
+    sigSave = QtCore.Signal(str, list, list)
+    sigMwSweepParamsChanged = QtCore.Signal(list, list, list, float)
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -25,35 +33,88 @@ class OdmrProxy(ZmqProxy):
     def on_activate(self):
         super().on_activate()
         self.odmr().module_state.sigStateChanged.connect(self._notify_state_change)
+        self.odmr().sigOdmrFitUpdated.connect(self._notify_fit_updated)
+
+        # Additional signals to queue work on the ODMR logic thread
+        self.sigStartScan.connect(self.odmr().start_odmr_scan, QtCore.Qt.QueuedConnection)
+        self.sigStopScan.connect(self.odmr().stop_odmr_scan, QtCore.Qt.QueuedConnection)
+        self.sigContinueScan.connect(self.odmr().continue_odmr_scan, QtCore.Qt.QueuedConnection)
+        self.sigFit.connect(self.odmr().do_fit, QtCore.Qt.QueuedConnection)
+        self.sigSave.connect(self.odmr().save_odmr_data, QtCore.Qt.QueuedConnection)
+        self.sigMwSweepParamsChanged.connect(self.odmr().set_sweep_parameters, QtCore.Qt.QueuedConnection)
 
     def on_deactivate(self):
         super().on_deactivate()
         self.odmr().module_state.sigStateChanged.disconnect(self._notify_state_change)
+        self.sigStartScan.disconnect()
+        self.sigStopScan.disconnect()
+        self.sigContinueScan.disconnect()
+        self.sigFit.disconnect()
+        self.sigSave.disconnect()
+        self.sigMwSweepParamsChanged.disconnect()
 
-    def _notify_state_change(self, e):
-        self.notify('state_change')
-
-    def _notify_scan_stopped(self):
-        self.notify('stopped')
-
-    def _notify_scan_started(self):
-        self.notify('started', body={'file': self._hdf_file,
-                                     'timestamp': self._start_timestamp,
-                                     'dataset': self._hdf_path})
-
-    def handle_start_scan(self, msg: Message):
+    def _check_idle(self):
         if self.odmr().module_state.current != 'idle':
             # scanner is currently busy
-            self.reply(msg, body='Scanner busy')
-            return
+            self.log.warning("ODMR scanner already busy")
+            return False
+        else:
+            return True
 
-        self._setup_odmr(msg)
-        self._start_scan()
-        self.reply(msg, body='Started')
+    @staticmethod
+    def _state_transition_gist(transition: ModuleStateMachine):
+        return {'event': transition.event,
+                'src': transition.src,
+                'dst': transition.dst}
+
+    def _notify_state_change(self, e):
+        self.notify(topic='state_change', body=self._state_transition_gist(e))
+        if e.event == 'lock':
+            self._notify_scan_start()
+        elif e.event == 'unlock':
+            self._notify_scan_stop()
+
+    def _notify_scan_stop(self):
+        self.notify(topic='stop')
+
+    def _notify_scan_start(self):
+        self.notify('start', body={'file': self._hdf_file,
+                                   'timestamp': self._start_timestamp,
+                                   'dataset': self._hdf_path})
+
+    def _notify_fit_updated(self, x, y, fit_result, fit):
+        self.notify('fit_updated', body={'x': x, 'y': y, 'fit_result': fit_result, 'fit': fit})
+
+    def handle_start_scan(self, msg: Message):
+        if not self._check_idle():
+            self.reply(msg, body='Scanner busy')
+        else:
+            self._setup_odmr(msg)
+            self.log.debug("ODMR starting with params: {}".format(msg.body))
+            self._start_scan()
+            self.reply(msg, body='OK')
+
+    def handle_fit(self, msg: Message):
+        fit_function = msg.body.get('fit_function', None)
+        channel_index = msg.body.get('channel_index', 0)
+        fit_range = msg.body.get('fit_range', 0)
+        self.log.debug("Fitting: {} {} {}".format(fit_function, channel_index, fit_range))
+        self.sigFit.emit(fit_function, None, None, channel_index, fit_range)
+
+    def handle_fit_functions(self, msg: Message):
+        fit_functions = list(self.odmr().fc.fit_list.keys())
+        self.reply(msg, body=fit_functions)
 
     def handle_stop_scan(self, msg: Message):
-        self.odmr().stop_odmr_scan()
-        self.reply(msg, body='Stopped')
+        self._stop_scan()
+
+    def handle_save_qudi(self, msg: Message):
+        tag = msg.body.get('tag', None)
+        colorscale_range = msg.body.get('colorscale_range', [0, 1e6])
+        percentile_range = msg.body.get('percentile_range', [0, 100])
+        self.log.debug("Saving: {} {} {}".format(tag, colorscale_range, percentile_range))
+        self.sigSave.emit(tag, colorscale_range, percentile_range)
+        # No obvious way to know when this will finish, kick it onto the ODMR thread though
 
     def _setup_odmr(self, msg: Message):
 
@@ -66,10 +127,15 @@ class OdmrProxy(ZmqProxy):
             stops = msg.body['sweep']['stops']    # Hz[]
             steps = msg.body['sweep']['steps']    # Hz[]
             power = msg.body['sweep']['power']    # dBm
-            self.odmr().set_sweep_parameters(starts, stops, steps, power)
+            self.sigMwSweepParamsChanged.emit(starts, stops, steps, power)
 
-    def _start_scan(self, orientation):
-        self.odmr().start_odmr_scan()
+    def _start_scan(self):
+        self.log.debug("Starting ODMR")
+        self.sigStartScan.emit()
+
+    def _stop_scan(self):
+        self.log.debug("Stopping ODMR")
+        self.sigStopScan.emit()
 
     def _save_hdf(self):
         poi = self.poimanager().active_poi
