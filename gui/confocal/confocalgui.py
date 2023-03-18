@@ -308,9 +308,9 @@ class ConfocalGui(GUIBase):
         self.slider_res = 1e-9
 
         # How many points are needed for that kind of resolution:
-        num_of_points_x = (self._scanning_logic.x_range[1] - self._scanning_logic.x_range[0]) / self.slider_res
-        num_of_points_y = (self._scanning_logic.y_range[1] - self._scanning_logic.y_range[0]) / self.slider_res
-        num_of_points_z = (self._scanning_logic.z_range[1] - self._scanning_logic.z_range[0]) / self.slider_res
+        num_of_points_x = int((self._scanning_logic.x_range[1] - self._scanning_logic.x_range[0]) / self.slider_res)
+        num_of_points_y = int((self._scanning_logic.y_range[1] - self._scanning_logic.y_range[0]) / self.slider_res)
+        num_of_points_z = int((self._scanning_logic.z_range[1] - self._scanning_logic.z_range[0]) / self.slider_res)
 
         # Set a Range for the sliders:
         self._mw.x_SliderWidget.setRange(0, num_of_points_x)
@@ -956,7 +956,7 @@ class ConfocalGui(GUIBase):
         self._osd.z_optimizer_resolution_SpinBox.setValue(self._optimizer_logic.optimizer_Z_res)
         self._osd.count_freq_SpinBox.setValue(self._optimizer_logic._clock_frequency)
         self._osd.return_slow_SpinBox.setValue(self._optimizer_logic.return_slowness)
-        self._osd.hw_settle_time_SpinBox.setValue(self._optimizer_logic.hw_settle_time * 1000)
+        self._osd.hw_settle_time_SpinBox.setValue(int(self._optimizer_logic.hw_settle_time * 1000))
         self._osd.do_surface_subtraction_CheckBox.setChecked(self._optimizer_logic.do_surface_subtraction)
 
         old_ch = self._optimizer_logic.opt_channel
@@ -1282,21 +1282,21 @@ class ConfocalGui(GUIBase):
 
         @param float x_pos: x position in m
         """
-        self._mw.x_SliderWidget.setValue((x_pos - self._scanning_logic.x_range[0]) / self.slider_res)
+        self._mw.x_SliderWidget.setValue(int((x_pos - self._scanning_logic.x_range[0]) / self.slider_res))
 
     def update_slider_y(self, y_pos):
         """ Update the y slider when a change happens.
 
         @param float y_pos: x yosition in m
         """
-        self._mw.y_SliderWidget.setValue((y_pos - self._scanning_logic.y_range[0]) / self.slider_res)
+        self._mw.y_SliderWidget.setValue(int((y_pos - self._scanning_logic.y_range[0]) / self.slider_res))
 
     def update_slider_z(self, z_pos):
         """ Update the z slider when a change happens.
 
         @param float z_pos: z position in m
         """
-        self._mw.z_SliderWidget.setValue((z_pos - self._scanning_logic.z_range[0]) / self.slider_res)
+        self._mw.z_SliderWidget.setValue(int((z_pos - self._scanning_logic.z_range[0]) / self.slider_res))
 
     def change_xy_resolution(self):
         """ Update the xy resolution in the logic according to the GUI.

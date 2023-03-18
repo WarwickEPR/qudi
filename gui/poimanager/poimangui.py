@@ -652,15 +652,15 @@ class PoiManagerGui(GUIBase):
     def update_refocus_timer(self, is_active, period, time_until_refocus):
         if not self._mw.track_period_SpinBox.hasFocus():
             self._mw.track_period_SpinBox.blockSignals(True)
-            self._mw.track_period_SpinBox.setValue(period)
+            self._mw.track_period_SpinBox.setValue(int(period))
             self._mw.track_period_SpinBox.blockSignals(False)
 
         self._mw.track_poi_Action.blockSignals(True)
         self._mw.time_till_next_update_ProgressBar.blockSignals(True)
 
         self._mw.track_poi_Action.setChecked(is_active)
-        self._mw.time_till_next_update_ProgressBar.setMaximum(period)
-        self._mw.time_till_next_update_ProgressBar.setValue(time_until_refocus)
+        self._mw.time_till_next_update_ProgressBar.setMaximum(int(period))
+        self._mw.time_till_next_update_ProgressBar.setValue(int(time_until_refocus))
 
         self._mw.time_till_next_update_ProgressBar.blockSignals(False)
         self._mw.track_poi_Action.blockSignals(False)
