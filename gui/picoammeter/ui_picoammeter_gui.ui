@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1014</width>
+    <height>446</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>PicoAmmeter Controller</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QGroupBox" name="groupBox">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>210</y>
+      <width>121</width>
+      <height>131</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Set the current range/sensitivity</string>
+    </property>
+    <property name="title">
+     <string>Current Range</string>
+    </property>
+    <widget class="QComboBox" name="current_range_box">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>30</y>
+       <width>101</width>
+       <height>21</height>
+      </rect>
+     </property>
+     <property name="toolTip">
+      <string>Set the current sensitivity</string>
+     </property>
+     <item>
+      <property name="text">
+       <string>2 nA</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>20 nA</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>200 nA</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>2 uA</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>20 uA</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>200 uA</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>2 mA</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>20 mA</string>
+      </property>
+     </item>
+    </widget>
+    <widget class="QLabel" name="curr_value_Label">
+     <property name="geometry">
+      <rect>
+       <x>80</x>
+       <y>80</y>
+       <width>31</width>
+       <height>41</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>28</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="toolTip">
+      <string>Current measured</string>
+     </property>
+     <property name="text">
+      <string>0</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label">
+     <property name="geometry">
+      <rect>
+       <x>40</x>
+       <y>60</y>
+       <width>51</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Counts</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QGroupBox" name="groupBox_2">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>50</y>
+      <width>121</width>
+      <height>151</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string/>
+    </property>
+    <property name="title">
+     <string>Voltage Range</string>
+    </property>
+    <widget class="QComboBox" name="voltage_range_box">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>30</y>
+       <width>101</width>
+       <height>22</height>
+      </rect>
+     </property>
+     <property name="toolTip">
+      <string>Set the min/max voltage range</string>
+     </property>
+     <item>
+      <property name="text">
+       <string>10 V</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>50 V</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>500 V</string>
+      </property>
+     </item>
+    </widget>
+    <widget class="QSpinBox" name="voltage_value_box">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>60</y>
+       <width>101</width>
+       <height>41</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="set_voltage_button">
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>120</y>
+       <width>121</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Set Voltage</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="PlotWidget" name="data_trace_PlotWidget">
+    <property name="geometry">
+     <rect>
+      <x>140</x>
+      <y>10</y>
+      <width>841</width>
+      <height>361</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="voltage_on_off_checkbox">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>10</y>
+      <width>121</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Toggle voltage ouput on/off</string>
+    </property>
+    <property name="text">
+     <string>Voltage On/Off</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="start_time_trace_button">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>350</y>
+      <width>121</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Start Time Trace</string>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1014</width>
+     <height>21</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusbar">
+   <property name="sizeGripEnabled">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <action name="actionSave">
+   <property name="text">
+    <string>Save</string>
+   </property>
+  </action>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>PlotWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>pyqtgraph</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>
