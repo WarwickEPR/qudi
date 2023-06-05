@@ -81,7 +81,7 @@ class PicoAmmeterHardware(Base, PicoAmmeterInterface):
     def set_current_range(self, index):
         if index == 0:
             self.crange = CurrentRange._2na
-        elif index == 3:
+        elif index == 1:
             self.crange = CurrentRange._20na
         elif index == 2:
             self.crange = CurrentRange._200na
