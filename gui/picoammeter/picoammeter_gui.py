@@ -102,9 +102,9 @@ class PicoAmmeterGUI(GUIBase):
     def voltage_on_off_changed(self):
         self.sigVoltage.emit(self._mw.voltage_on_off_checkbox.isChecked())
         if self._mw.voltage_on_off_checkbox.isChecked():
-            self._mw.statusBar().showMessage('Voltage on')
+            self._mw.statusBar().showMessage('Voltage 1')
         else:
-            self._mw.statusBar().showMessage('Voltage off')
+            self._mw.statusBar().showMessage('Voltage 0')
 
     @QtCore.Slot(int)
     def voltage_range_changed(self):
