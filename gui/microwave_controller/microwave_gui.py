@@ -75,19 +75,25 @@ class MicrowaveControllerGUI(GUIBase):
         return
 
     def set_freq(self):
+        self.sigSetFreq.emit(self._mw.freqBox.value())
         return
 
     def set_power(self):
+        self.sigSetPower.emit(self._mw.powerBox.value())
         return
 
     def toggle_power(self):
+        self.sigTogglePower.emit(self._mw.togglePwrChk.isChecked())
         return
 
     def start_sweep(self):
+        self.sigStartSweep.emit()
         return
     
     def define_sweep(self):
+        self.sigSweepDef.emit(self._mw.sweepDefBox.currentIndex())
         return
 
     def set_sweep_params(self):
+        self.sigSetSweepParams.emit()
         return

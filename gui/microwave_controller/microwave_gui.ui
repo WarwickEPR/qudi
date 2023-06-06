@@ -78,7 +78,7 @@
       <set>Qt::AlignCenter</set>
      </property>
     </widget>
-    <widget class="QDoubleSpinBox" name="freqbox">
+    <widget class="QDoubleSpinBox" name="freqBox">
      <property name="geometry">
       <rect>
        <x>10</x>
