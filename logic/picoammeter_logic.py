@@ -25,7 +25,6 @@ class PicoAmmeterLogic(GenericLogic):
         self.voltage_range = self._picoammeter.get_voltage_range()
         self.voltage_value = self._picoammeter.get_voltage_value()
         self.current_range = self._picoammeter.get_current_range()
-
         return
 
     def on_deactivate(self):
@@ -59,8 +58,9 @@ class PicoAmmeterLogic(GenericLogic):
     def get_current_range(self):
         return self._picoammeter.get_current_range()
 
-    @QtCore.Slot(bool)
+
     def set_voltage_value(self, value):
+        print(value)
         self._picoammeter.set_voltage_value(value)
         return self._picoammeter.get_voltage_value()
 

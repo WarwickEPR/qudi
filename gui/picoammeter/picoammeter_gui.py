@@ -38,16 +38,13 @@ class PicoAmmeterGUI(GUIBase):
     sigVoltage = QtCore.Signal(bool)
     sigVRangeChange = QtCore.Signal(int)
     sigCRangeChange = QtCore.Signal(int)
-    sigVValueChange = QtCore.Signal(bool)
+    sigVValueChange = QtCore.Signal(int)
 
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._mw = None
         self._pw = None
-
-
-
         return
 
     def on_activate(self):
@@ -77,8 +74,12 @@ class PicoAmmeterGUI(GUIBase):
         # connecting user interations
         self._mw.voltage_on_off_checkbox.stateChanged.connect(self.voltage_on_off_changed)
         self.sigVoltage.connect(self._picoammeter_logic.set_voltage_state)
+
+
+
         self._mw.voltage_range_box.currentIndexChanged.connect(self.voltage_range_changed)
         self.sigVRangeChange.connect(self._picoammeter_logic.set_voltage_range)
+
         self._mw.current_range_box.currentIndexChanged.connect(self.current_range_changed)
         self.sigCRangeChange.connect(self._picoammeter_logic.set_current_range)
 
@@ -117,7 +118,8 @@ class PicoAmmeterGUI(GUIBase):
         self.sigCRangeChange.emit(self._mw.current_range_box.currentIndex())
         self._mw.statusBar().showMessage("Current range set to: " + str(self._mw.current_range_box.currentText()))
 
-    @QtCore.Slot(bool)
+
+
     def set_voltage_button_clicked(self):
         self.sigVValueChange.emit(int(self._mw.voltage_value_box.text()))
         self._mw.statusBar().showMessage("Voltage set to: " + str(self._mw.voltage_value_box.text()) + " V")
