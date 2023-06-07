@@ -2,6 +2,7 @@ import numpy as np
 import os
 import pyqtgraph as pg
 import time
+import math
 
 from core.connector import Connector
 from gui.colordefs import QudiPalettePale as palette
@@ -31,7 +32,7 @@ class PicoammeterGUI(GUIBase):
     sigOperateVoltage = QtCore.Signal(bool)
     sigVoltageRange = QtCore.Signal(int)
     sigReadCurrent = QtCore.Signal(bool)
-    sigZeroCheck = QtCore.Signal(bool)
+    sigZeroCheck = QtCore.Signal()
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -87,9 +88,48 @@ class PicoammeterGUI(GUIBase):
         self.sigReadCurrent.emit(self.mw.Measurement.isChecked())
 
     def updatecurrent(self):
-        self.mw.CurrentMeasure.setText(self._picoammeterlogic.currentmeasurement)
+        self.mw.CurrentMeasure.setText(self.to_si(self._picoammeterlogic.currentmeasurement) + 'A')
         self.curve.setData(x=self._picoammeterlogic.timearray, y=self._picoammeterlogic.currentarray)
 
 
     def zerocheck(self):
         self.sigZeroCheck.emit()
+
+    def to_si(self, d, sep=' '):
+        inc_prefixes = ['k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y']
+        dec_prefixes = ['m', 'µ', 'n', 'p', 'f', 'a', 'z', 'y']
+
+        if d == 0:
+            return str(0)
+
+        degree = int(math.floor(math.log10(math.fabs(d)) / 3))
+
+        prefix = ''
+
+        if degree != 0:
+            ds = degree / math.fabs(degree)
+            if ds == 1:
+                if degree - 1 < len(inc_prefixes):
+                    prefix = inc_prefixes[degree - 1]
+                else:
+                    prefix = inc_prefixes[-1]
+                    degree = len(inc_prefixes)
+
+            elif ds == -1:
+                if -degree - 1 < len(dec_prefixes):
+                    prefix = dec_prefixes[-degree - 1]
+                else:
+                    prefix = dec_prefixes[-1]
+                    degree = -len(dec_prefixes)
+
+            scaled = float(d * math.pow(1000, -degree))
+            scaled = round(scaled, 2)
+
+            s = "{scaled}{sep}{prefix}".format(scaled=scaled,
+                                               sep=sep,
+                                               prefix=prefix)
+
+        else:
+            s = "{d}".format(d=d)
+
+        return s

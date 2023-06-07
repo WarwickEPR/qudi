@@ -44,17 +44,17 @@ class PicoammeterHardware(Base, PicoammeterInterface):
         self.inst.close()
 
     def write(self, msg):
-        if self.__inst is None:
+        if self.inst is None:
             raise Exception('Can not write, instrument not connected.')
             return
 
-        return self.__inst.write(msg)
+        return self.inst.write(msg)
 
     def query(self, msg):
-        if self.__inst is None:
+        if self.inst is None:
             raise Exception('Can not query, instrument not connected')
 
-        return self.__inst.query(msg)
+        return self.inst.query(msg)
 
     def set_voltage_range(self, value):
         self.write(self.SourceVolt + f':RANG {value}')
@@ -69,7 +69,7 @@ class PicoammeterHardware(Base, PicoammeterInterface):
         self.write(self.SourceVolt + f' {value}')
 
     def read_current(self):
-        self.query('READ?')
+        return self.query('READ?')
 
     def zero(self):
         self.write('*RST')

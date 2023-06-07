@@ -72,11 +72,12 @@ class PicoammeterLogic(GenericLogic):
             return
         try:
             self.currentmeasurement = self._picoammeter.read_current()
+            self.currentmeasurement = float(self.currentmeasurement.split(',')[0][:-1])
         except:
             qi = 3000
             self.log.exception("Exception in measurement loop, throttling refresh rate.")
 
-        self.currentarray.append(int(self.currentmeasurement))
+        self.currentarray.append(self.currentmeasurement)
         self.timearray.append(time.time()-self.initialtime)
         self.timer.start(qi)
         self.sigUpdate.emit()
@@ -89,3 +90,4 @@ class PicoammeterLogic(GenericLogic):
 
     def zero_check(self):
         self._picoammeter.zero()
+
