@@ -17,8 +17,29 @@ class MicrowaveControllerLogic(GenericLogic):
     microwavecontroller = Connector(interface='MicrowaveControllerInterface')
 
     def on_activate(self):
+        self._microwavecontroller = self.microwavecontroller()
         return
 
     def on_deactivate(self):
         return
 
+    def set_freq(self, value):
+        self._microwavecontroller.set_freq(value)
+        return
+
+    def set_power(self, value):
+        self._microwavecontroller.set_power(value)
+        return
+
+    def toggle_power(self, value):
+        self._microwavecontroller.toggle_power(value)
+        return
+
+    def start_sweep(self):
+        return
+
+    def define_sweep(self):
+        return
+
+    def set_sweep_params(self):
+        return

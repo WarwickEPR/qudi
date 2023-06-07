@@ -23,7 +23,7 @@ class MicrowaveControllerHardware(Base, MicrowaveControllerInterface):
         """
         rm = visa.ResourceManager()
         try:
-            self._inst = rm.open_resource(self._address)
+            self.inst = rm.open_resource(self._address)
             self.model = self._query('*IDN?').split(',')[1]  # get unit identification
             self._write("*RST;*CLS")  # reset device to default conditions and clear registers/error queues
             time.sleep(3)
@@ -39,3 +39,27 @@ class MicrowaveControllerHardware(Base, MicrowaveControllerInterface):
         """
         self._inst.close()
         pass
+
+    def set_freq(self, value):
+        self.inst.write('FREQ ' + str(value * 1e9))
+        return
+
+    def set_power(self, value):
+        self.inst.write(f'POW {value} dBm')
+        return
+
+    def toggle_power(self, value):
+        if value == 0:
+            self.inst.write('OUTP OFF')
+        elif value == 1:
+            self.inst.write('OUTP ON')
+        return
+
+    def start_sweep(self):
+        return
+
+    def define_sweep(self):
+        return
+
+    def set_sweep_params(self):
+        return

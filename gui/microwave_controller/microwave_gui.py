@@ -26,9 +26,9 @@ class MicrowaveControllerGUIMainWindow(QtWidgets.QMainWindow):
 class MicrowaveControllerGUI(GUIBase):
     microwavecontrollerlogic = Connector(interface='MicrowaveControllerLogic')
 
-    sigSetFreq = QtCore.Signal()
-    sigSetPower = QtCore.Signal()
-    sigTogglePower = QtCore.Signal()
+    sigSetFreq = QtCore.Signal(float)
+    sigSetPower = QtCore.Signal(float)
+    sigTogglePower = QtCore.Signal(bool)
     sigStartSweep = QtCore.Signal()
     sigSweepDef = QtCore.Signal()
     sigSetSweepParams = QtCore.Signal()
@@ -43,6 +43,8 @@ class MicrowaveControllerGUI(GUIBase):
         self._microwavecontrollerlogic = self.microwavecontrollerlogic()
         self._mw = MicrowaveControllerGUIMainWindow()
 
+
+        #create connections and signals
         self._mw.setFreqBtn.clicked.connect(self.set_freq)
         self.sigSetFreq.connect(self._microwavecontrollerlogic.set_freq)
 
@@ -60,6 +62,8 @@ class MicrowaveControllerGUI(GUIBase):
 
         self._mw.setSweepParamBtn.clicked.connect(self.set_sweep_params)
         self.sigSetSweepParams.connect(self._microwavecontrollerlogic.set_sweep_params)
+
+
 
         return
 
@@ -79,7 +83,7 @@ class MicrowaveControllerGUI(GUIBase):
         return
 
     def set_power(self):
-        self.sigSetPower.emit(self._mw.powerBox.value())
+        self.sigSetPower.emit(self._mw.pwrBox.value())
         return
 
     def toggle_power(self):
