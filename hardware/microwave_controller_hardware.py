@@ -22,17 +22,19 @@ class MicrowaveControllerHardware(Base, MicrowaveControllerInterface):
         """ Activate module.
         """
         rm = visa.ResourceManager()
-        try:
-            self.inst = rm.open_resource(self._address)
-            self.model = self._query('*IDN?').split(',')[1]  # get unit identification
-            self._write("*RST;*CLS")  # reset device to default conditions and clear registers/error queues
-            time.sleep(3)
-            """
-            operation complete query - places ASCII '1' into output queue when all pending operations are completed
-            """
-            self._query("*OPC?")
-        except:
-            self.log.error('Could not connect to hardware, check connection and address')
+        print(self._address)
+        print(self._address)
+        self.inst = rm.open_resource(self._address)
+        self.inst.chunk_size = 102400
+        self.inst.write("*CLS")  # clear error bank
+        self.inst.baud_rate = 115200
+        self.model = self.inst.query('*IDN?').split(',')[1]  # get unit identification
+        self.inst.write("*RST;*CLS")  # reset device to default conditions and clear registers/error queues
+        time.sleep(3)
+        """
+        operation complete query - places ASCII '1' into output queue when all pending operations are completed
+        """
+        self.inst.query("*OPC?")
 
     def on_deactivate(self):
         """ Deactivate module.
