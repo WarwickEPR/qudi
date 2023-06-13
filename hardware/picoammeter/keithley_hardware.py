@@ -81,4 +81,5 @@ class PicoammeterHardware(Base, PicoammeterInterface):
         self.write('SYST:ZCOR:ACQ')
         self.write('SYST:ZCOR ON')
         self.write('CURR:RANG:AUTO ON')
-        self.write('SYST:ZCOR OFF')
+        self.write('SYST:ZCH OFF')
+        
