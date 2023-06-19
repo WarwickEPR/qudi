@@ -14,7 +14,7 @@ class PicoammeterInterface(metaclass=InterfaceMetaclass):
         pass
 
     @abc.abstractmethod
-    def set_voltage(self):
+    def set_voltage(self, value):
         """Set voltage in volts
         input float: voltage in volts
         return float: voltage in volts"""
@@ -33,7 +33,7 @@ class PicoammeterInterface(metaclass=InterfaceMetaclass):
         pass
 
     @abc.abstractmethod
-    def set_voltage_range(self):
+    def set_voltage_range(self, value):
         """set voltage range
         return float: maximum voltage on volts"""
         pass
