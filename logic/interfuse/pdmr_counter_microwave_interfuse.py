@@ -1,13 +1,4 @@
-# -*- coding: utf-8 -*-
-
 """
-This file contains the Qudi interfuse between ODMR Logic and MW/Slow Counter HW.
-
-Qudi is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
 Qudi is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -24,43 +15,45 @@ import numpy as np
 
 from core.connector import Connector
 from logic.generic_logic import GenericLogic
-from interface.odmr_counter_interface import ODMRCounterInterface
+from interface.pdmr_counter_interface import PDMRCounterInterface
 from interface.microwave_interface import MicrowaveInterface
 from interface.microwave_interface import TriggerEdge
 
-class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
+class PDMRCounterMicrowaveInterfuse(GenericLogic, PDMRCounterInterface,
                                     MicrowaveInterface):
     """
     Interfuse to enable a software trigger of the microwave source but still
     having a hardware timed counter.
 
-    This interfuse connects the ODMR logic with a slowcounter and a microwave
+    This interfuse connects the PDMR logic with a slowcounter and a microwave
     device.
     """
 
     slowcounter = Connector(interface='SlowCounterInterface')
     microwave = Connector(interface='MicrowaveInterface')
+    picoammeterhardware = Connector(interface='PicoammeterHardware')
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
         self._pulse_out_channel = 'dummy'
         self._lock_in_active = False
         self._oversampling = 10
-        self._odmr_length = 100
+        self._pdmr_length = 100
 
 
     def on_activate(self):
         """ Initialisation performed during activation of the module."""
         self._mw_device = self.microwave()
         self._sc_device = self.slowcounter()  # slow counter device
+        self._picoammeter_hardware = self.picoammeterhardware()
         pass
 
     def on_deactivate(self):
         pass
 
-    ### ODMR counter interface commands
+    ### PDMR counter interface commands
 
-    def set_up_odmr_clock(self, clock_frequency=None, clock_channel=None):
+    def set_up_pdmr_clock(self, clock_frequency=None, clock_channel=None):
         """ Configures the hardware clock of the NiDAQ card to give the timing.
 
         @param float clock_frequency: if defined, this sets the frequency of the
@@ -73,8 +66,8 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
         return self._sc_device.set_up_clock(clock_frequency=clock_frequency,
                                                    clock_channel=clock_channel)
 
-    def set_up_odmr(self, counter_channel=None, photon_source=None,
-                    clock_channel=None, odmr_trigger_channel=None):
+    def set_up_pdmr(self, counter_channel=None, photon_source=None,
+                    clock_channel=None, pdmr_trigger_channel=None):
         """ Configures the actual counter with a given clock.
 
         @param str counter_channel: if defined, this is the physical channel of
@@ -83,7 +76,7 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
                                   the photons are to count from
         @param str clock_channel: if defined, this specifies the clock for the
                                   counter
-        @param str odmr_trigger_channel: if defined, this specifies the trigger
+        @param str pdmr_trigger_channel: if defined, this specifies the trigger
                                          output for the microwave
 
         @return int: error code (0:OK, -1:error)
@@ -94,48 +87,48 @@ class ODMRCounterMicrowaveInterfuse(GenericLogic, ODMRCounterInterface,
                                                 clock_channel=clock_channel,
                                                 counter_buffer=None)
 
-    def set_odmr_length(self, length=100):
-        """Set up the trigger sequence for the ODMR and the triggered microwave.
+    def set_pdmr_length(self, length=100):
+        """Set up the trigger sequence for the PDMR and the triggered microwave.
 
         @param int length: length of microwave sweep in pixel
 
         @return int: error code (0:OK, -1:error)
         """
-        #self._sc_device.set_odmr_length(length)
-        self._odmr_length = length
+        self._pdmr_length = length
         return 0
 
-    def count_odmr(self, length = 100):
+    def count_pdmr(self, length = 100):
         """ Sweeps the microwave and returns the counts on that sweep.
 
         @param int length: length of microwave sweep in pixel
 
-        @return float[]: the photon counts per second
+        @return bool, float[]: is Error?, the photon counts per second
         """
 
-        counts = np.zeros((len(self.get_odmr_channels()), length))
+        counts = np.zeros((len(self.get_pdmr_channels()), length))
         # self.trigger()
         for i in range(length):
             self.trigger()
-            counts[:,i] = self._sc_device.get_counter(samples=1)[:,0]
+            counts[0,i] = abs(float(self._picoammeter_hardware.read_current().split(',')[0][:-1]))
+            counts[1:,i] = self._sc_device.get_counter(samples=1)[1:,0]
         self.trigger()
         return False, counts
 
-    def close_odmr(self):
-        """ Close the odmr and clean up afterwards.
+    def close_pdmr(self):
+        """ Close the pdmr and clean up afterwards.
 
         @return int: error code (0:OK, -1:error)
         """
         return self._sc_device.close_counter()
 
-    def close_odmr_clock(self):
-        """ Close the odmr and clean up afterwards.
+    def close_pdmr_clock(self):
+        """ Close the pdmr and clean up afterwards.
 
         @return int: error code (0:OK, -1:error)
         """
         return self._sc_device.close_clock()
 
-    def get_odmr_channels(self):
+    def get_pdmr_channels(self):
         """ Return a list of channel names.
 
         @return list(str): channels recorded during ODMR measurement
