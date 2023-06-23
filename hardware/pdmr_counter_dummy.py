@@ -200,4 +200,3 @@ class PDMRCounterDummy(Base, PDMRCounterInterface):
             self._lock_in_active = val
             if self._lock_in_active:
                 self.log.warn('Lock-In is not implemented')
-
