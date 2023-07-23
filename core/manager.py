@@ -971,7 +971,6 @@ class Manager(QtCore.QObject):
         except:
             logger.exception(
                 '{0} module {1}: error during activation:'.format(base, name))
-        QtCore.QCoreApplication.instance().processEvents()
 
     @QtCore.Slot(str, str)
     def deactivateModule(self, base, name):
@@ -1020,7 +1019,6 @@ class Manager(QtCore.QObject):
             logger.debug('Deactivation success: {}'.format(success))
         except:
             logger.exception('{0} module {1}: error during deactivation:'.format(base, name))
-        QtCore.QCoreApplication.instance().processEvents()
 
     @QtCore.Slot(str, str)
     def getReverseRecursiveModuleDependencies(self, base, module, deps=None):
@@ -1374,7 +1372,6 @@ class Manager(QtCore.QObject):
             if deact:
                 logger.info('Deactivating module {0}.{1}'.format(base, module))
                 self.deactivateModule(base, module)
-            QtCore.QCoreApplication.processEvents()
         self.sigManagerQuit.emit(self, bool(restart))
 
     @QtCore.Slot(object)

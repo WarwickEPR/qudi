@@ -168,13 +168,13 @@ def ordered_dump(data, stream=None, Dumper=yaml.Dumper, **kwds):
         """
         Representer for numpy int dtypes
         """
-        return dumper.represent_int(numpy.asscalar(int_data))
+        return dumper.represent_int(int(int_data))
 
     def represent_float(dumper, float_data):
         """
         Representer for numpy float dtypes
         """
-        return dumper.represent_float(numpy.asscalar(float_data))
+        return dumper.represent_float(float(float_data))
 
     def represent_frozenset(dumper, set_data):
         """

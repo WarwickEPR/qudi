@@ -262,7 +262,7 @@ class LaserGUI(GUIBase):
     @QtCore.Slot()
     def updateFromSpinBox(self):
         """ The user has changed the spinbox, update all other values from that. """
-        self._mw.setValueVerticalSlider.setValue(self._mw.setValueDoubleSpinBox.value())
+        self._mw.setValueVerticalSlider.setValue(int(self._mw.setValueDoubleSpinBox.value()))
         cur = self._mw.currentRadioButton.isChecked() and self._mw.currentRadioButton.isEnabled()
         pwr = self._mw.powerRadioButton.isChecked() and  self._mw.powerRadioButton.isEnabled()
         if pwr and not cur:
