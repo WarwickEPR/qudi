@@ -9,6 +9,15 @@ def from_bytes(x: bytes):
     return x.decode('utf-8')
 
 
+def abbreviate_frames(frames):
+    message_length = sum(len(x) for x in frames)
+    SHORT_MESSAGE_THRESHOLD = 128
+    if message_length > SHORT_MESSAGE_THRESHOLD:
+        return "{} bytes".format(message_length)
+    else:
+        return "Frames: {}".format(frames)
+
+
 class InvalidMessage(Exception):
     def __init__(self, msg):
         self.msg = msg
@@ -26,10 +35,22 @@ class Message:
         self._client_envelope = b''
 
     def __repr__(self):
-        if self._client_envelope:
-            return "Message({}, {}) client({}) with {} bytes of encoded body".format(self._channel, self._f, self._client_envelope, len(self._body))
+        MAXLEN_BODY_REPR = 128
+        if len(self._body) == 0:
+            repr_body = ''
+        elif len(self._body) < MAXLEN_BODY_REPR:
+            try:
+                repr_body = "with body: {}".format(pickle.loads(self._body))
+            except EOFError:
+                repr_body = "with incomplete body <{} bytes>".format(len(self._body))
+
         else:
-            return "Message({}, {}) with {} bytes of encoded body".format(self._channel, self._f, len(self._body))
+            repr_body = "with <{} bytes> of encoded body".format(len(self._body))
+
+        if self._client_envelope:
+            return "Message({}, {}) client({}) {}".format(self._channel, self._f, self._client_envelope, repr_body)
+        else:
+            return "Message({}, {}) {}".format(self._channel, self._f, repr_body)
 
     @classmethod
     def _build(cls, channel=b'', f=b'', body=b'', client_envelope=None):
@@ -126,7 +147,7 @@ class PubMessage:
                 self.body = body
 
     def __str__(self):
-        return 'PubMessage(topic={}) with {} bytes of contents'.format(self.topic, len(self.body))
+        return 'PubMessage(topic={}, {})'.format(self.topic, self.body)
 
     def encoded(self):
         return [to_bytes(self.topic), pickle.dumps(self.body)]

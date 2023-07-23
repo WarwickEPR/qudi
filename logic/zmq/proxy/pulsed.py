@@ -1,7 +1,9 @@
 from . base import ZmqProxy, ZmqTimer
 from core.connector import Connector
 from logic.zmq.message import PubMessage, Message
-from .. format.pulsed import PulsedMeasurement
+from logic.zmq.data.pulsed import PulsedMeasurement
+from logic.zmq.data.timestamp import get_timestamp
+from logic.zmq.data.tables_context import TablesContext
 import itertools
 
 
@@ -53,18 +55,20 @@ class PulsedProxy(ZmqProxy):
             self._timer.stop()
 
     def handle_start(self, msg: Message):
-        timestamp = self.storage().timestamp()
+        t = get_timestamp()
         if 'name' in msg.body:
-            name = '{}_{}'.format(msg.body['name'], timestamp)
+            name = '{}_{}'.format(msg.body['name'], t)
         else:
-            name = timestamp
+            name = t
+
         if 'duration' in msg.body:
             duration = float(msg.body['duration'])
         else:
             duration = 60
 
-        # with self.storage().tables_context() as h:
-        #     self._measurement = PulsedMeasurement.create_group(h, name, self._predefined_parameters())
+        if self.storage().attached():
+            tc: TablesContext = self.storage().tables_context()
+            self._measurement = PulsedMeasurement.new_measurement(tc, name, self._predefined_parameters())
 
         # only connect signal when the measurement is started via zmq, otherwise
         # results in errors due to measurement being None if started manually
@@ -97,7 +101,10 @@ class PulsedProxy(ZmqProxy):
     def handle_perform_fit(self, msg: Message):
         fit_name = msg.body['fit_name']
         (_, fr) = self.pulsed_measurement().do_fit(fit_name)
-        self.notify('fit_updated', fr.values)
+        if fr:
+            self.notify('fit_updated', fr.values)
+        else:
+            self.notify('fit_updated', None)
 
     def handle_set_microwave_settings(self, msg: Message):
         self.pulsed_measurement().set_microwave_settings(settings_dict=msg.body)

@@ -1,7 +1,8 @@
 from . base import ZmqProxy
 from core.connector import Connector
-from .. message import Message
-from logic.zmq.format.psat import PsatTable
+from logic.zmq.message import Message
+from logic.zmq.data.psat import Psat
+from logic.zmq.data.timestamp import get_timestamp
 
 
 class AomProxy(ZmqProxy):
@@ -32,8 +33,8 @@ class AomProxy(ZmqProxy):
         self.notify_psat()
 
     def handle_save_qudi(self, msg: Message):
-        if msg.body != {}:
-            self.aomlogic().save_psat(msg.body)
+        if msg.body != '':
+            self.aomlogic().save_psat(tag=msg.body)
         else:
             self.aomlogic().save_psat()
 
@@ -46,12 +47,13 @@ class AomProxy(ZmqProxy):
         self.reply(msg, body=power)
 
     def handle_save(self, msg: Message):
-        self._save_psat()
+        self._save_psat(tag=msg.body)
         self.reply_ok(msg)
 
-    def _save_psat(self):
+    def _save_psat(self, tag=''):
         with self.storage().tables_context() as t:
-            dataset = t.create_measurement_table('Psat', PsatTable)
+            path = Psat.node(tag=tag, timestamp=get_timestamp())
+            dataset = t.create_measurement_table(Psat.root, path, Psat.Description)
             dataset.append(list(zip(self.aomlogic().powers, self.aomlogic().psat_data)))
             t.flush()
         return dataset

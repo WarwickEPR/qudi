@@ -20,7 +20,7 @@ class DataStore:
 
         except Exception as e:
             # Mapped from underlying HDFS but not documented
-            # self.log.error("Exception opening HDF file: {}".format(e))
+            # self.log.error("Exception opening HDF file: {}".data(e))
             raise e
 
     # Use my_store.root to access the

@@ -1,18 +1,18 @@
 from . base import ZmqProxy
 from core.connector import Connector
-from logic.zmq.message import PubMessage, Message
+from logic.zmq.message import Message
 from PyQt5.QtCore import Qt
-from logic.zmq.format.roi import ROI
+from logic.zmq.data.roi import ROI
 import numpy as np
-import tables
+from .. data.tables_context import TablesContext
+from .. data.timestamp import get_timestamp
 
 
-class PoiProxy(ZmqProxy):
+class RoiProxy(ZmqProxy):
 
     frontend = Connector(interface='ZmqFrontend')
     storage = Connector(interface='TablesStorage')
     poimanager = Connector(interface='PoiManagerLogic')
-    pulsedmeasurement = Connector(interface='PulsedMeasurementLogic', optional=True)
     optimizer = Connector(interface='OptimizerLogic', optional=True)
     confocal = Connector(interface='ConfocalLogic', optional=True)
 
@@ -23,6 +23,7 @@ class PoiProxy(ZmqProxy):
         # get hold of a handle to optimizer_logic, load if necessary
         # subscribe to key events, emit a message when done
         super().on_activate()
+        self.poimanager().sigRefocusStateUpdated.connect(self.notify_refocused, Qt.QueuedConnection)
 
     def on_deactivate(self):
         super().on_deactivate()
@@ -60,21 +61,31 @@ class PoiProxy(ZmqProxy):
     def handle_save_roi(self, msg: Message):
         if msg.body and 'name' in msg.body:
             name = msg.body['name']
-            self.poimanager().roi_name = name
-            self.log.debug("Saving ROI {}".format(name))
+            if name is not None:
+                self.poimanager().roi_name = name
+
+        name = self.poimanager().roi_name
+        self.log.debug("Saving ROI {}".format(name))
+
+        # HDF5 save
+        if self.storage().attached():
+            tc: TablesContext = self.storage().tables_context()
+            with tc as th:
+                group = '{}/{}'.format(ROI.root, name)
+                pois_node = 'pois_{}'.format(get_timestamp())
+                data_type = ROI.version
+                t = th.tables.create_table(group, pois_node, description=ROI.Description, createparents=True)
+                if self.poimanager().poi_names:
+                    positions = [(k, *v) for (k, v) in self.poimanager().poi_positions.items()]
+                    t.append(positions)
+                attrs = {'data_type': data_type,
+                         'origin': self.poimanager().roi_origin}
+                for (k, v) in attrs.items():
+                    t.attrs[k] = v
+                th.flush()
+                self.reply(msg, t._v_pathname)
         else:
-            self.log.debug("Saving ROI")
-
-        self.poimanager().save_roi()
-
-        with self.storage().session_file() as h:
-            folder, dataset_name = self.storage().dataset_path('ROI', site='')
-            t: tables.Table = h.create_table(folder, dataset_name, createparents=True)
-            positions = [(k, *v) for (k,v) in self.poimanager().poi_positions.items()]
-            t.append(positions)
-            t.flush()
-
-        self.reply_ok(msg)
+            self.reply(msg, '')
 
     def handle_reset_roi(self, msg: Message):
         self.log.debug("Resetting ROI")
@@ -92,6 +103,11 @@ class PoiProxy(ZmqProxy):
         self.log.debug("Stopping tracking")
         self.poimanager().toggle_periodic_refocus(False)
         self.reply_ok(msg)
+
+    def notify_refocused(self, running):
+        if not running:
+            # finished refocus
+            self.notify(topic='reoptimized', body={})
 
     # def handle_initialise_registration(self, msg: Message):
     #     try:

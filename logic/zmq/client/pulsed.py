@@ -1,5 +1,4 @@
 from .QudiControl import QudiClient
-from .. common import Orientation
 
 class Pulsed(QudiClient):
 

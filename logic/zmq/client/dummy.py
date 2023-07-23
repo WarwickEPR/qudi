@@ -6,5 +6,5 @@ class Dummy(QudiClient):
     name = "dummy"
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(Dummy, self).__init__(*args, **kwargs)
 

@@ -131,14 +131,11 @@ class Aom(QudiClient):
     async def emit_psat(self):
         await self.send_command('emit')
 
-    async def save(self):
-        await self.send_command('save')
+    async def save(self, tag=''):
+        await self.send_command('save', tag)
 
     async def save_qudi(self, tag=''):
-        if tag != '':
-            await self.send_command('save_qudi', tag)
-        else:
-            await self.send_command('save_qudi')
+        await self.send_command('save_qudi', tag)
 
     async def set_power(self, power):
         await self.send_command('set_power', body=power)

@@ -1,7 +1,7 @@
 from . base import ZmqProxy
 from core.connector import Connector
 from .. message import Message
-from logic.zmq.format.hbt import HbtTable
+from logic.zmq.data.hbt import HbtTable
 
 
 class HbtProxy(ZmqProxy):

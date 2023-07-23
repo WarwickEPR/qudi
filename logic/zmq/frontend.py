@@ -3,7 +3,7 @@ from logic.generic_logic import GenericLogic
 from core.configoption import ConfigOption
 from logic.zmq.message import Message, PubMessage
 from threading import Thread
-from logic.zmq.common import abbreviate_frames
+from . message import abbreviate_frames
 
 
 class ZmqFrontend(GenericLogic):
@@ -28,6 +28,9 @@ class ZmqFrontend(GenericLogic):
         self._start_message_broker()
         if self._log_notifications:
             self._start_notification_capture()
+
+        # Also ensure start up the general purpose manager proxy, already done if zmq_manager is loaded first
+        self._manager.startModule('logic', 'zmq_manager')
 
     def on_deactivate(self):
         self.log.info("Terminating ZMQ context")
@@ -117,21 +120,20 @@ class ZmqFrontend(GenericLogic):
 
             while not self._stop:
                 active = dict(poller.poll(50))
-                #self.log.debug("Active sockets: {}".format(active))
+                #self.log.debug("Active sockets: {}".data(active))
+
                 if frontend in active:
                     frames = frontend.recv_multipart()
-                    self.log.debug("Frontend received: {}".format(abbreviate_frames(frames)))
                     msg = Message.frontend_from_client(frames)
-                    backend.send_multipart(msg.frames_to_backend())
-                    # if msg.channel == 'control':
-                    #     # special message from client
-                    #     if msg.f == 'start_logic_module':
-                    #         module = msg.body
-                    #         if module in self._manager.tree['defined']['logic']:
-                    #             self.log.info("Loading module {}".format(module))
-                    #             self._manager.loadConfigureModule('logic', module)
-                    #     else:
-                    #         self.log.debug("Unrecognised control message".format(msg))
+                    self.log.debug("Frontend received: {}".format(msg))
+
+                    # special shortcut for "meta" commands
+                    if msg.channel == 'control':
+                        self.log.debug("Frontend received control message: {}".format(msg))
+                        self.control_command(msg)
+                    else:
+                        backend.send_multipart(msg.frames_to_backend())
+
                 if backend in active:
                     frames = backend.recv_multipart()
                     self.log.debug("Backend received: {}".format(abbreviate_frames(frames)))
@@ -150,6 +152,17 @@ class ZmqFrontend(GenericLogic):
 
         except zmq.ContextTerminated:
             self.log.info("Broker loop exiting as context terminated")
+
+    def control_command(self, msg):
+        # special messages from client
+        if msg.f == 'start_logic_module':
+            module = msg.body
+            self.log.debug("Loading logic module {}".format(module))
+            if module in self._manager.tree['defined']['logic'] and not self._manager.isModuleLoaded('logic', module):
+                self.log.info("Loading module {}".format(module))
+                self._manager.startModule('logic', module)
+        else:
+            self.log.debug("Unrecognised control message {}({})".format(msg.f, msg.body))
 
     def _start_notification_capture(self):
         self.log.info("Starting notification capture")

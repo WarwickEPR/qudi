@@ -3,44 +3,80 @@
 import logging
 import logging.handlers
 import os
+import sys
+from ipywidgets.widgets import Output
+from IPython.display import display, HTML
+import IPython
 
+log_format = logging.Formatter('%(asctime)s %(levelname)s [%(name)s] %(message)s')
 
 # take the basics for setting up logging from Qudi core logging module
+
+
+# Partially from https://ipywidgets.readthedocs.io/en/7.6.5/examples/Output%20Widget.html
+class ConsoleHandler(logging.Handler):
+    """ Custom logging handler sending logs to an output widget """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        layout = {
+            'width': '100%',
+            'height': '200px',
+        }
+        style = {
+            'font_size': '8px',
+            'wrap-around': 'pre'
+        }
+        self.out = Output(layout=layout, style=style)
+        with self.out:
+            display(HTML('<style>span.log.DEBUG { color: blue; }</style>'))
+
+    def emit(self, record):
+
+        with self.out:
+            display(HTML('<span class="log.{}">{}</span>'.format(record.levelname, self.format(record))))
+
+
+class RejectionFilter(logging.Filter):
+
+    def __init__(self, rejects: list):
+        super().__init__()
+        self.rejects = rejects
+
+    def filter(self, record):
+        for p in self.rejects:
+            if record.name.startswith(p):
+                return False
+        return True
+
 
 def initialize_logger(path='', name='qudi-client', suffix=None):
     """sets up the logger including a console, file and qt handler
     """
-    # initialize logger
-    logging.basicConfig(format="%(message)s", level=logging.INFO)
-    logging.addLevelName(logging.CRITICAL, 'critical')
-    logging.addLevelName(logging.ERROR, 'error')
-    logging.addLevelName(logging.WARNING, 'warning')
-    logging.addLevelName(logging.INFO, 'info')
-    logging.addLevelName(logging.DEBUG, 'debug')
-    logging.addLevelName(logging.NOTSET, 'not set')
-    logging.captureWarnings(True)
+    # get the root logger
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    # set level of stream handler which logs to stderr
-    logger.handlers[0].setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
 
-    # add file
+    # add file log handler - should clear out existing stream logger e.g. to stderr
     os.makedirs('logs', mode=775, exist_ok=True)
     if suffix:
         logfile_path = os.path.join(path, 'logs/{}_{}.log'.format(name, suffix))
     else:
         logfile_path = os.path.join(path, 'logs/{}.log'.format(name))
 
-    rotating_file_handler = logging.handlers.RotatingFileHandler(
-        logfile_path, maxBytes=10*1024*1024, backupCount=5)
-    rotating_file_handler.setFormatter(logging.Formatter(
-        '%(asctime)s %(levelname)s %(name)s %(message)s',
-        datefmt="%Y-%m-%d %H:%M:%S"))
-    rotating_file_handler.doRollover()
-    rotating_file_handler.setLevel(logging.DEBUG)
-    logger.addHandler(rotating_file_handler)
+    filelog = logging.FileHandler(filename=logfile_path)
+    filelog.setFormatter(log_format)
+    filelog.setLevel(logging.DEBUG)
+    filelog.addFilter(RejectionFilter(['Comm', 'papermill', 'blib', 'matplotlib.font_manager']))
+    logger.addHandler(filelog)
+    logging.getLogger().info('Starting log ')
 
-    for logger_name in ['core', 'client', 'backend', 'broadcast']:
-        logging.getLogger(logger_name).setLevel(logging.DEBUG)
 
-    logging.getLogger('client').info('Starting log ')
+def add_console_logger():
+    logger = logging.getLogger()
+    handler = ConsoleHandler()
+    handler.setFormatter(log_format)
+    handler.setLevel(logging.DEBUG)
+    handler.addFilter(RejectionFilter(['Comm', 'papermill', 'blib', 'matplotlib.font_manager']))
+    logger.addHandler(handler)
+    return handler.out

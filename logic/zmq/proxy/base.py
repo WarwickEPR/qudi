@@ -4,7 +4,7 @@ from core.connector import Connector
 from core.configoption import ConfigOption
 from logic.zmq.message import Message, PubMessage
 from PyQt5.QtCore import QThread, pyqtSignal, Qt, QEventLoop, QTimer, QObject
-from logic.zmq.common import abbreviate_frames
+from .. message import abbreviate_frames
 from importlib import reload
 import time
 import math
@@ -50,7 +50,7 @@ class ZmqProxyThread(QThread):
             while not self.isInterruptionRequested():
                 # briefly check for waiting ZMQ activity
                 active = dict(poller.poll(50))
-                #self.log.debug("Polling: {}".format(active))
+                #self.log.debug("Polling: {}".data(active))
 
                 # process any sockets needing attention
                 if sock in active:
@@ -59,7 +59,7 @@ class ZmqProxyThread(QThread):
                     self.log.debug('{} proxy received: {}'.format(self._channel, abbreviate_frames(frames)))
                     self.sigMessageReceived.emit(frames)
                 # prod Qt to process signals
-                self.eventDispatcher().processEvents(QEventLoop.AllEvents)
+                #self.eventDispatcher().processEvents(QEventLoop.AllEvents)
 
             self.log.info("{} proxy exiting".format(self._channel))
             poller.unregister(sock)

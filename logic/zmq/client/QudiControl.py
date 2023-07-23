@@ -13,7 +13,7 @@ from ipywidgets import Layout
 from logic.zmq.message import Message, PubMessage
 import logging
 
-from . logging import initialize_logger
+from . logging import initialize_logger, add_console_logger
 from IPython.display import display
 import ipywidgets as widgets
 
@@ -151,6 +151,7 @@ class QudiControl:
             initialize_logger(name=session, suffix=log_suffix)
         else:
             initialize_logger(name='qudi-client', suffix=log_suffix)
+        self.console = add_console_logger()
         self.session = session
         self.title = title
 
@@ -166,15 +167,31 @@ class QudiControl:
         self.pub_uri = 'tcp://{}:{}'.format(hostname, pub_port)
         self.control = self.connect('control')
 
-    async def init_session(self):
-        session_params = await self.data.open_session(name=self.session, title=self.title)
-        self.log.info("Session name set to {}. HDFS5 storage at {}".format(session_params['name'], session_params['path']))
+        # cache for auto-connection of clients
+        self._clients = {}
 
     @classmethod
     def register(cls, name, client):
         if name:
             cls.log.debug("Registering {} as {}".format(client, name))
             cls.channel_client[name] = client
+
+    def __getattr__(self, channel):
+        if channel not in self._clients and channel in self.channel_client:
+            self._clients[channel] = self.connect(channel)
+        if channel in self._clients:
+            return self._clients[channel]
+        else:
+            return AttributeError
+
+    def __dir__(self):
+        return list(self.channel_client.keys())
+
+    def client(self, channel):
+        if channel not in self._clients:
+            self._clients[channel] = self.connect(channel)
+
+        return self._clients[channel]
 
     # connect to the control port
     # message exchanges are asynchronous and initiated from this end
@@ -184,13 +201,10 @@ class QudiControl:
         control = self.ctx.socket(zmq.DEALER)
         control.connect(self.control_uri)
         if channel in self.channel_client:
+            self.log.debug("Channel {} client {}".format(channel, self.channel_client[channel]))
             return self.channel_client[channel](self.ctx, self.pub_uri, channel, control)
         else:
             return QudiClient(self.ctx, self.pub_uri, channel, control)
-
-    async def start_logic_modules(self, modules):
-        start_commands = map(self.control.start_logic_module, modules)
-        await asyncio.gather(*start_commands)
 
     # convenience method
     def display_all_notifications(self):
@@ -213,7 +227,7 @@ class QudiClient(metaclass=Plugin):
 
     name = ""
     tasks = []
-    log = logging.getLogger('core.qudiclient')
+    log = logging.getLogger('client')
 
     def __init__(self, ctx, pub_uri, channel, control_socket):
         self.ctx = ctx
@@ -241,6 +255,7 @@ class QudiClient(metaclass=Plugin):
 
     async def send_control_command(self, instruction, body=None):
         m = Message(channel='control', f=instruction, body=body)
+        self.log.debug('Sending control command: {}'.format(m))
         await self.control_socket.send_multipart(m.frames_to_qudi())
 
     async def query(self, instruction, body=None):
@@ -254,10 +269,6 @@ class QudiClient(metaclass=Plugin):
             message = await subscription.receive()
             with out:
                 out.append_stdout("Received: {} {}\n".format(message.topic, message.body))
-
-    async def start_logic_module(self, modules):
-        for module in modules:
-            await self.send_control_command('start_logic_module', module)
 
     async def receive_message(self):
         reply = await self.control_socket.recv_multipart()

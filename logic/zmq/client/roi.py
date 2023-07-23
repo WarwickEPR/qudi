@@ -1,9 +1,9 @@
 from .QudiControl import QudiClient
 
 
-class PoiClient(QudiClient):
+class RoiClient(QudiClient):
 
-    name = "poi"
+    name = "roi"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -42,5 +42,9 @@ class PoiClient(QudiClient):
         await self.send_command('stop_tracking')
         await self.receive_message()
 
+    async def wait_for_optimizer(self):
+        n = self.subscribe('reoptimized')
+        response = await n.receive()
+        return
 
 

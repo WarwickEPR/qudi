@@ -2,8 +2,14 @@ from . base import ZmqProxy
 from core.connector import Connector
 from .. message import Message
 from PyQt5.QtCore import Qt
-from .. common import Orientation
-from contextlib import contextmanager
+from .. data.image import Orientation
+from .. data.tables_context import TablesContext
+import numpy as np
+from .. data.timestamp import timestamp
+
+from ..storage import NoDataFileSpecified
+
+# Binds to confocal_logic to get data from imaging and to control imaging under automation
 
 
 class ConfocalProxy(ZmqProxy):
@@ -18,6 +24,9 @@ class ConfocalProxy(ZmqProxy):
         self._depth_image_timestamp = None
         self._xy_images = []
         self._depth_images = []
+        self._x = 0
+        self._y = 0
+        self._z = 0
 
     def on_activate(self):
         super().on_activate()
@@ -27,6 +36,7 @@ class ConfocalProxy(ZmqProxy):
         self.confocal().sigImageDepthInitialized.connect(self._starting_depth_image, Qt.QueuedConnection)
         # scan stopped
         self.confocal().signal_stop_scanning.connect(self._stopping, Qt.QueuedConnection)
+        #self.confocal().signal_change_position.connect(self._changed_position, Qt.QueuedConnection)
 
     def on_deactivate(self):
         super().on_deactivate()
@@ -34,6 +44,7 @@ class ConfocalProxy(ZmqProxy):
         self.confocal().sigImageXYInitialized.disconnect(self._starting_xy_image)
         self.confocal().sigImageDepthInitialized.disconnect(self._starting_depth_image)
         self.confocal().signal_stop_scanning.disconnect(self._stopping)
+        #self.confocal().signal_change_position.disconnect(self._changed_position)
 
     # For convenience, keep note of the path to latest images saved
     @property
@@ -52,6 +63,13 @@ class ConfocalProxy(ZmqProxy):
 
     def _notify_state_change(self, e):
         self.notify('state_change')
+
+    def _changed_position(self, _):
+        x, y, z = self.confocal().get_position()
+        self._x = x
+        self._y = y
+        self._z = z
+        self.notify('position_changed_to', {'x': x, 'y': y, 'z': z})
 
     def _notify_scan_stopped(self):
         self.notify('stopped')
@@ -121,6 +139,16 @@ class ConfocalProxy(ZmqProxy):
 
         self.confocal().set_position('zmq', x=x, y=y, z=z, a=a)
 
+    def handle_set_tilt(self, msg: Message):
+        tilt_x = msg.body.get('tilt_x', 0)
+        tilt_y = msg.body.get('tilt_y', 0)
+        reference_x = msg.body.get('reference_x', 0)
+        reference_y = msg.body.get('reference_y', 0)
+        self.confocal()._scanning_device.tilt_variable_ax = tilt_x
+        self.confocal()._scanning_device.tilt_variable_ay = tilt_y
+        self.confocal()._scanning_device.tilt_reference_x = reference_x
+        self.confocal()._scanning_device.tilt_reference_y = reference_y
+
     def handle_get_position(self, msg: Message):
         position = self.confocal().get_position()
         self.reply(msg, body=position)
@@ -143,18 +171,18 @@ class ConfocalProxy(ZmqProxy):
     def handle_save_depth(self, _):
         self._save_depth_image()
 
-    def _notify_xy_image_saved(self):
+    def _notify_xy_image_saved(self, where: str):
         # image saved to .h5
         finished = not self.confocal()._xyscan_continuable
-        self.notify('xy_image_saved', body={'file': self.storage().local_filepath,
-                                            'path': self.latest_xy_image,
+        self.notify('xy_image_saved', body={'file': self.storage().data_file_path,
+                                            'where': where,
                                             'complete': finished})
 
-    def _notify_depth_image_saved(self):
+    def _notify_depth_image_saved(self, where: str):
         # image saved to .h5
         finished = not self.confocal()._zscan_continuable
-        self.notify('depth_image_saved', body={'file': self.storage().local_filepath,
-                                               'path': self.latest_depth_image,
+        self.notify('depth_image_saved', body={'file': self.storage().data_file_path,
+                                               'where': where,
                                                'complete': finished})
 
     def _notify_qudi_xy_image_saved(self):
@@ -167,57 +195,99 @@ class ConfocalProxy(ZmqProxy):
         # unfortunately not easy to find the output file location
         self.notify('qudi_depth_image_saved', body={'complete': finished})
 
-    def _save_xy_image(self):
-        with self.storage().tables_context() as t:
-            cf = self.confocal()
-            dataset = t.create_array('Confocal_XY', cf.xy_image)
-            # copy everything serialize uses into attributes
-            dataset.attrs.focus_position = cf.get_position()
-            dataset.attrs.x_range = list(cf.image_x_range)
-            dataset.attrs.y_range = list(cf.image_y_range)
-            dataset.attrs.z_range = list(cf.image_z_range)
-            dataset.attrs.xy_resolution = cf.xy_resolution
-            dataset.attrs.xy_scan_continuable = cf._xyscan_continuable
-            dataset.attrs.scan_counter = cf._scan_counter
-            if hasattr(cf, 'tilt_correction'):
-                dataset.attrs.tilt_correction = cf.tilt_correction
-                dataset.attrs.tilt_point1     = list(cf.point1)
-                dataset.attrs.tilt_point2     = list(cf.point2)
-                dataset.attrs.tilt_point3     = list(cf.point3)
-                dataset.attrs.tilt_reference  = [cf.tilt_reference_x, cf.tilt_reference_y]
-                dataset.attrs.tilt_slope      = [cf.tilt_slope_x,     cf.tilt_slope_y]
-            t.flush()
+    def _save_image(self, image_type: str, image: np.array, attrs: dict):
+        cf = self.confocal()
+        if hasattr(cf, 'tilt_correction'):
+            # Record the Qudi tilt correction params used
+            # Suitable for small tilts, imaging scans and (most?) set_position calls have a dz
+            # applied effectively pivoting about "tilt_reference"
+            # point1,2,3 are used to find the normal to that plane by cross product and yield tilt_slope
+            # calc_dz only uses tilt_reference and tilt_variable_ax = tilt_slope_x
+            # Useful for interactive imaging and Qudi integration but the bare-bones "arbitraryscan" system
+            # is more flexible and transparent
+            attrs['tilt_correction'] = cf.tilt_correction
+            attrs['tilt_reference'] = [cf.tilt_reference_x, cf.tilt_reference_y]
+            attrs['tilt_slope'] = [cf.tilt_slope_x, cf.tilt_slope_y]
 
-            # path to dataset
-            self._record_xy_image(dataset._v_pathname)
-            self._notify_xy_image_saved()
-            return dataset._v_pathname
+        if self.storage().attached():
+            tc: TablesContext = self.storage().tables_context()
+            with tc as th:
+                group = '/Confocal/' + image_type
+                image_name = '{0}_{1}'.format(image_type, timestamp())
+                data_type = 'Image_{}_v1.0'.format(image_type)
+                self.log.debug('Saving image to {} {}/{}'.format(self.storage().data_file_path, group, image_name))
+                node = th.create_array(group, image_name, image, data_type)
+                for (k, v) in attrs.items():
+                    node.attrs[k] = v
+                th.flush()
+                return node._v_pathname
+        else:
+            return None
+
+    def _save_xy_image(self):
+        cf = self.confocal()
+        x_points, y_points, d_points = cf.xy_image.shape
+        z_points = 1
+        image = np.reshape(cf.xy_image, (x_points, y_points, z_points, d_points))
+        attrs = dict()
+
+        # copy everything serialize uses into attributes
+        position = cf.get_position()
+        x, y, z = position
+        attrs['x_range_start'] = cf.image_x_range[0]
+        attrs['x_range_end'] = cf.image_x_range[1]
+        attrs['x_points'] = x_points
+        attrs['y_range_start'] = cf.image_y_range[0]
+        attrs['y_range_end'] = cf.image_y_range[1]
+        attrs['y_points'] = y_points
+        attrs['z_range_start'] = z
+        attrs['z_range_end'] = z
+        attrs['z_points'] = z_points
+        attrs['xy_resolution'] = cf.xy_resolution
+
+        new_node_path = self._save_image('XY', image, attrs)
+        if new_node_path:
+            self._notify_xy_image_saved(new_node_path)
+        return new_node_path
 
     def _save_depth_image(self):
-        with self.storage().tables_context() as t:
-            cf = self.confocal()
-            dataset = t.create_array('Confocal_Depth', cf.depth_image)
-            # copy everything serialize uses into attributes
-            dataset.attrs.focus_position = cf.get_position()
-            dataset.attrs.x_range = list(cf.image_x_range)
-            dataset.attrs.y_range = list(cf.image_y_range)
-            dataset.attrs.z_range = list(cf.image_z_range)
-            dataset.attrs.xy_resolution = cf.xy_resolution
-            dataset.attrs.z_resolution = cf.z_resolution
-            dataset.attrs.depth_img_is_xz = cf.depth_img_is_xz
-            dataset.attrs.depth_dir_is_xz = cf.depth_scan_dir_is_xz
-            dataset.attrs.depth_scan_continuable = cf._zscan_continuable
-            dataset.attrs.scan_counter = cf._scan_counter
-            if hasattr(cf, 'tilt_correction'):
-                dataset.attrs.tilt_correction = cf.tilt_correction
-                dataset.attrs.tilt_point1     = list(cf.point1)
-                dataset.attrs.tilt_point2     = list(cf.point2)
-                dataset.attrs.tilt_point3     = list(cf.point3)
-                dataset.attrs.tilt_reference  = [cf.tilt_reference_x, cf.tilt_reference_y]
-                dataset.attrs.tilt_slope      = [cf.tilt_slope_x,     cf.tilt_slope_y]
-            t.flush()
+        cf = self.confocal()
 
-            # path to dataset
-            self._record_depth_image(dataset._v_pathname)
-            self._notify_depth_image_saved()
-            return dataset._v_pathname
+        h_points, z_points, d_points = cf.depth_image.shape
+        position = cf.get_position()
+        x, y, z = position
+
+        if cf.depth_img_is_xz:
+            x_points = h_points
+            y_points = 1
+            x_range = cf.image_x_range
+            y_range = [y, y]
+            image_type = 'XZ'
+        else:
+            x_points = 1
+            y_points = h_points
+            x_range = [x, x]
+            y_range = cf.image_y_range
+            image_type = 'YZ'
+
+        image = np.reshape(cf.depth_image, (x_points, y_points, z_points, d_points))
+        z_range = cf.image_z_range
+        attrs = dict()
+
+        # copy everything serialize uses into attributes
+        attrs['position'] = position
+        attrs['x_range_start'] = x_range[0]
+        attrs['x_range_end'] = x_range[1]
+        attrs['x_points'] = x_points
+        attrs['y_range_start'] = y_range[0]
+        attrs['y_range_end'] = y_range[1]
+        attrs['y_points'] = y_points
+        attrs['z_range_start'] = z_range[0]
+        attrs['z_range_end'] = z_range[1]
+        attrs['z_points'] = z_points
+        attrs['xy_resolution'] = cf.xy_resolution
+
+        new_node_path = self._save_image(image_type, image, attrs)
+        if new_node_path:
+            self._notify_depth_image_saved(new_node_path)
+        return new_node_path
