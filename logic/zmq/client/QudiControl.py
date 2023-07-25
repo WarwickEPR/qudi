@@ -62,21 +62,27 @@ class BgTask:
         self.task = asyncio.create_task(coroutine)
         if on_done is not None:
             self.task.add_done_callback(on_done)
-        self.cancel_button = widgets.Button(description='',
+
+    def cancel(self):
+        self.task.cancel()
+
+    def cancel_button(self):
+        cancel_button = widgets.Button(description='',
                                             disabled=False,
                                             button_style='',
                                             tooltip='Stop',
                                             icon='window-close')
-        self.cancel_button.style.button_color = 'transparent'
+        cancel_button.style.button_color = 'transparent'
 
         def cancel(btn):
             self.task.cancel()
             self.cancel_button.disabled = True
 
-        self.cancel_button.on_click(cancel)
+        cancel_button.on_click(cancel)
+        return cancel_button
 
-    def add_cancel_button(self, out):
-        return widgets.HBox(children=[out, self.cancel_button],
+    def cancel_button_right(self, out):
+        return widgets.HBox(children=[out, self.cancel_button()],
                             layout=widgets.Layout(display='flex', justify_content='space-between'))
 
 

@@ -118,7 +118,8 @@ class OdmrProxy(ZmqProxy):
 
     def _setup_odmr(self, msg: Message):
 
-        if not msg.body: return
+        if not msg.body:
+            return
         if 'clock' in msg.body: self.odmr().set_clock_frequency(msg.body['clock'])
         if 'oversampling' in msg.body: self.odmr().oversampling(msg.body['oversampling'])
         if 'runtime' in msg.body: self.odmr().set_runtime(msg.body['runtime'])

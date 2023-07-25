@@ -52,9 +52,14 @@ class AomProxy(ZmqProxy):
 
     def _save_psat(self, tag=''):
         with self.storage().tables_context() as t:
+            poi = self.poimanager().active_poi()
+            if not tag:
+                tag = poi
             path = Psat.node(tag=tag, timestamp=get_timestamp())
             dataset = t.create_measurement_table(Psat.root, path, Psat.Description)
             dataset.append(list(zip(self.aomlogic().powers, self.aomlogic().psat_data)))
+            if poi:
+                dataset.attrs['poi'] = poi
             t.flush()
         return dataset
 

@@ -21,6 +21,16 @@ class ExtractedPulsedMeasurementTable(IsDescription):
 class PulsedMeasurement:
 
     root = '/pulsed'
+    version = 'Pulsed_v1.0'
+
+    @classmethod
+    def node(cls, tag='', timestamp=None):
+        if timestamp is None:
+            timestamp = get_timestamp()
+        if tag != '':
+            return 'pulsed_{}_{}'.format(tag, timestamp)
+        else:
+            return 'pulsed_{}'.format(timestamp)
 
     def __init__(self, measurement=None, tc=None):
         if measurement is not None:
@@ -30,18 +40,19 @@ class PulsedMeasurement:
 
     # Initialise a new measurement
     @classmethod
-    def new_measurement(cls, tc: TablesContext, name=None, predefined_params={}):
-        measurement_name = name + '_' + get_timestamp()
+    def new_measurement(cls, tc: TablesContext, tag=None, predefined_params={}):
         with tc as th:
+            measurement_name = cls.node(tag=tag)
             g = th.tables.create_group(cls.root, measurement_name, createparents=True)
             for k, v in predefined_params.items():
                 g._v_attrs['predefined_'+k] = v
 
-            # link to POI
+            # link to POI, if at a POI
+            th.link_to_poi(g._v_pathname)
 
             return PulsedMeasurement(measurement=g._v_pathname, tc=tc)
 
-    def update_array(self, data, attrs=None):
+    def _update_array(self, data, attrs=None):
         with self._tables_context as th:
             group = th.get_node(self._measurement)
             measurement_group = self._path
@@ -72,7 +83,7 @@ class PulsedMeasurement:
         with self._tables_context as th:
             measurement_group = self._path
             # copy arrays to snapshot dir
-            t = timestamp()
+            t = get_timestamp()
             for node in ['extracted', 'laser', 'raw']:
                 th.tables.copy_node('/'.join([measurement_group, node]),
                                     '/'.join([measurement_group, 'snapshot', t, node]),

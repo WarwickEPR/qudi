@@ -32,6 +32,7 @@ class PulsedProxy(ZmqProxy):
     storage = Connector(interface='TablesStorage')
     pulsed_measurement = Connector(interface='PulsedMeasurementLogic')
     pulsed_master_logic = Connector(interface='PulsedMasterLogic')
+    poimanager = Connector(interface='PoiManagerLogic')
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -111,6 +112,8 @@ class PulsedProxy(ZmqProxy):
 
     def _save_data(self):
         with self.storage().tables_context() as h:
+
+
             attrs = self.gather(self.pulsed_measurement(), {'elapsed_sweeps': 'elapsed_sweeps',
                                                             'elapsed_time': 'elapsed_time',
                                                             'alternating': '_alternating',

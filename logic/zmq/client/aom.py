@@ -8,7 +8,7 @@ import IPython.display
 import numpy as np
 import matplotlib.pyplot as plt
 from IPython.display import Math, display
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, OptimizeWarning
 
 
 class Psat:
@@ -18,18 +18,17 @@ class Psat:
     def __init__(self, client):
 
         self.client = client
-        self.plot_area = widgets.Output()
-        self.layout = AppLayout(center=self.plot_area, pane_widths=[1, 4, 4])
-        IPython.display.display(self.layout)
 
         # measure psat and display the result
         self.log.debug("Taking Psat")
-        self.psat_data = None
+        self.psat_data = {'powers': np.array([]), 'counts': np.array([])}
         self.I_0 = 0
         self.P_sat = 0
+        self.fit_covariance = None
         self.background = 0
+
+        # in case we want to cancel, start immediately and wait in the background
         self.bg_task = BgTask(self._take_psat())
-        self.layout.right_sidebar = self.bg_task.cancel_button
 
     async def _take_psat(self):
         try:
@@ -38,7 +37,8 @@ class Psat:
             self.background = 0
             self.psat_data = None
             await self.client.send_command('take_psat', body='')
-            await self._display()
+            await self._wait_for_measurement()
+            self.log.debug("Received psat data: {}".format(self.psat_data))
         except Exception as e:
             self.log.error("Fetch exception: {}".format(e))
 
@@ -47,16 +47,13 @@ class Psat:
         # don't block by default here
         s = self.client.subscribe('aom.psat_data')
         response = await s.receive()
-        self.layout.right_sidebar = widgets.Output(layout={'border': '1px solid black'})
         self.psat_data = response.body
-        return self.psat_data
 
     # blocking wait on data collection, returns data
     async def data(self):
-        if self.psat_data:
-            return self.psat_data
-        else:
-            return await self._wait_for_measurement()
+        if not self.psat_data:
+            await self._wait_for_measurement()
+        return self.psat_data
 
     # blocking wait on collection, but discards
     async def done(self):
@@ -67,7 +64,65 @@ class Psat:
         self.fit_with_bg()
         return
 
-    async def _display(self):
+    @classmethod
+    def _model_simple(cls, p, I_0, P_sat):
+        return I_0 * p / (p + P_sat)
+
+    @classmethod
+    def _model_with_bg(cls, p, I_0, P_sat, bg):
+        return I_0 * p / (p + P_sat) + bg * p
+
+    def fit_simple(self):
+        powers = self.psat_data['powers']*1e3
+        counts = self.psat_data['counts']
+        try:
+            pars, cov = curve_fit(f=Psat._model_simple, xdata=powers, ydata=counts, p0=[100e3, 1], bounds=(0, np.inf))
+            self.I_0 = pars[0]
+            self.P_sat = pars[1]
+            self.fit_covariance = cov
+        except ValueError:
+            self.log.warning('AOM fit - data contained NaN')
+        except RuntimeError:
+            self.log.warning('AOM fit failed')
+        except OptimizeWarning:
+            self.log.warning('AOM fit - covariance could not be calculated')
+
+        return self.I_0, self.P_sat
+
+    def fit_with_bg(self):
+        I_max = np.max(self.psat_data['counts'])
+        powers = self.psat_data['powers']*1e3
+        counts = self.psat_data['counts']
+        try:
+            pars, cov = curve_fit(f=Psat._model_with_bg, xdata=powers, ydata=counts, p0=[I_max, 1, 0], bounds=([I_max*.5, 0, 0], [np.inf, np.inf, np.inf]))
+            self.I_0 = pars[0]
+            self.P_sat = pars[1]
+            self.background = pars[2]
+            self.fit_covariance = cov
+        except ValueError:
+            self.log.warning('AOM fit - data contained NaN')
+        except RuntimeError:
+            self.log.warning('AOM fit failed')
+        except OptimizeWarning:
+            self.log.warning('AOM fit - covariance could not be calculated')
+
+        return self.I_0, self.P_sat, self.background
+
+
+class Aom(QudiClient):
+
+    name = "aom"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def take_psat(self):
+        return Psat(self)
+
+    def display_psat(self):
+        pass
+
+    async def _display_psat(self):
         data = await self.data()
         self.log.debug("Displaying psat data: {}".format(data))
         if 'counts' in data:
@@ -85,38 +140,6 @@ class Psat:
                 display(Math('P_{{sat}} = {:.2f}~mW'.format(P_sat)))
                 display(Math('background = {:.1f}~kc/s/mW'.format(bg*1e-3)))
 
-    @classmethod
-    def _model_simple(cls, p, I_0, P_sat):
-        return I_0 * p / (p + P_sat)
-
-    @classmethod
-    def _model_with_bg(cls, p, I_0, P_sat, bg):
-        return I_0 * p / (p + P_sat) + bg * p
-
-    def fit_simple(self):
-        pars, cov = curve_fit(Psat._model_simple, self.psat_data['powers']*1e3, self.psat_data['counts'], p0=[100e3, 1], bounds=(0, np.inf))
-        self.I_0 = pars[0]
-        self.P_sat = pars[1]
-        return self.I_0, self.P_sat
-
-    def fit_with_bg(self):
-        I_max = np.max(self.psat_data['counts'])
-        pars, cov = curve_fit(Psat._model_with_bg, self.psat_data['powers']*1e3, self.psat_data['counts'], p0=[I_max, 1, 0], bounds=([I_max*.5, 0, 0], [np.inf, np.inf, np.inf]))
-        self.I_0 = pars[0]
-        self.P_sat = pars[1]
-        self.background = pars[2]
-        return self.I_0, self.P_sat, self.background
-
-
-class Aom(QudiClient):
-
-    name = "aom"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def take_psat(self):
-        return Psat(self)
 
     async def wait_for_psat_fit(self):
         s = self.subscribe('aom.fit')
