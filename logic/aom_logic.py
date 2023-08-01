@@ -27,6 +27,7 @@ from core.statusvariable import StatusVar
 from qtpy import QtCore
 from scipy.optimize import curve_fit
 
+
 class AomLogic(GenericLogic):
     """
     This is the logic for controlling AOM diffraction efficiency
@@ -44,6 +45,7 @@ class AomLogic(GenericLogic):
     psat_updated = QtCore.Signal()
     psat_done = QtCore.Signal()
     psat_fit_updated = QtCore.Signal()
+    _psat_save = QtCore.Signal(str)
     psat_saved = QtCore.Signal()
     aom_updated = QtCore.Signal()
     power_available = QtCore.Signal(bool)
@@ -57,6 +59,8 @@ class AomLogic(GenericLogic):
 
         self.powers = []
         self.psat_data = []
+        self.psat_voltages = []
+
         self.psat_fit_x = []
         self.psat_fit_y = []
         self.fitted_Isat = 0.0
@@ -85,17 +89,19 @@ class AomLogic(GenericLogic):
         self.set_psat_points(points=100)
         self.clear()
 
-        self.psat_updated.connect(self.fit_data)
+        self.psat_updated.connect(self.fit_data, QtCore.Qt.QueuedConnection)
+        self._psat_save.connect(self._save_psat, QtCore.Qt.QueuedConnection)
         self.set_power(1e-4)
         # self.laser.sigPower.connect(self.update_aom)
 
-
     def on_deactivate(self):
         self.psat_updated.disconnect(self.fit_data)
+        self._psat_save.disconnect()
 
     def clear(self):
         self.set_psat_points(points=100)
         self.psat_data = np.zeros_like(self.powers)
+        self.psat_voltages = self.voltages_for_powers(self.powers)
         self.psat_fit_x = np.linspace(0, max(self.powers), len(self.powers))
         self.psat_fit_y = np.zeros_like(self.psat_fit_x)
         self.fitted_Isat = 0.0
@@ -183,7 +189,6 @@ class AomLogic(GenericLogic):
 
         self.psat_data = d
         self.psat_voltages = v
-
         self.psat_collected = True
 
         self.psat_updated.emit()
@@ -239,6 +244,10 @@ class AomLogic(GenericLogic):
             self.set_power(self.fitted_Psat)
 
     def save_psat(self, tag=''):
+        self._psat_save.emit(tag)
+
+    def _save_psat(self, tag):
+
         # File path and name
         filepath = self._save_logic.get_path_for_module(module_name='Psat')
 

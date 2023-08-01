@@ -52,7 +52,7 @@ class AomProxy(ZmqProxy):
 
     def _save_psat(self, tag=''):
         with self.storage().tables_context() as t:
-            poi = self.poimanager().active_poi()
+            poi = self.poimanager().active_poi
             if not tag:
                 tag = poi
             path = Psat.node(tag=tag, timestamp=get_timestamp())

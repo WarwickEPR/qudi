@@ -90,9 +90,12 @@ class Psat:
         return self.I_0, self.P_sat
 
     def fit_with_bg(self):
-        I_max = np.max(self.psat_data['counts'])
         powers = self.psat_data['powers']*1e3
         counts = self.psat_data['counts']
+        if not len(counts):
+            self.log.warning("No Psat data returned")
+            return 0, 0, 0
+        I_max = np.max(counts)
         try:
             pars, cov = curve_fit(f=Psat._model_with_bg, xdata=powers, ydata=counts, p0=[I_max, 1, 0], bounds=([I_max*.5, 0, 0], [np.inf, np.inf, np.inf]))
             self.I_0 = pars[0]
@@ -108,6 +111,15 @@ class Psat:
 
         return self.I_0, self.P_sat, self.background
 
+    def display(self):
+        P = self.psat_data['powers']
+        plt.scatter(P, self.psat_data['counts'])
+        plt.plot(P, self._model_with_bg(P, self.I_0, self.P_sat, self.background), color='blue')
+        plt.xlabel('Power (mW)',fontsize=18)
+        plt.ylabel('Counts', fontsize=18)
+        plt.grid()
+        plt.title('Psat', fontsize=18)
+        plt.show()
 
 class Aom(QudiClient):
 
