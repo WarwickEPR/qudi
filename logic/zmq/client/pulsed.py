@@ -1,5 +1,6 @@
 from .QudiControl import QudiClient
 
+
 class Pulsed(QudiClient):
 
     name = "pulsed"
@@ -58,4 +59,5 @@ class Pulsed(QudiClient):
             await self.send_command('save_qudi', tag)
         else:
             await self.send_command('save_qudi')
+
 

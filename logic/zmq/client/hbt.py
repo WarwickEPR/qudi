@@ -91,6 +91,18 @@ class HbtMeasurement:
                 plt.grid()
                 plt.show()
 
+    def display(self):
+        data = self.hbt_data
+        self.log.debug("Displaying HBT data: {}".format(data))
+        if 'counts' in data:
+            t = data['bin_times']*1e9
+            plt.scatter(t, data['g2_data_normalized'])
+            plt.xlabel(r'Time (ns)', fontsize=18)
+            plt.ylabel(r'g2 normalized', fontsize=18)
+            plt.title('HBT', fontsize=18)
+            plt.grid()
+            plt.show()
+
 
 class Hbt(QudiClient):
 

@@ -72,8 +72,10 @@ class TablesHandle:
 
     def link_to_poi(self, node):
         if self.use_poi:
-            node_group = node._v_parent._v_pathname
-            node_name = node.name
+            if isinstance(node, str):
+                node = self.tables.get_node(node)
+            node_group = self.tables.get_node(node._v_parent)._v_pathname
+            node_name = node._v_name
             link_group = '/ROI/{}/{}{}'.format(self.roi, self.poi, node_group)
             if self.logger:
                 self.logger.info("Linking {}/{} to {}".format(link_group, node_name, node._v_pathname))
