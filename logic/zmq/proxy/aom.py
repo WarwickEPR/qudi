@@ -20,23 +20,20 @@ class AomProxy(ZmqProxy):
         # subscribe to key events, emit a message when done
         super().on_activate()
         self.aomlogic().psat_done.connect(self.notify_psat)
-        self.aomlogic().psat_done.connect(self._save_psat)
+        self.aomlogic().psat_saved.connect(self.notify_psat_saved)
+        self.aomlogic().psat_fit_updated.connect(self.notify_psat_fitted)
 
     def on_deactivate(self):
         super().on_deactivate()
         self.aomlogic().psat_done.disconnect(self.notify_psat)
+        self.aomlogic().psat_saved.disconnect(self.notify_psat_saved)
+        self.aomlofic().psat_fit_updated.disconnect(self.notify_psat_fitted)
 
     def handle_take_psat(self, _):
         self.aomlogic().run_psat()
 
     def handle_emit_psat(self, _):
         self.notify_psat()
-
-    def handle_save_qudi(self, msg: Message):
-        if msg.body != '':
-            self.aomlogic().save_psat(tag=msg.body)
-        else:
-            self.aomlogic().save_psat()
 
     def handle_set_power(self, msg: Message):
         self.aomlogic().set_power(msg.body)
@@ -46,24 +43,29 @@ class AomProxy(ZmqProxy):
         self.log.debug("AOM controller power: {} mW".format(power))
         self.reply(msg, body=power)
 
-    def handle_save(self, msg: Message):
-        self._save_psat(tag=msg.body)
-        self.reply_ok(msg)
+    def handle_save_psat_hdf5(self, msg: Message):
+        poi = self.poimanager().active_poi
+        roi = self.poimanager().roi_name
+        tag = msg.body.get("tag", poi)
+        powers = self.aomlogic().powers
+        psat_data = self.aomlogic().psat_data
+        data = Psat(poi=poi, roi=roi, tag=tag, power=powers, count_rate=psat_data)
+        path = data.store(self.storage().tables_context())
+        self.reply(msg, {'file': self.storage().local_filepath, 'path': path})
 
-    def _save_psat(self, tag=''):
-        with self.storage().tables_context() as t:
-            poi = self.poimanager().active_poi
-            if not tag:
-                tag = poi
-            path = Psat.node(tag=tag, timestamp=get_timestamp())
-            dataset = t.create_measurement_table(Psat.root, path, Psat.Description)
-            dataset.append(list(zip(self.aomlogic().powers, self.aomlogic().psat_data)))
-            if poi:
-                dataset.attrs['poi'] = poi
-            t.flush()
-        return dataset
+    def handle_save_psat_qudi(self, msg:Message):
+        tag = msg.body.get('tag', '')
+        self.aomlogic().save_psat(tag=tag)
 
     def notify_psat(self):
         aom = self.aomlogic()
-        self.notify('psat_data', body={'powers': aom.powers,
-                                       'counts': aom.psat_data})
+        self.notify('psat.data', body={'powers': aom.powers, 'counts': aom.psat_data})
+
+    def notify_psat_saved(self, path=''):
+        self.notify('psat.saved', body={'path': path})
+
+    def notify_psat_fitted(self):
+        fitted_Isat = self.aomlogic().fitted_Isat
+        fitted_Psat = self.aomlogic().fitted_Psat
+        fitted_bg = self.aomlogic().fitted_offset
+        self.notify('psat.fitted', body={'Isat': fitted_Isat, 'Psat': fitted_Psat, 'bg': fitted_bg})

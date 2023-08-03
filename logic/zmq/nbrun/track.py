@@ -54,12 +54,16 @@ class Track(Magics):
         self.shell = ip
         self.log = logging.getLogger('track')
 
-        self.comm = Comm(target_name='progress', data="Started progress tracker")
+        self.comm = Comm(target_name='progress', data={'message': "Started progress tracker"})
         self.log.info("Started progress tracker")
 
-    def send_status(self, msg):
+    def send_message(self, msg):
         self.log.debug(msg)
-        self.comm.send(msg)
+        self.comm.send({'message': msg})
+
+    def send_misc(self, d: dict):
+        self.log.debug("Sending misc: {}".format(d))
+        self.comm.send(d)
 
     def _get(self, name, default_value=None):
         return self.shell.user_ns.get(name, default_value)

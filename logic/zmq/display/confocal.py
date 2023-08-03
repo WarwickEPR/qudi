@@ -1,6 +1,6 @@
 # An iPython widget for use with Jupyter Lab to display and interact with confocal imaging
 # recorded to HDF5 by the Qudi extension
-
+from .savefig import SaveFig
 from .. client.QudiControl import QudiControl, BgTask
 from .. data.tables_context import TablesContext
 import logging
@@ -57,7 +57,7 @@ class ConfocalWidget:
 
             fig = plt.figure(figsize=(6, 6))
             ax = plt.subplot()
-            im = plt.imshow(cfd[:, :, 3], vmax=20e3, interpolation='gaussian', cmap='inferno')
+            #im = plt.imshow(cfd[:, :, 3], vmax=20e3, interpolation='gaussian', cmap='inferno')
             plt.xlabel("X (um)")
             plt.ylabel("Y (um)")
             fig.suptitle(image)
@@ -180,20 +180,20 @@ class ConfocalImageHdf(HasTraits):
         self._image.set_data(self.image_data.image_data)
         self._image.set_extent(self.image_data.extents)
 
-def update_dropdown(value):
-    if value == 'Depth':
-        dropdown.options = self.list_depth_images()
-    else: # XY
-        dropdown.options = self.list_xy_images()
+#def update_dropdown(value):
+#    if value == 'Depth':
+#        dropdown.options = self.list_depth_images()
+#    else: # XY
+#        dropdown.options = self.list_xy_images()
 
-def update_selection(image):
-    if image_type_selector.value == 'Depth':
-        self.selected_depth_image = image
-    else: # XY
-        self.selected_xy_image = image
-    self.update_image(image)
+#def update_selection(image):
+#    if image_type_selector.value == 'Depth':
+#        self.selected_depth_image = image
+#    else: # XY
+#        self.selected_xy_image = image
+#    self.update_image(image)
 
-image_type_selector.observe(update_dropdown)
+#image_type_selector.observe(update_dropdown)
 
-return image_selector
+#return image_selector
 

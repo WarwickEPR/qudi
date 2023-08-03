@@ -159,7 +159,7 @@ class HbtLogic(GenericLogic):
         self.log.debug('HBT data saved to:\n{0}'.format(filepath))
 
         self.hbt_saved.emit()
-        return 0
+        return filepath
 
     def on_deactivate(self):
         """ Reverse steps of activation

@@ -105,14 +105,20 @@ class NBRun:
             pass
         return cell_output
 
-    async def run(self):
+    async def run(self, poi=None, parameters: dict = None):
         nc = NotebookClient(self.nb)
         nc.comm_open_handlers['progress'] = self._comm_open_handler
         self.nc = nc
 
+        if poi is not None:
+            nb = self.inject_params(self.nb, poi=poi, params=parameters)
+        else:
+            nb = self.nb
+
         async with nc.async_setup_kernel():
-            for i, c in enumerate(self.nb.cells):
+            for i, c in enumerate(nb.cells):
                 cell = nbformat.from_dict(c)
+
                 ok = False
                 try:
                     self.cell_task = asyncio.create_task(self._execute_cell(nc, cell, i))

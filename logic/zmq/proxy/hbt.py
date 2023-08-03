@@ -42,40 +42,38 @@ class HbtProxy(ZmqProxy):
         self.hbt().start_hbt()
         self.timer.start(time_seconds)
 
+    def handle_emit(self, _):
+        self.notify_hbt()
+
     def _stop_on_timer(self):
         self.handle_stop(None)
 
     def handle_stop(self, _):
         self.hbt().stop_hbt()
+        self.notify_stopped()
 
-    def handle_save(self, _):
-        self._save_hbt()
+    def handle_save_hdf5(self, msg: Message):
+        poi = self.poimanager().active_poi
+        roi = self.poimanager().roi_name
+        tag = msg.body.get("tag", poi)
+        bin_times = self.hbt().bin_times
+        g2_raw = self.hbt().g2_data
+        g2_normalised = self.hbt().g2_data_normalised
+        data = Hbt(poi=poi, roi=roi, tag=tag, bin_times=bin_times, g2_normalized=g2_normalised, g2_raw=g2_raw)
+        path = data.store(self.storage().tables_context())
+        self.reply(msg, {'file': self.storage().local_filepath, 'path': path})
 
     def handle_save_qudi(self, msg: Message):
-        if msg.body != {}:
-            self.hbt().save_hbt(msg.body)
-        else:
-            self.hbt().save_hbt()
+        tag = msg.body.get('tag', '')
+        path = self.hbt().save_hbt(tag=tag)
+        self.reply(msg, path)
 
     def notify_start(self):
-        self.notify('starting')
+        self.notify('hbt.starting')
 
     def notify_stop(self):
-        self.notify('stopping')
+        self.notify('hbt.stopped')
         self.notify_hbt()
 
-    def _save_hbt(self, tag=''):
-        with self.storage().tables_context() as t:
-            poi = self.poimanager().active_poi
-            if not tag:
-                tag = poi
-            path = Hbt.node(tag=tag)
-            dataset = t.create_measurement_table(Hbt.root, path, Hbt.Description)
-            dataset.append(list(zip(self.hbt().bin_times, self.hbt().g2_data, self.hbt().g2_data_normalised)))
-            if poi:
-                dataset.attrs['poi'] = poi
-            t.flush()
-        return dataset
-
     def notify_hbt(self):
-        self.notify('data', body={'t': self.hbt().bin_times, 'g2': self.hbt().g2_data_normalised})
+        self.notify('hbt.data', body={'t': self.hbt().bin_times, 'g2': self.hbt().g2_data_normalised})

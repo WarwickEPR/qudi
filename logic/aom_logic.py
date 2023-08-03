@@ -46,7 +46,7 @@ class AomLogic(GenericLogic):
     psat_done = QtCore.Signal()
     psat_fit_updated = QtCore.Signal()
     _psat_save = QtCore.Signal(str)
-    psat_saved = QtCore.Signal()
+    psat_saved = QtCore.Signal(str)
     aom_updated = QtCore.Signal()
     power_available = QtCore.Signal(bool)
     max_power_update = QtCore.Signal()
@@ -248,7 +248,6 @@ class AomLogic(GenericLogic):
 
     def _save_psat(self, tag):
 
-        # File path and name
         filepath = self._save_logic.get_path_for_module(module_name='Psat')
 
         # We will fill the data OrderedDict to send to savelogic
@@ -271,15 +270,8 @@ class AomLogic(GenericLogic):
         self._save_logic.save_data(data, filepath=filepath, filelabel=filelabel, fmt=['%.6e', '%.6e', '%.6e'])
         self.log.info('Psat saved to:\n{0}'.format(filepath))
 
-        self.psat_saved.emit()
+        self.psat_saved.emit(filepath)
 
-        return 0
-
-    def on_deactivate(self):
-        """ Reverse steps of activation
-
-        @return int: error code (0:OK, -1:error)
-        """
         return 0
 
     def set_clock_frequency(self, clock_frequency):

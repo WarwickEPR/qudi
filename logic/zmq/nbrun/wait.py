@@ -1,4 +1,6 @@
 import asyncio
+import logging
+
 from . track import Track
 import time
 import os.path
@@ -16,9 +18,21 @@ class InterruptableWaitManager:
 
     def __init__(self, stop_file='.stop', tracker=None):
         self._stop_file = stop_file
-        self._tracker = tracker
+        self._tracker : Track = tracker
         self._iw = set()
         self._cancelled = False
+        self._logger = logging.getLogger('WaitManager')
+
+        if self._tracker:
+            # Let the parent notebook know where to put a stop file to trigger cancellation
+            self._tracker.send_misc({'stop_file': self._stop_file})
+
+        # check stop file is not there when we start
+        if os.path.exists(self._stop_file):
+            try:
+                os.remove(self._stop_file)
+            except OSError as e:
+                self._logger.error("Failed to remove stop file: {}".format(e))
 
         self.poll_task = asyncio.create_task(self._poll_stop_file(), name='stop_poll')
 
