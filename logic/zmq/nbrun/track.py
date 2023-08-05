@@ -1,15 +1,8 @@
-import asyncio
 import logging
-import time
 
-from nbclient import NotebookClient
-from nbclient.exceptions import CellExecutionError
-import nbformat
-from ipywidgets import GridspecLayout, Button, Layout, Label
 from IPython.display import JSON
 import IPython
-import json
-from .. data.timestamp import get_timestamp
+
 from traitlets import HasTraits, Unicode, default
 
 from IPython.core.magic import line_magic, magics_class, Magics
@@ -109,7 +102,7 @@ class Track(Magics):
 
     @line_magic
     def progress(self, line):
-        self.comm.send(line)
+        self.comm.send({'message': line})
 
     def __del__(self):
         self.comm.close()
@@ -128,8 +121,17 @@ class TrackProgress(HasTraits):
     def __init__(self, **kwargs):
         super(TrackProgress, self).__init__(**kwargs)
         self.log = logging.getLogger('progress')
+        self.handler = {'message': self.handle_message}
+
+    def handle_message(self, message):
+        self.latest_message = message
 
     def handle_msg(self, msg):
         data = msg['content']['data']
-        self.latest_message = data
         self.log.debug(data)
+        for k in self.handler.keys():
+            if k in data:
+                v = data[k]
+                self.handler[k](v)
+
+

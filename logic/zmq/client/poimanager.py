@@ -1,12 +1,12 @@
 from .QudiControl import QudiClient
 
 
-class RoiClient(QudiClient):
+class PoiManagerClient(QudiClient):
 
-    name = "roi"
+    name = "poimanager"
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(PoiManagerClient, self).__init__(*args, **kwargs)
 
     async def reset_roi(self, name=None):
         await self.send_command('reset_roi', {'name': name})
@@ -42,9 +42,13 @@ class RoiClient(QudiClient):
         await self.send_command('stop_tracking')
         await self.receive_message()
 
-    async def wait_for_optimizer(self):
-        n = self.subscribe('reoptimized')
-        response = await n.receive()
-        return
+    async def pending_optimize(self):
+        optimized = self.subscribe('reoptimized')
+
+        async def awaitable():
+            response = await optimized.receive()
+            return response
+
+        return awaitable()
 
 

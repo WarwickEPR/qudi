@@ -1,5 +1,8 @@
+import logging
+
 from .timestamp import get_timestamp
 import tables
+import logging
 
 
 class DataBase:
@@ -9,6 +12,7 @@ class DataBase:
         self.timestamp = timestamp if timestamp is not None else get_timestamp()
         self.roi = roi
         self.poi = poi
+        self.log = logging.getLogger('data')
 
     @classmethod
     def root(cls):
@@ -48,7 +52,8 @@ class DataBase:
     def _make_poi_link(self, tables: tables, node: tables.Table):
         poi_path = self.poi_group_path
         if poi_path is not None:
-            node.attrs['roi'] = self.roi
-            node.attrs['poi'] = self.poi
+            self.log.info("Linking to {}".format(poi_path))
+            node._v_attrs['roi'] = self.roi
+            node._v_attrs['poi'] = self.poi
             tables.create_hard_link(poi_path, self.node_name, node, createparents=True)
 

@@ -2,25 +2,53 @@ from .QudiControl import QudiClient, BgTask
 import logging
 
 
-class Optimizer(QudiClient):
+class RefocusFailed(Exception):
+    pass
+
+
+class ZRefocusFailed(RefocusFailed):
+    pass
+
+
+class OptimizerClient(QudiClient):
 
     name = "optimizer"
 
     def __init__(self, *args, **kwargs):
-        super(Optimizer, self).__init__(*args, **kwargs)
+        super(OptimizerClient, self).__init__(*args, **kwargs)
+        self.log = logging.getLogger("OptimizerClient")
 
-    def start_refocus(self, poi=None):
+    async def refocus(self, poi=None, setup=None):
+        if setup is not None:
+            await self.setup(setup)
+        self.log.info("Starting refocus")
         if poi is None:
-            self.send_command('start_refocus')
+            await self.send_command('refocus')
         else:
-            self.send_command('start_refocus', {'poi': poi})
+            await self.send_command('refocus', {'poi': poi})
+
+    async def stop_refocus(self):
+        self.log.info("Stopping refocus")
+        await self.send_command('stop_refocus')
 
     # See proxy.optimizer for setup params, e.g. xy_span
-    def setup(self, setup: dict):
-        self.send_command('setup', setup)
+    async def setup(self, setup: dict):
+        self.log.info("Changing optimizer window to {}".format(setup))
+        await self.send_command('setup', setup)
+
+    async def emit_refocused_position(self, _):
+        await self.send_command('emit_refocused')
 
     async def save_hdf5(self):
+        self.log.info("Saving to ")
         await self.send_command('save_hdf5')
 
+    def pending_refocus(self):
+        refocused = self.subscribe('optimizer.refocused')
 
+        async def awaitable():
+            result = await refocused.receive()
+            self.log.info("Refocused: {}".format(result))
+            return result.body
 
+        return awaitable()

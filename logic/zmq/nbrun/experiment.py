@@ -1,10 +1,11 @@
 from .track import Track
 from .wait import InterruptableWaitManager
 from asyncio import CancelledError
-from logic.zmq.client.QudiControl import *
+from logic.zmq.client import *
 from .. data.tables_context import TablesContext
 from .. data.psat import Psat
 from .. data.hbt import Hbt
+from .. client.optimizer import  RefocusFailed, ZRefocusFailed
 
 # wrap up all the setup conveniently
 
@@ -31,34 +32,55 @@ class Experiment:
     tables_context: TablesContext = None
 
     @classmethod
-    def setup(cls, name='anon_experiment', hdf5_file=None, poi_name=None):
+    async def setup(cls, name='anon_experiment', hdf5_file=None, poi_name=None):
         cls.run_name = "{}_{}".format(name, poi_name)
         stop_file = cls.run_name + ".stop"
         cls.track = Track.setup()
         cls.wait = InterruptableWaitManager(stop_file=stop_file, tracker=cls.track)
         cls.qc = QudiControl(session=name, log_suffix=poi_name)
-        cls.tables_context = TablesContext(hdf5_file)
+        if hdf5_file:
+            await cls.qc.manager.attach_data_file(hdf5_file)
+            cls.tables_context = TablesContext(hdf5_file)
+        else:
+            cls.qc.log.warning(".No HDF5 file attached: you should probably set hdf5_file if storing data")
 
 
 class Refocus:
 
-    def __init__(self):
-        self.hdf5_path = None
-
-    @staticmethod
-    async def refocus(self, poi=None, settings=None):
+    @classmethod
+    async def refocus(cls, poi=None, settings=None):
         if settings is not None:
+            # e.g. to set span of optimizer image appropriately
             Experiment.qc.optimizer.setup(settings)
         refocus_done = Experiment.qc.optimizer.pending_refocus()
-        await Experiment.qc.optimizer.start_refocus(poi=poi)
-        await refocus_done
-        await self.save()
+        await Experiment.qc.optimizer.refocus(poi=poi)
+        try:
+            x, y, z = await cls.result(refocus_done)
+            await cls.save()
+            return x, y, z
+        except CancelledError:
+            await Experiment.qc.optimizer.stop()
 
-    async def save(self):
+    @classmethod
+    async def result(cls, refocus_done):
+        refocus_result = await refocus_done
+        xy_fitted = refocus_result.get('xy_fitted', False)
+        z_fitted = refocus_result.get('z_fitted', False)
+        if xy_fitted and z_fitted:
+            return refocus_result['x'], refocus_result['y'], refocus_result['z']
+        else:
+            if xy_fitted:
+                raise ZRefocusFailed
+            else:
+                raise RefocusFailed
+
+    @classmethod
+    async def save(cls):
         await Experiment.qc.optimizer.save_hdf5()
 
     def display(self):
         pass
+
 
 class PsatExperiment:
 

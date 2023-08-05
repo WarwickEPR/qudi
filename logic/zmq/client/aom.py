@@ -2,12 +2,12 @@ from .QudiControl import QudiClient
 import logging
 
 
-class Aom(QudiClient):
+class AomClient(QudiClient):
 
     name = "aom"
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(AomClient, self).__init__(*args, **kwargs)
 
     async def set_power(self, power):
         await self.send_command('set_power', body=power)

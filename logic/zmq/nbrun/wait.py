@@ -18,7 +18,7 @@ class InterruptableWaitManager:
 
     def __init__(self, stop_file='.stop', tracker=None):
         self._stop_file = stop_file
-        self._tracker : Track = tracker
+        self._tracker: Track = tracker
         self._iw = set()
         self._cancelled = False
         self._logger = logging.getLogger('WaitManager')

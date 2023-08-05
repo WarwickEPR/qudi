@@ -27,7 +27,7 @@ class AomProxy(ZmqProxy):
         super().on_deactivate()
         self.aomlogic().psat_done.disconnect(self.notify_psat)
         self.aomlogic().psat_saved.disconnect(self.notify_psat_saved)
-        self.aomlofic().psat_fit_updated.disconnect(self.notify_psat_fitted)
+        self.aomlogic().psat_fit_updated.disconnect(self.notify_psat_fitted)
 
     def handle_take_psat(self, _):
         self.aomlogic().run_psat()

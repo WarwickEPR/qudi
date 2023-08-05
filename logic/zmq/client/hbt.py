@@ -1,12 +1,12 @@
 from .QudiControl import QudiClient
 
 
-class Hbt(QudiClient):
+class HbtClient(QudiClient):
 
     name = "hbt"
 
     def __init__(self, *args, **kwargs):
-        super(Hbt, self).__init__(*args, **kwargs)
+        super(HbtClient, self).__init__(*args, **kwargs)
         self.measurement = None
 
     async def start(self):

@@ -1,8 +1,12 @@
+from numpy.lib.recfunctions import unstructured_to_structured
+
 from . base import ZmqProxy
 from core.connector import Connector
 from logic.zmq.message import PubMessage, Message
 import numpy as np
 from .. data.optimizer import OptimizerTrack, OptimizerImage
+from ..data.tables_context import TablesContext
+
 
 class OptimizerProxy(ZmqProxy):
 
@@ -34,35 +38,40 @@ class OptimizerProxy(ZmqProxy):
         super().__init__(config=config, **kwargs)
         self.poi = None
         self._initial_poi = None
-        self._save_on_refocus = False
+        self._autosave_on_refocus = False
 
     def on_activate(self):
         # get hold of a handle to optimizer_logic, load if necessary
         # subscribe to key events, emit a message when done
         super().on_activate()
         self.optimizer().sigRefocusFinished.connect(self._refocused)
-        self.poimanager().sigRefocusStateUpdated.connect(self._poi_refocusing)
 
     def on_deactivate(self):
         self.optimizer().sigRefocusFinished.disconnect(self._refocused)
-        self.poimanager().sigRefocusStateUpdated.disconnect(self._poi_refocusing)
         super().on_deactivate()
 
     def handle_refocus(self, msg: Message):
         # call optimizer to start refocus
-        self.log.debug("Starting refocus")
+        self.log.info("Starting refocus")
         if 'poi' in msg.body:
             self._initial_poi = msg.body['poi']
             self.optimizer().start_refocus(caller_tag="zmq", initial_pos=self._initial_poi)
         else:
             self.optimizer().start_refocus(caller_tag="zmq")
 
-    def handle_save_on_refocus(self, msg: Message):
-        self._save_on_refocus = msg.body
+    def handle_stop(self, _):
+        self.log.info("Stopping refocus")
+        self.optimizer().stop_refocus()
+
+    def handle_autosave_on_refocus(self, msg: Message):
+        state = msg.body
+        self.log.info("Setting refocus autosave: {}".format('on' if state else 'off'))
+        self._autosave_on_refocus = state
 
     def handle_setup(self, msg: Message):
         xy_change = False
         z_change = False
+        self.debug("Changing optimizer settings to: {}".format(msg.body))
         if 'xy_span' in msg.body:
             self.optimizer().refocus_XY_size = float(msg.body['xy_span'])
             xy_change = True
@@ -83,94 +92,78 @@ class OptimizerProxy(ZmqProxy):
             self.optimizer().sigRefocusZSizeChanged.emit()
 
     def handle_save_hdf5(self, msg: Message):
-        path = self.save_data()
-        location = {'file': self.storage().local_filepath, 'path': path}
+        filepath, datapath = self.save_hdf5()
+        location = {'file': filepath, 'path': datapath}
         self.reply(msg, location)
         self.notify_saved_hdf5(location)
 
     def notify_saved_hdf5(self, location):
         self.notify('optimizer.saved_hdf5', location)
 
-    def save_data(self):
-        attr = {}
-        for a, b in self.data_fields.items():
-            try:
-                v = getattr(self.optimizer(), b)
-                attr[a] = v
-            except AttributeError as e:
-                pass
-
-        with self.storage().tables_context() as t:
-            group = t.create_group('Optimizer', poi=self.poi)
-            group.attrs.update(attr)
-            dataset_XY = t.tables.create_array(group, 'XY', self.optimizer().xy_refocus_image)
-            z = self.optimizer()._zimage_Z_values
-            z_data = self.optimizer().z_refocus_line
-            dataset_Z = t.tables.create_array(group, 'Z', np.array([z, z_data]).transpose())
-            return group._v_pathname
-
-    def handle_goto_current(self, _):
+    def _fetch_result(self):
+        xy_fitted = self.optimizer().optim_sigma_x != 0 and self.optimizer().optim_sigma_y != 0
+        z_fitted = self.optimizer().optim_sigma_z != 0
         x = self.optimizer().optim_pos_x
         y = self.optimizer().optim_pos_y
         z = self.optimizer().optim_pos_z
-        self.scanner().set_position('zmq', x=x, y=y, z=z)
+        # estimated counts from Z fit
+        counts = max(self.optimizer().z_fit_data) if z_fitted else 0
+
+        return xy_fitted, z_fitted, counts, x, y, z
+
+    def handle_goto_current(self, _):
+        xy_fitted, z_fitted, counts, x, y, z = self._fetch_result()
+        if xy_fitted and z_fitted:
+            self.log.info("Setting optimizer position to {:.2f}, {:.2f}, {:.2f} um. Count rate about {}".format(x*1e6, y*1e6, z*1e6, counts))
+            self.scanner().set_position('zmq', x=x, y=y, z=z)
+        elif xy_fitted:
+            self.scanner().set_position('zmq', x=x, y=y)
+            self.log.warn("Z optimizer fit failed, only updated XY")
+        else:
+            self.log.warn("Not updating position to current as the optimizer fit failed")
+
+    def handle_emit_refocused(self, _):
+        self.emit_refocused()
 
     def emit_refocused(self):
-        self.notify(topic='refocused', body=position)
+        xy_fitted, z_fitted, counts, x, y, z = self._fetch_result()
+        self.notify(topic='refocused', body={'xy_fitted': xy_fitted, 'z_fitted': z_fitted,
+                                             'x': x, 'y': y, 'z': z, 'counts': counts})
 
     def _refocused(self, caller_tag, position):
         self.emit_refocused()
-        if self._save_on_refocus:
-            self.save_hdf5()
+        if self._autosave_on_refocus:
+            filepath, datapath = self.save_hdf5()
 
     def save_hdf5(self, tag=''):
-        fit = {'x': self.optimizer().optim_pos_x,
-               'y': self.optimizer().optim_pos_y,
-               'z': self.optimizer().optim_pos_z,
+        xy_fitted, z_fitted, counts, x, y, z = self._fetch_result()
+        fit = {'x': x, 'y': y, 'z': z,
                'sigma_x': self.optimizer().optim_sigma_x,
                'sigma_y': self.optimizer().optim_sigma_y,
-               'sigma_z': self.optimizer().optim_sigma_z}
-        setup = {'xy_resolution': self.optimizer().optimzer_XY_res,
+               'sigma_z': self.optimizer().optim_sigma_z,
+               'fitted_z_counts': counts,
+               'xy_fitted': xy_fitted,
+               'z_fitted': z_fitted}
+        setup = {'xy_resolution': self.optimizer().optimizer_XY_res,
                  'z_resolution': self.optimizer().optimizer_Z_res,
                  'xy_span': self.optimizer().refocus_XY_size,
-                 'z_span': self.optimizer().refocus_Z_size}
+                 'z_span': self.optimizer().refocus_Z_size,
+                 'x0': self.optimizer()._X_values[0],
+                 'x1': self.optimizer()._X_values[-1],
+                 'y0': self.optimizer()._Y_values[0],
+                 'y1': self.optimizer()._Y_values[-1]}
         roi = self.poimanager().roi_name
         poi = self.poimanager().active_poi
-        xy_data = self.optimizer().xy_refocus_image
-        z_data = self.optimizer().z_refocus_line
+        xy_data = self.optimizer().xy_refocus_image[:, :, 3]
+        z_values = self.optimizer()._zimage_Z_values
+        opt_channel = self.optimizer().opt_channel
+        z_counts = self.optimizer().z_refocus_line[:, opt_channel]
+        z_data = unstructured_to_structured(np.vstack((z_values, z_counts)).T, names=['z', 'counts'])
 
+        tc: TablesContext = self.storage().tables_context()
         data = OptimizerImage(tag=tag, roi=roi, poi=poi, xy_data=xy_data, z_data=z_data, setup=setup, fit=fit)
-        OptimizerTrack.record_refocus(self.storage().tables_context(), data)
+        OptimizerTrack.record_refocus(tc, data)
 
-    def _check_on_poi(self, poi):
-        # if optimizing from POI manager, may be on a poi
-        if poi:
-            p = self.poimanager().get_poi_position(poi)
-            current = self.scanner().get_position()
-            if p is None:
-                return False
-            d = np.linalg.norm(current - p)
-            if d < self.optimizer().refocus_XY_size / 2:
-                # looks like this is still on this poi
-                return True
-            else:
-                return False
-        else:
-            return False
+        self.log.info("Saving optimizer result to {}:/{}".format(tc.filepath, data.poi_path))
 
-    def _poi_refocusing(self, in_progress):
-        active_poi = self.poimanager().active_poi
-        if in_progress:
-            # starting refocus
-            if self._initial_poi:
-                self.poi = self._initial_poi
-            elif active_poi:
-                # have we come from poimanager?
-                if self._check_on_poi(active_poi):
-                    # starting a refocus, on active_poi
-                    self.poi = active_poi
-            else:
-                self.poi = None
-        else:
-            # finished refocus
-            self._initial_poi = None
+        return tc.filepath, data.poi_path

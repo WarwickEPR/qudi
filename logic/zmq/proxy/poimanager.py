@@ -8,7 +8,7 @@ from .. data.tables_context import TablesContext
 from .. data.timestamp import get_timestamp
 
 
-class RoiProxy(ZmqProxy):
+class PoiManagerProxy(ZmqProxy):
 
     frontend = Connector(interface='ZmqFrontend')
     storage = Connector(interface='TablesStorage')
@@ -71,6 +71,10 @@ class RoiProxy(ZmqProxy):
         if self.storage().attached():
             tc: TablesContext = self.storage().tables_context()
             with tc as th:
+                ROI(roi_name=roi,
+                    pois = self.poimanager().poi_positions,
+                    anchor = self.poimanager().an)
+
                 group = '{}/{}'.format(ROI.root, name)
                 pois_node = 'pois_{}'.format(get_timestamp())
                 data_type = ROI.version
