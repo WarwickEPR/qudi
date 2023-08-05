@@ -163,6 +163,7 @@ class ZmqProxy(GenericLogic):
         self._proxy_thread.requestInterruption()
         self._proxy_thread.sigMessageReceived.disconnect(self._handle_frames)
         self._proxy_thread.wait()
+        time.sleep(1)
         self.pub.close()
 
     def ctx(self):

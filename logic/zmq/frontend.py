@@ -1,3 +1,5 @@
+import time
+
 import zmq
 from logic.generic_logic import GenericLogic
 from core.configoption import ConfigOption
@@ -36,12 +38,21 @@ class ZmqFrontend(GenericLogic):
         self.log.info("Terminating ZMQ context")
         self._stop = True
         self._ctx.term()
+        time.sleep(1)
         # when the context terminates, the proxy will exit. Join the thread
         # use a plain native thread as no Qt communication is needed
         if self._proxy_thread.is_alive():
             self._proxy_thread.join(timeout=5)
         if self._broker_thread.is_alive():
             self._broker_thread.join(timeout=5)
+        try:
+            if self._notification_thread.is_alive():
+                self._notification_thread.join(timeout=5)
+        except AttributeError:
+            pass
+        time.sleep(1)
+        if not self._ctx.closed:
+            self._ctx.destroy()
 
     def _start_notification_proxy(self):
         self.log.info("Starting ZMQ notification proxy")
