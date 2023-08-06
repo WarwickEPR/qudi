@@ -9,11 +9,10 @@ class PoiManagerClient(QudiClient):
         super(PoiManagerClient, self).__init__(*args, **kwargs)
 
     async def reset_roi(self, name=None):
-        await self.send_command('reset_roi', {'name': name})
-        await self.receive_message()
+        return await self.query('reset_roi', {'name': name})
 
     async def save_roi(self, name=None):
-        await self.send_command('save_roi', {'name': name})
+        return await self.query('save_hdf5', {'name': name})
 
     async def goto_poi(self, name):
         await self.send_command('goto_poi', name)
@@ -22,8 +21,7 @@ class PoiManagerClient(QudiClient):
         await self.send_command('optimize_poi', body={'name': name, 'update': update})
 
     async def add_pois(self, pois: list):
-        await self.send_command('add_pois', pois)
-        await self.receive_message()
+        return await self.query('add_pois', pois)
 
     async def list_pois(self):
         return await self.query('list_pois')
@@ -35,20 +33,15 @@ class PoiManagerClient(QudiClient):
         await self.send_command('set_active_poi', poi)
 
     async def start_tracking(self, poi=None):
-        await self.send_command('start_tracking', poi)
-        await self.receive_message()
+        return await self.query('start_tracking', poi)
 
     async def stop_tracking(self):
-        await self.send_command('stop_tracking')
-        await self.receive_message()
+        return await self.send_command('stop_tracking')
 
     async def pending_optimize(self):
         optimized = self.subscribe('reoptimized')
 
         async def awaitable():
-            response = await optimized.receive()
-            return response
+            return await optimized.receive()
 
         return awaitable()
-
-

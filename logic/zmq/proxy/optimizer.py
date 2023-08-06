@@ -95,10 +95,9 @@ class OptimizerProxy(ZmqProxy):
         filepath, datapath = self.save_hdf5()
         location = {'file': filepath, 'path': datapath}
         self.reply(msg, location)
-        self.notify_saved_hdf5(location)
 
     def notify_saved_hdf5(self, location):
-        self.notify('optimizer.saved_hdf5', location)
+        self.notify('saved_hdf5', location)
 
     def _fetch_result(self):
         xy_fitted = self.optimizer().optim_sigma_x != 0 and self.optimizer().optim_sigma_y != 0
@@ -191,5 +190,7 @@ class OptimizerProxy(ZmqProxy):
         OptimizerTrack.record_refocus(tc, data)
 
         self.log.info("Saving optimizer result to {}:/{}".format(tc.filepath, data.poi_path))
+        location = {'file': tc.filepath, 'path': data.poi_path}
+        self.notify_saved_hdf5(location)
 
         return tc.filepath, data.poi_path

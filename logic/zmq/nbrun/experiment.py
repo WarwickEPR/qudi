@@ -5,7 +5,12 @@ from logic.zmq.client import *
 from .. data.tables_context import TablesContext
 from .. data.psat import Psat
 from .. data.hbt import Hbt
-from .. client.optimizer import  RefocusFailed, ZRefocusFailed
+from .. data.optimizer import OptimizerTrack, OptimizerImage
+from .. client.optimizer import RefocusFailed, ZRefocusFailed
+from ipywidgets import Output
+from IPython.display import display
+import numpy as np
+import matplotlib.pyplot as plt
 
 # wrap up all the setup conveniently
 
@@ -19,6 +24,14 @@ class AbortExperiment(Exception):
             return "Experiment abort: {}".format(self.msg)
         else:
             return "Experiment abort"
+
+
+class RefocusWentDark(RefocusFailed):
+    pass
+
+
+class RefocusOutOfBounds(RefocusFailed):
+    pass
 
 # Effectively a singleton for each sub notebook kernel, just for convenience of bundling up setup
 
@@ -47,37 +60,36 @@ class Experiment:
 
 class Refocus:
 
-    @classmethod
-    async def refocus(cls, poi=None, settings=None):
+    async def refocus(self, poi=None, settings=None, min_count_threshold=None):
+        min_count_threshold = min_count_threshold if min_count_threshold is not None else self.min_count_threshold
         if settings is not None:
             # e.g. to set span of optimizer image appropriately
             Experiment.qc.optimizer.setup(settings)
         refocus_done = Experiment.qc.optimizer.pending_refocus()
         await Experiment.qc.optimizer.refocus(poi=poi)
         try:
-            x, y, z = await cls.result(refocus_done)
-            await cls.save()
+            x, y, z = await self._result(refocus_done, min_count_threshold)
+            await self.save()
             return x, y, z
         except CancelledError:
             await Experiment.qc.optimizer.stop()
 
     @classmethod
-    async def result(cls, refocus_done):
+    async def _result(cls, refocus_done, min_count_threshold):
         refocus_result = await refocus_done
-        threshold = 10000
         xy_fitted = refocus_result.get('xy_fitted', False)
         z_fitted = refocus_result.get('z_fitted', False)
         if xy_fitted and z_fitted:
             # add heuristics
             # are the max counts reasonable
             try:
-                if refocus_result['fitted_z_counts'] > threshold:
-                    return False
+                if refocus_result['fitted_z_counts'] < min_count_threshold:
+                    raise RefocusWentDark
                 if not refocus_result['in_bounds']:
                     return False
             except KeyError:
                 pass
-            # is the position in the search range?
+
             return refocus_result['x'], refocus_result['y'], refocus_result['z']
         else:
             if xy_fitted:
@@ -89,8 +101,18 @@ class Refocus:
     async def save(cls):
         await Experiment.qc.optimizer.save_hdf5()
 
-    def display(self):
-        pass
+    # make an instance to hold an output
+    def __init__(self, min_count_threshold=np.inf):
+        self.min_count_threshold = min_count_threshold
+        self.display_out = Output()
+
+
+    def _update_display(self, image_path:str):
+        optimizer_data = OptimizerImage.load(Experiment.tables_context, image_path)
+
+
+    def display_latest(self):
+        display(self.display_out)
 
 
 class PsatExperiment:

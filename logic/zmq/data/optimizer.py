@@ -12,6 +12,9 @@ class OptimizerImage(DataBase):
     stem = 'optimizer'
     version = 'OptimizerImage_v1.0'
 
+    setup_keys = ['x0', 'x1', 'y0', 'y1', 'xy_resolution', 'xy_span']
+    fit_keys = ['x', 'y', 'z', 'sigma_x', 'sigma_y', 'sigma_z', 'xy_fitted', 'z_fitted', 'fitted_z_counts']
+
     # Group with an XY array and a Z line profile. Stores the raw data from the optmizer
     class ZDescription(IsDescription):
         z = Float32Col(pos=0)
@@ -40,7 +43,7 @@ class OptimizerImage(DataBase):
 
             # save xy image
             xy_dataset = th.tables.create_array(group, 'XY', self.xy_data)
-            for k in ['x0', 'x1', 'y0', 'y1', 'xy_resolution', 'xy_span']:
+            for k in self.setup_keys:
                 xy_dataset._v_attrs[k] = self.setup.get(k, .0)
             xy_dataset.flush()
 
@@ -54,10 +57,10 @@ class OptimizerImage(DataBase):
             group._v_attrs['timestamp'] = self.timestamp
             group._v_attrs['tag'] = self.tag
             group._v_attrs['version'] = self.version
-            for k, v in self.setup.items():
-                group._v_attrs[k] = v
-            for k, v in self.fit.items():
-                group._v_attrs[k] = v
+            for k in self.setup_keys:
+                group._v_attrs[k] = self.setup[k]
+            for k in self.fit_keys:
+                group._v_attrs[k] = self.fit[k]
 
             self._make_poi_link(th.tables, group)
             th.flush()
@@ -67,21 +70,27 @@ class OptimizerImage(DataBase):
     def load(cls, tc: TablesContext, path: str):
         with tc as th:
             img_group = th.tables.get_node(path, classname='Group')
-            roi = img_group._v_attrs.get('roi', None)
-            poi = img_group._v_attrs.get('poi', None)
+            roi = img_group._v_attrs['roi']
+            poi = img_group._v_attrs['poi']
 
             xy_data = np.array(img_group.XY[:])
-            z = img_group.Z['z']
-            counts = img_group.Z['counts']
-            z_data = unstructured_to_structured(np.hstack(z.T, counts.T), ['z', 'counts'])
-            tag = img_group._v_attrs.get('tag', '')
-            timestamp = img_group._v_attrs.get('timestamp', '')
-            setup_keys = ['xy_span', 'z_span', 'xy_resolution', 'z_resolution']
+
+            z = img_group.Z.col('z')
+            counts = img_group.Z.col('counts')
+            z_data = unstructured_to_structured(np.vstack((z, counts)).T, names=['z', 'counts'])
+            tag = img_group._v_attrs['tag']
+            timestamp = img_group._v_attrs['timestamp']
+
             setup = {}
-            for k in setup_keys:
+            for k in cls.setup_keys:
                 setup[k] = img_group._v_attrs[k]
+
+            fit = {}
+            for k in cls.fit_keys:
+                fit[k] = img_group._v_attrs[k]
+
             return OptimizerImage(tag=tag, timestamp=timestamp, roi=roi, poi=poi,
-                                  xy_data=xy_data, z_data=z_data, setup=setup)
+                                  xy_data=xy_data, z_data=z_data, setup=setup, fit=fit)
 
     @classmethod
     def list(cls, tc: TablesContext):

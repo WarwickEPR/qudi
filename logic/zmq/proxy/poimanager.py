@@ -5,7 +5,6 @@ from PyQt5.QtCore import Qt
 from logic.zmq.data.roi import ROI
 import numpy as np
 from .. data.tables_context import TablesContext
-from .. data.timestamp import get_timestamp
 
 
 class PoiManagerProxy(ZmqProxy):
@@ -58,36 +57,24 @@ class PoiManagerProxy(ZmqProxy):
         update = msg.body.get('update', True)
         self.poimanager().optimise_poi_position(name=name, update_roi_position=update)
 
-    def handle_save_roi(self, msg: Message):
+    def handle_save_hdf5(self, msg: Message):
         if msg.body and 'name' in msg.body:
             name = msg.body['name']
             if name is not None:
                 self.poimanager().roi_name = name
 
-        name = self.poimanager().roi_name
-        self.log.debug("Saving ROI {}".format(name))
+        roi_name = self.poimanager().roi_name
+        self.log.debug("Saving ROI {}".format(roi_name))
 
         # HDF5 save
         if self.storage().attached():
             tc: TablesContext = self.storage().tables_context()
-            with tc as th:
-                ROI(roi_name=roi,
-                    pois = self.poimanager().poi_positions,
-                    anchor = self.poimanager().an)
+            roi = ROI(roi=roi_name,
+                      pois=self.poimanager().poi_positions,
+                      origin=self.poimanager().roi_origin)
+            roi.store(tc)
 
-                group = '{}/{}'.format(ROI.root, name)
-                pois_node = 'pois_{}'.format(get_timestamp())
-                data_type = ROI.version
-                t = th.tables.create_table(group, pois_node, description=ROI.Description, createparents=True)
-                if self.poimanager().poi_names:
-                    positions = [(k, *v) for (k, v) in self.poimanager().poi_positions.items()]
-                    t.append(positions)
-                attrs = {'data_type': data_type,
-                         'origin': self.poimanager().roi_origin}
-                for (k, v) in attrs.items():
-                    t.attrs[k] = v
-                th.flush()
-                self.reply(msg, t._v_pathname)
+            self.reply(msg, {'file': tc.filepath, 'path': roi.path})
         else:
             self.reply(msg, '')
 

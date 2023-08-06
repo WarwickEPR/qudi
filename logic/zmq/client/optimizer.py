@@ -1,4 +1,4 @@
-from .QudiControl import QudiClient, BgTask
+from .QudiControl import QudiClient
 import logging
 
 
@@ -27,6 +27,9 @@ class OptimizerClient(QudiClient):
         else:
             await self.send_command('refocus', {'poi': poi})
 
+    async def autosave_on_refocus(self, state=True):
+        await self.send_command('autosave_on_refocus', state)
+
     async def stop_refocus(self):
         self.log.info("Stopping refocus")
         await self.send_command('stop_refocus')
@@ -36,7 +39,7 @@ class OptimizerClient(QudiClient):
         self.log.info("Changing optimizer window to {}".format(setup))
         await self.send_command('setup', setup)
 
-    async def emit_refocused_position(self, _):
+    async def emit_refocused_position(self):
         await self.send_command('emit_refocused')
 
     async def save_hdf5(self):

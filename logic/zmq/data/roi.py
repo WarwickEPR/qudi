@@ -4,9 +4,10 @@ from tables import *
 import numpy as np
 from .tables_context import TablesContext
 from .timestamp import get_timestamp
+from .base import DataBase
 
 
-class ROI:
+class ROI(DataBase):
 
     root = '/ROI'
     version = 'ROI_v1.0'
@@ -19,9 +20,10 @@ class ROI:
 
     log = logging.getLogger('roi.data')
 
-    def __init__(self, roi_name='', roi_version=None, pois={},
+    def __init__(self, timestamp=None, roi=None, roi_version=None, pois={}, tag=None,
                  origin=(.0, .0, .0), reference_image='', stage_x=.0, stage_y=.0):
-        self.roi_name = roi_name
+        super(ROI, self).__init__(tag=tag, timestamp=timestamp, roi=roi)
+        self.roi_name = roi
         self.roi_version = roi_version
         self.pois = pois
         self.origin = origin
@@ -45,7 +47,7 @@ class ROI:
                 reference_image = roi_table.attrs.get('reference_image', '')
                 stage_x = roi_table.attrs.get('stage_x', .0)
                 stage_y = roi_table.attrs.get('stage_y', .0)
-                return ROI(roi_name=roi_name, roi_version=roi_version, pois=pois,
+                return ROI(roi=roi_name, roi_version=roi_version, pois=pois,
                            origin=origin, reference_image=reference_image, stage_x=stage_x, stage_y=stage_y)
 
             except NoSuchNodeError:
@@ -54,23 +56,22 @@ class ROI:
                 return
 
     def store(self, tc: TablesContext):
-        with tc as th:
-            if not self.roi_version:
-                self.roi_version = get_timestamp()
+        if not self.roi_version:
+            self.roi_version = get_timestamp()
 
-            with tc as th:
-                roi_table = th.tables.create_table('/'.join([self.root, self.roi_name]),
-                                                   name=self.roi_version,
-                                                   description=self.Description,
-                                                   createparents=True)
-                pois = [(poi, *self.pois[poi]) for poi in self.pois.keys()]
-                roi_table.append(pois)
-                roi_table.attrs['roi_name'] = self.roi_name
-                roi_table.attrs['origin'] = self.origin if self.origin else (.0, .0, .0)
-                roi_table.attrs['reference_image'] = self.reference_image if self.reference_image else ''
-                roi_table.attrs['stage_x'] = self.stage_x if self.stage_x else 0.0
-                roi_table.attrs['stage_y'] = self.stage_y if self.stage_y else 0.0
-                roi_table.flush()
+        with tc as th:
+            roi_table = th.tables.create_table('/'.join([self.root, self.roi_name]),
+                                               name=self.roi_version,
+                                               description=self.Description,
+                                               createparents=True)
+            pois = [(poi, *self.pois[poi]) for poi in self.pois.keys()]
+            roi_table.append(pois)
+            roi_table.attrs['roi_name'] = self.roi_name
+            roi_table.attrs['origin'] = self.origin if self.origin else (.0, .0, .0)
+            roi_table.attrs['reference_image'] = self.reference_image if self.reference_image else ''
+            roi_table.attrs['stage_x'] = self.stage_x if self.stage_x else 0.0
+            roi_table.attrs['stage_y'] = self.stage_y if self.stage_y else 0.0
+            roi_table.flush()
 
 
 class TiltCorrection:
