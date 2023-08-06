@@ -106,17 +106,41 @@ class OptimizerProxy(ZmqProxy):
         x = self.optimizer().optim_pos_x
         y = self.optimizer().optim_pos_y
         z = self.optimizer().optim_pos_z
-        # estimated counts from Z fit
-        counts = max(self.optimizer().z_fit_data) if z_fitted else 0
 
-        return xy_fitted, z_fitted, counts, x, y, z
+        # estimated counts from Z fit
+        zif = self.optimizer().z_fit_data
+        counts = max(zif) - min(zif) if z_fitted else 0
+
+        # check in bounds
+        x0 = self.optimizer()._X_values[0]
+        x1 = self.optimizer()._X_values[-1]
+        y0 = self.optimizer()._Y_values[0]
+        y1 = self.optimizer()._Y_values[-1]
+        z0 = self.optimizer()._zimage_Z_values[0]
+        z1 = self.optimizer()._zimage_Z_values[-1]
+
+        if x0 < x < x1 and y0 < y < y1 and z0 < z < z1:
+            in_bounds = True
+        else:
+            in_bounds = False
+
+        return {'xy_fitted': xy_fitted,
+                'z_fitted': z_fitted,
+                'fitted_counts': counts,
+                'in_bounds': in_bounds,
+                'x': x,
+                'y': y,
+                'z': z}
 
     def handle_goto_current(self, _):
-        xy_fitted, z_fitted, counts, x, y, z = self._fetch_result()
-        if xy_fitted and z_fitted:
-            self.log.info("Setting optimizer position to {:.2f}, {:.2f}, {:.2f} um. Count rate about {}".format(x*1e6, y*1e6, z*1e6, counts))
+        p = self._fetch_result()
+        x = p['x']
+        y = p['y']
+        z = p['z']
+        if p['xy_fitted'] and p['z_fitted']:
+            self.log.info("Setting optimizer position to {:.2f}, {:.2f}, {:.2f} um. Count rate about {}".format(x*1e6, y*1e6, z*1e6, p['fitted_counts']))
             self.scanner().set_position('zmq', x=x, y=y, z=z)
-        elif xy_fitted:
+        elif p['xy_fitted']:
             self.scanner().set_position('zmq', x=x, y=y)
             self.log.warn("Z optimizer fit failed, only updated XY")
         else:
@@ -126,9 +150,8 @@ class OptimizerProxy(ZmqProxy):
         self.emit_refocused()
 
     def emit_refocused(self):
-        xy_fitted, z_fitted, counts, x, y, z = self._fetch_result()
-        self.notify(topic='refocused', body={'xy_fitted': xy_fitted, 'z_fitted': z_fitted,
-                                             'x': x, 'y': y, 'z': z, 'counts': counts})
+        p = self._fetch_result()
+        self.notify(topic='refocused', body=p)
 
     def _refocused(self, caller_tag, position):
         self.emit_refocused()
@@ -136,14 +159,17 @@ class OptimizerProxy(ZmqProxy):
             filepath, datapath = self.save_hdf5()
 
     def save_hdf5(self, tag=''):
-        xy_fitted, z_fitted, counts, x, y, z = self._fetch_result()
+        p = self._fetch_result()
+        x = p['x']
+        y = p['y']
+        z = p['z']
         fit = {'x': x, 'y': y, 'z': z,
                'sigma_x': self.optimizer().optim_sigma_x,
                'sigma_y': self.optimizer().optim_sigma_y,
                'sigma_z': self.optimizer().optim_sigma_z,
-               'fitted_z_counts': counts,
-               'xy_fitted': xy_fitted,
-               'z_fitted': z_fitted}
+               'fitted_z_counts': p['fitted_counts'],
+               'xy_fitted': p['xy_fitted'],
+               'z_fitted': p['z_fitted']}
         setup = {'xy_resolution': self.optimizer().optimizer_XY_res,
                  'z_resolution': self.optimizer().optimizer_Z_res,
                  'xy_span': self.optimizer().refocus_XY_size,

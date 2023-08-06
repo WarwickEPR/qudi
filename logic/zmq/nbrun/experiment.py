@@ -64,9 +64,20 @@ class Refocus:
     @classmethod
     async def result(cls, refocus_done):
         refocus_result = await refocus_done
+        threshold = 10000
         xy_fitted = refocus_result.get('xy_fitted', False)
         z_fitted = refocus_result.get('z_fitted', False)
         if xy_fitted and z_fitted:
+            # add heuristics
+            # are the max counts reasonable
+            try:
+                if refocus_result['fitted_z_counts'] > threshold:
+                    return False
+                if not refocus_result['in_bounds']:
+                    return False
+            except KeyError:
+                pass
+            # is the position in the search range?
             return refocus_result['x'], refocus_result['y'], refocus_result['z']
         else:
             if xy_fitted:
