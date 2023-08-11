@@ -13,7 +13,6 @@ from ipywidgets import Layout
 from logic.zmq.message import Message, PubMessage
 import logging
 
-from . logging import initialize_logger, add_console_logger
 from IPython.display import display
 import ipywidgets as widgets
 
@@ -151,14 +150,7 @@ class QudiControl:
     channel_client = {}
     log = logging.getLogger('core.qudicontrol')
 
-    def __init__(self, hostname='127.0.0.1', control_port=7081, pub_port=7082, session=None, log_suffix=None, title=''):
-
-        if session:
-            initialize_logger(name=session, suffix=log_suffix)
-        else:
-            initialize_logger(name='qudi-client', suffix=log_suffix)
-        self.console = add_console_logger()
-        self.session = session
+    def __init__(self, hostname='127.0.0.1', control_port=7081, pub_port=7082, title=''):
         self.title = title
 
         # create an asyncio based ZMQ context

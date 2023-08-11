@@ -1,5 +1,7 @@
+import logging
+
 from .track import Track
-from .wait import InterruptableWaitManager
+from .wait import InterruptableWaitManager, InterruptableWaitHandle
 from asyncio import CancelledError
 from logic.zmq.client import *
 from .. data.tables_context import TablesContext
@@ -7,10 +9,15 @@ from .. data.psat import Psat
 from .. data.hbt import Hbt
 from .. data.optimizer import OptimizerTrack, OptimizerImage
 from .. client.optimizer import RefocusFailed, ZRefocusFailed
+from . track import TrackProgress
 from ipywidgets import Output
 from IPython.display import display
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
+
+from ..display.optimizer import RefocusDisplay
+
 
 # wrap up all the setup conveniently
 
@@ -40,25 +47,80 @@ class Experiment:
 
     run_name = ''
     track: Track = None
-    wait: InterruptableWaitManager = None
+    iwm: InterruptableWaitManager = None
     qc: QudiControl = None
     tables_context: TablesContext = None
 
     @classmethod
-    async def setup(cls, name='anon_experiment', hdf5_file=None, poi_name=None):
-        cls.run_name = "{}_{}".format(name, poi_name)
+    def apply_log_exclusions(cls):
+        for l in ['Comm', 'matplotlib']:
+            log = logging.getLogger(l)
+            log.setLevel(logging.INFO)
+
+    @classmethod
+    async def setup(cls, name='anon_experiment', hdf5_file=None, poi=None):
+        cls.run_name = "{}_{}".format(name, poi)
+        logging.basicConfig(filename="logs/{}.log".format(cls.run_name), filemode="w", level=logging.DEBUG)
+        cls.apply_log_exclusions()
+        matplotlib.use('agg')    # for non-interactive plot widgets, better for avoiding matplotlib memory leaks?
         stop_file = cls.run_name + ".stop"
         cls.track = Track.setup()
-        cls.wait = InterruptableWaitManager(stop_file=stop_file, tracker=cls.track)
-        cls.qc = QudiControl(session=name, log_suffix=poi_name)
+        cls.iwm = InterruptableWaitManager(stop_file=stop_file, tracker=cls.track)
+        cls.qc = QudiControl()
         if hdf5_file:
             await cls.qc.manager.attach_data_file(hdf5_file)
             cls.tables_context = TablesContext(hdf5_file)
         else:
-            cls.qc.log.warning(".No HDF5 file attached: you should probably set hdf5_file if storing data")
+            cls.qc.log.warning("No HDF5 file attached: you should probably set hdf5_file if storing data")
+
+    @classmethod
+    async def setup_top(cls, name="anon", hdf5_file=None):
+        cls.run_name = "{}_runner".format(name)
+        logging.basicConfig(filename="logs/{}.log".format(cls.run_name), filemode="w", level=logging.DEBUG)
+        cls.apply_log_exclusions()
+        matplotlib.use('agg')    # for non-interactive plot widgets, better for avoiding matplotlib memory leaks?
+        cls.qc = QudiControl()
+        if hdf5_file:
+            await cls.qc.manager.attach_data_file(hdf5_file)
+            cls.tables_context = TablesContext(hdf5_file)
+        else:
+            cls.qc.log.warning("No HDF5 file attached: you should probably set hdf5_file if storing data")
+
+
+class Runner:
+
+    track = TrackProgress()
+    stopper = None
+
+    @classmethod
+    def track_latest(cls):
+        from ipywidgets import Label, link
+        from IPython.display import display
+        lbl = Label("")
+        link((cls.track, 'latest_message'), (lbl, 'value'))
+        display(lbl)
+
+
+    # add comm handler for stop
+    @classmethod
+    def update_stopper(cls, stop_file=None):
+        cls.stopper = InterruptableWaitHandle(stop_file=stop_file)
 
 
 class Refocus:
+
+    # make an instance to hold an output
+    def __init__(self, min_count_threshold=np.inf, on_update=None):
+        self.min_count_threshold = min_count_threshold
+        self._display = RefocusDisplay(Experiment.tables_context, Experiment.qc)
+        # start a background async task to listen for saving
+        self._display.update_on_save()
+        # call back on update
+        if on_update:
+            self._display.on_update = on_update
+
+    def display_latest(self):
+        return self._display.output
 
     async def refocus(self, poi=None, settings=None, min_count_threshold=None):
         min_count_threshold = min_count_threshold if min_count_threshold is not None else self.min_count_threshold
@@ -68,11 +130,13 @@ class Refocus:
         refocus_done = Experiment.qc.optimizer.pending_refocus()
         await Experiment.qc.optimizer.refocus(poi=poi)
         try:
-            x, y, z = await self._result(refocus_done, min_count_threshold)
+            aw = self._result(refocus_done, min_count_threshold)
+            x, y, z = await Experiment.iwm.wait_for(aw, 'refocus')
             await self.save()
             return x, y, z
         except CancelledError:
-            await Experiment.qc.optimizer.stop()
+            await Experiment.qc.optimizer.stop_refocus()
+            raise
 
     @classmethod
     async def _result(cls, refocus_done, min_count_threshold):
@@ -100,19 +164,6 @@ class Refocus:
     @classmethod
     async def save(cls):
         await Experiment.qc.optimizer.save_hdf5()
-
-    # make an instance to hold an output
-    def __init__(self, min_count_threshold=np.inf):
-        self.min_count_threshold = min_count_threshold
-        self.display_out = Output()
-
-
-    def _update_display(self, image_path:str):
-        optimizer_data = OptimizerImage.load(Experiment.tables_context, image_path)
-
-
-    def display_latest(self):
-        display(self.display_out)
 
 
 class PsatExperiment:
@@ -167,7 +218,6 @@ class HbtExperiment:
         return Hbt.load(self.hdf5_path)
 
 
-
 class RabiExperiment:
 
     def __init__(self, tau_start=0, tau_step=1, tau_points=100, measurement_time=300):
@@ -199,6 +249,7 @@ class RabiExperiment:
         if self.fitted:
             # overlay fit
             pass
+
 
 class Pulsed:
 

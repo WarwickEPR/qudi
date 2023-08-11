@@ -3,6 +3,8 @@ import logging
 from .timestamp import get_timestamp
 import tables
 import logging
+from time import strptime
+from calendar import timegm
 
 
 class DataBase:
@@ -48,6 +50,10 @@ class DataBase:
     @property
     def poi_path(self):
         return '/'.join([self.poi_group_path, self.node_name])
+
+    @staticmethod
+    def timestamp_to_epoch_s(ts: str):
+        return timegm(strptime(ts, "%Y%m%d_%H%M%S"))
 
     def _make_poi_link(self, tables: tables, node: tables.Table):
         poi_path = self.poi_group_path

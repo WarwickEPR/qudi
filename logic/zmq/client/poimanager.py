@@ -36,7 +36,7 @@ class PoiManagerClient(QudiClient):
         return await self.query('start_tracking', poi)
 
     async def stop_tracking(self):
-        return await self.send_command('stop_tracking')
+        return await self.query('stop_tracking')
 
     async def pending_optimize(self):
         optimized = self.subscribe('reoptimized')

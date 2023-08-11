@@ -25,7 +25,7 @@ class InterruptableWaitManager:
 
         if self._tracker:
             # Let the parent notebook know where to put a stop file to trigger cancellation
-            self._tracker.send_misc({'stop_file': self._stop_file})
+            self._tracker.send_stop_file(self._stop_file)
 
         # check stop file is not there when we start
         if os.path.exists(self._stop_file):
@@ -36,9 +36,15 @@ class InterruptableWaitManager:
 
         self.poll_task = asyncio.create_task(self._poll_stop_file(), name='stop_poll')
 
-    async def wait_for(self, aw, condition='', timeout=None):
-        wait_task = asyncio.create_task(aw, name='wait-<{}>'.format(condition))
-        emit_task = asyncio.create_task(self._emit_waiting(condition), name='wait-emit-<{}>'.format(condition))
+    def clear(self):
+        self._cancelled = True
+        if self.poll_task:
+            self.poll_task.cancel()
+        self.poll_task = None
+
+    async def wait_for(self, aw, condition_description='', timeout=None):
+        wait_task = asyncio.create_task(aw, name='wait-<{}>'.format(condition_description))
+        emit_task = asyncio.create_task(self._emit_waiting(condition_description), name='wait-emit-<{}>'.format(condition_description))
         self._iw.add(wait_task)
         wait_task.add_done_callback(lambda _: self._iw.discard(wait_task))
         aws = [wait_task, emit_task]
@@ -78,10 +84,16 @@ class InterruptableWaitManager:
 
 
 class InterruptableWaitHandle:
-    def __init__(self, stop_file):
+    def __init__(self):
+        self.stopped = False
+        self._stop_file = None
+
+    def set_stop_file(self, stop_file: str):
         self._stop_file = stop_file
 
     def stop(self):
-        # touch file
-        with open(self._stop_file, 'w') as f:
-            pass
+        self.stopped = True
+        if self._stop_file:
+            # touch file
+            with open(self._stop_file, 'w'):
+                pass

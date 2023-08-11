@@ -1,12 +1,15 @@
 import logging
 
+import comm
 from IPython.display import JSON
 import IPython
+from nbclient import NotebookClient
 
 from traitlets import HasTraits, Unicode, default
 
+from comm import create_comm, get_comm_manager
+from comm.base_comm import BaseComm
 from IPython.core.magic import line_magic, magics_class, Magics
-from ipykernel.comm import Comm
 
 # Tracks execution of a slow sub-notebook such as one waiting for real-time experiments to finish
 # Progress is reported in two ways:
@@ -36,8 +39,50 @@ class TimeoutException:
         return "Timed out after {}s".format(self.timeout)
 
 
+# NbClient handles comm_open via handlers in comm_open_handlers so doesn't directly map to the standard
+# CommManager used on the kernel end.
+
+class NbClientCommManager:
+
+    def __init__(self):
+        self.channels = {}
+        self.handlers = {}
+        self.log = logging.getLogger('NbClientCommManager')
+
+    class Handler:
+        def __init__(self, target, handler):
+            self.handler = handler
+            self.log = logging.getLogger('NbClient.{}'.format(target))
+
+        def handle_msg(self, msg: dict):
+            try:
+                data = msg['content']['data']
+                self.log.debug("Handler received: {}".format(data))
+                self.handler(data)
+            except KeyError:
+                self.log.debug("Handler received incomplete msg: {}".format(msg))
+
+    def add_comm_open_handlers(self, nbc: NotebookClient):
+        for target, handler in self.handlers.items():
+            nbc.comm_open_handlers[target] = self.comm_open_handler
+
+    def comm_open_handler(self, msg: dict):
+        try:
+            target_name = msg['content']['target_name']
+            self.log.debug("Comm open {}".format(target_name))
+            handler = self.handlers.get(target_name, None)
+            if handler:
+                self.log.debug("Found handler for channel {}, binding".format(target_name))
+                return self.Handler(target_name, handler)
+            else:
+                return None
+        except KeyError:
+            return None
+
+
 @magics_class
 class Track(Magics):
+
     def __init__(self, ip: IPython):
         super(Track, self).__init__(ip)
         self.current = None
@@ -46,17 +91,22 @@ class Track(Magics):
         self.summary = {}
         self.shell = ip
         self.log = logging.getLogger('track')
-
-        self.comm = Comm(target_name='progress', data={'message': "Started progress tracker"})
+        self.comm_progress = comm.create_comm(target_name='progress')
+        self.comm_stop = comm.create_comm(target_name='stop_file')
         self.log.info("Started progress tracker")
 
-    def send_message(self, msg):
-        self.log.debug(msg)
-        self.comm.send({'message': msg})
+    def send_progress_message(self, msg):
+        self.log.debug("Sending progress msg: {} in stage {}".format(msg, self.current))
+        self.comm_progress.send({'message': msg, 'stage': self.current})
 
-    def send_misc(self, d: dict):
-        self.log.debug("Sending misc: {}".format(d))
-        self.comm.send(d)
+    def send_progress(self, msg: dict):
+        msg['stage'] = self.current
+        self.log.debug("Sending progress: {}".format(msg))
+        self.comm_progress.send(msg)
+
+    def send_stop_file(self, stop_file):
+        self.log.debug("Sending stop_file: {}".format(stop_file))
+        self.comm_stop.send(stop_file)
 
     def _get(self, name, default_value=None):
         return self.shell.user_ns.get(name, default_value)
@@ -65,10 +115,16 @@ class Track(Magics):
         for k, v in self.shell.user_ns.items():
             if k.startswith(self.current + '_'):
                 self.state[k] = v
-        status_key = '{}_status'.format(self.current)
-        summary_key = '{}_summary'.format(self.current)
+        status_key = self._status_key()
         self.status[status_key] = self._get(status_key, 'INCOMPLETE')
+        summary_key = self._summary_key()
         self.summary[summary_key] = self._get(summary_key, ' ')
+
+    def _status_key(self):
+        return '{}_status'.format(self.current)
+
+    def _summary_key(self):
+        return '{}_status'.format(self.current)
 
     @classmethod
     def setup(cls):
@@ -86,6 +142,17 @@ class Track(Magics):
     def start(self, line):
         self.current = line
         self.shell.user_ns['track_current'] = line
+        self.send_progress_message("Starting stage <{}>".format(line))
+
+    @line_magic
+    def status(self, line):
+        if self.current:
+            self.shell.user_ns[self._status_key()] = line
+
+    @line_magic
+    def summary(self, line):
+        if self.current:
+            self.shell.user_ns[self._summary_key()] = line
 
     @line_magic
     def checkpoint(self, line):
@@ -102,10 +169,11 @@ class Track(Magics):
 
     @line_magic
     def progress(self, line):
-        self.comm.send({'message': line})
+        self.send_progress_message(line)
 
     def __del__(self):
-        self.comm.close()
+        self.comm_progress.close()
+        self.comm_stop.close()
 
 
 # Handler for the receiving end
@@ -121,17 +189,10 @@ class TrackProgress(HasTraits):
     def __init__(self, **kwargs):
         super(TrackProgress, self).__init__(**kwargs)
         self.log = logging.getLogger('progress')
-        self.handler = {'message': self.handle_message}
 
-    def handle_message(self, message):
+    def handle_msg(self, data: dict):
+        message = data.get('message', '')
+        stage = data.get('stage', '')
         self.latest_message = message
-
-    def handle_msg(self, msg):
-        data = msg['content']['data']
-        self.log.debug(data)
-        for k in self.handler.keys():
-            if k in data:
-                v = data[k]
-                self.handler[k](v)
 
 

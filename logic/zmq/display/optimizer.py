@@ -15,6 +15,7 @@ class RefocusDisplay:
         self.tc = tc
         self.qc = qc.optimizer
         self.update_task = None
+        self.on_update = None
 
     def display_inline(self, datasource):
         if isinstance(datasource, str):
@@ -26,8 +27,14 @@ class RefocusDisplay:
             data = datasource
         self._display_inline(data)
 
+    def get_image(self):
+        try:
+            return self.output.outputs[0]['data']
+        except (KeyError, IndexError):
+            return None
+
     def _display_inline(self, data: OptimizerImage):
-        plt.ioff()
+
         fig, (ax1, ax2) = plt.subplots(1, 2, layout='constrained', figsize=(10, 3))
         fig.get_layout_engine().set(w_pad=1)
         fig.suptitle('Focus optimization on <{}> at {}'.format(data.poi, data.timestamp))
@@ -46,14 +53,14 @@ class RefocusDisplay:
         ax2.set_xlabel(r'Z (um)')
         ax2.set_ylabel(r'Counts (kc/s)')
 
-        # set the spacing between subplots
-        #plt.subplots_adjust(left=0.2, bottom=0.1, right=0.8, top=0.9, wspace=10, hspace=0.4)
-
         # clear_output with context_manager should get fixed sometime, has problems with threads?
         # clear the old output in a nasty way so that inline updates don't make the sheet unreadable
         #clear_output(wait=True)
         self.output.outputs = []
         self.output.append_display_data(fig)
+
+        if self.on_update:
+            self.on_update()
 
     def update_on_save(self):
 
