@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import re
 import nbformat
@@ -7,10 +8,17 @@ from nbclient.exceptions import CellExecutionError
 from nbformat import NotebookNode
 from ipywidgets import Output
 from IPython.display import display
+import os
+import os.path
 
-from .track import TrackProgress, NbClientCommManager
+from .grid_widget import ProgressGridWidget
+from .track import NbClientCommManager
 from .wait import InterruptableWaitHandle
 
+
+class AbortRun(Exception):
+    def __init__(self, msg=''):
+        self.message = msg
 
 class Notebook(nbformat.NotebookNode):
 
@@ -40,15 +48,9 @@ class Notebook(nbformat.NotebookNode):
 
     def inject_params(self, poi: str, params: dict):
         params['poi'] = poi   # override
-        params_str = []
 
-        for k, v in params.items():
-            if isinstance(v, str):
-                v_enc = "r'{}'".format(v)
-            else:
-                v_enc = v
-            params_str += ['{}={}'.format(k, v_enc)]
-        params_cell = nbformat.v4.new_code_cell(source='\n'.join(params_str))
+        params_str = self._encode_for_cell(params)
+        params_cell = nbformat.v4.new_code_cell(source=params_str)
         params_cell.metadata = {'tags': 'parameters'}
 
         params_index = self.first_tag_index('parameters')
@@ -59,40 +61,50 @@ class Notebook(nbformat.NotebookNode):
             # insert at start
             self.cells.insert(0, params_cell)
 
-    def inject_saved_state(self, saved_state=None):
-        saved_state_str = []
-        if saved_state:
-            for k, v in saved_state.items():
-                saved_state_str += ['{}={}'.format(k, v)]
-        saved_state_cell = nbformat.v4.new_code_cell(source='\n'.join(saved_state_str))
-        saved_state_cell.metadata = {'tags': 'saved_state'}
-
-        saved_state_index = self.first_tag_index('saved_state')
-        if saved_state_index is not None:
-            self.cells[saved_state_index] = saved_state_cell
-        else:
-            params_index = self.first_tag_index('parameters')
-            if params_index is not None:
-                # after parameters cell
-                self.cells.insert(params_index, saved_state_cell)
+    # inject simple parameters into a cell
+    @staticmethod
+    def _encode_for_cell(params):
+        params_list = []
+        for k, v in params.items():
+            if isinstance(v, str):
+                v_enc = "r'{}'".format(v)
             else:
-                # first
-                self.cells.insert(0, saved_state_cell)
+                v_enc = v
+            params_list += ['{}={}'.format(k, v_enc)]
+        return '\n'.join(params_list)
+
+    def inject_saved_state(self, saved_state: dict):
+        if saved_state:
+            saved_state_str = self._encode_for_cell(saved_state)
+            saved_state_cell = nbformat.v4.new_code_cell(source=saved_state_str)
+            saved_state_cell.metadata = {'tags': 'saved_state'}
+
+            saved_state_index = self.first_tag_index('saved_state')
+            if saved_state_index is not None:
+                self.cells[saved_state_index] = saved_state_cell
+            else:
+                params_index = self.first_tag_index('parameters')
+                if params_index is not None:
+                    # after parameters cell
+                    self.cells.insert(params_index, saved_state_cell)
+                else:
+                    # first
+                    self.cells.insert(0, saved_state_cell)
 
     def update_attachments(self, attachments):
         attachment_patt = re.compile(r'\(attachment:(.*)\)')
         updated = False
-        #logger = logging.getLogger('Notebook')
+        logger = logging.getLogger('Notebook')
         for cell in self.cells:
             if cell['cell_type'] == 'markdown':
-                #logger.debug("Checking markdown cell for attachment reference")
+                logger.debug("Checking markdown cell for attachment reference")
                 match = re.search(attachment_patt, cell['source'])
                 if match:
                     attachment = match.group(1)
-                    #logger.debug("Found attachment reference: {}".format(attachment))
+                    logger.debug("Found attachment reference: {}".format(attachment))
                     if attachment in attachments:
                         if attachment.endwith('.png'):
-                            #logger.debug("inserting attachment {}".format(attachment))
+                            logger.debug("inserting attachment {}".format(attachment))
                             cell['attachments'] = {'data': attachments[attachment]}
                             updated = True
         return updated
@@ -105,9 +117,13 @@ class Notebook(nbformat.NotebookNode):
 
 class NBRun:
 
-    def __init__(self, notebook=None, notebook_template=None):
+    def __init__(self, notebook=None, notebook_template=None, poi_parameters=None):
+        if poi_parameters is None:
+            poi_parameters = {'': None}
+
         self.stages = []
         self.log = logging.getLogger('NBRun')
+        self.poi_parameters = poi_parameters
 
         if notebook:
             self.nb = Notebook(nbformat.read(notebook, as_version=4))
@@ -121,23 +137,53 @@ class NBRun:
         else:
             self.log.error("No notebook or template supplied")
 
-        self.comm_manager = NbClientCommManager()
-        self.tracker = TrackProgress()
-        self.wait_stop_handle = InterruptableWaitHandle()
-
-        self.comm_manager.handlers['progress'] = self.tracker.handle_msg
-        self.comm_manager.handlers['stop_file'] = self.wait_stop_handle.set_stop_file
+        self.saved_state = {}
+        self.status = {}
+        self.summary = {}
+        self.attachments = {}
         self.cell_task = None
         self.poi = None
         self.nc = None
-        self.run_output = {}
-        self.attachments = {}
 
-    @staticmethod
-    def _initialize_output(stages):
-        return {'status': dict([(k, "NOT_STARTED") for k in stages]),
-                'summary': dict([(k, " ") for k in stages]),
-                'checkpoint': {}}
+        self._initialize_output(self.poi_list, self.stages)
+
+        self.comm_manager = NbClientCommManager()
+        self.wait_stop_handle = InterruptableWaitHandle()
+        self.pgw = ProgressGridWidget(self.poi_list, self.stages)
+
+        self.comm_manager.handlers['progress'] = self.update_progress
+        self.comm_manager.handlers['stop_file'] = self.wait_stop_handle.set_stop_file
+        self.comm_manager.handlers['status'] = self._status_handle
+        self.run_out = None
+
+    @property
+    def poi_list(self):
+        return list(self.poi_parameters.keys())
+
+    def _status_handle(self, msg):
+        if 'status' in msg:
+            status = json.loads(msg['status'])
+            self.log.debug("status: {}".format(status))
+            self.status[self.poi].update(status)
+        if 'summary' in msg:
+            summary = json.loads(msg['summary'])
+            self.log.debug("summary: {}".format(summary))
+            self.summary[self.poi].update(summary)
+        if 'saved_state' in msg:
+            saved_state = json.loads(msg['saved_state'])
+            self.log.debug("state: {}".format(saved_state))
+            self.saved_state[self.poi].update(saved_state)
+        if self.pgw:
+            self.pgw.update_all(status=self.status, summary=self.summary)
+
+    def display_grid(self):
+        return self.pgw.display()
+
+    def update_progress(self, msg: dict):
+        message = msg.get('message', '')
+        stage = msg.get('stage', '')
+        if self.pgw:
+            self.pgw.update_progress(" <{}> {}".format(stage, message))
 
     def apply_parameters_to_template(self, poi, params):
         self.nb = self.nb_template
@@ -165,9 +211,10 @@ class NBRun:
             if cell['metadata']['type'] == 'checkpoint':
                 # expect JSON checkpoint output
                 cp_data = cell['data']['application/json']
-                self.run_output[self.poi]['checkpoint'][cp_data['checkpoint']] = cp_data['state']
-                self.run_output[self.poi]['status'].update(cp_data['status'])
-                self.run_output[self.poi]['summary'].update(cp_data['summary'])
+                self.saved_state[self.poi]['latest'].update(cp_data['saved_state'])
+                self.saved_state[self.poi][cp_data['checkpoint']] = self.saved_state[self.poi]['latest'].copy()
+                self.status[self.poi].update(cp_data['status'])
+                self.summary[self.poi].update(cp_data['summary'])
         except KeyError:
             # not present so nothing to do
             pass
@@ -195,37 +242,44 @@ class NBRun:
     def on_notebook_error(self, notebook=None):
         self.log.debug("Notebook finished with an error. Output to '{}'".format(self.output_filename))
 
-    async def run_all(self, pois_and_parameters: dict):
-        stages = self.nb_template.find_tracked_stages()
+    def _initialize_output(self, pois, stages):
 
-        # set up output
-        for poi, params in pois_and_parameters.items():
-            self.run_output[poi] = self._initialize_output(stages)
+        # set up output tables
+        for poi in pois:
+            self.status[poi] = dict([(stage, 'NOT STARTED') for stage in stages])
+            self.summary[poi] = dict([(stage, ' ') for stage in stages])
+            self.saved_state[poi] = {'latest': {}}
+
+    async def run_all(self):
+
+        # clean up stale stop files
+        #self._remove_stop_files()
 
         # run on each notebook
-        for poi, params in pois_and_parameters.items():
+        for poi, params in self.poi_parameters.items():
             if not self.wait_stop_handle.stopped:
-                await self.run(poi, params)
+                try:
+                    await self.run(poi, params)
+                except AbortRun as e:
+                    self.log.info("Skipping to next point")
                 await asyncio.sleep(5)
 
-    def track_latest(self):
-        from ipywidgets import Label, link
-        from IPython.display import display
-        lbl = Label("")
-        link((self.tracker, 'latest_message'), (lbl, 'value'))
-        display(lbl)
+    def _remove_stop_files(self):
+        d = os.path.dirname(self.nb_filename)
+        stop_files = filter(lambda x: x.endswith(".stop"), os.listdir(d))
+        for stop_file in stop_files:
+            f = os.path.join(d, stop_file)
+            try:
+                os.remove(f)
+            except (FileNotFoundError, OSError):
+                self.log.warning("Removing stop file {} failed".format(f))
 
     async def run(self, poi=None, parameters: dict = None):
-
         self.run_out = Output()
         display(self.run_out)
 
-        if poi is None:
-            stages = self.nb_template.find_tracked_stages()
-            self.run_output[None] = self._initialize_output(stages)
-        else:
-            self.apply_parameters_to_template(poi=poi, params=parameters)
-            self.poi = poi
+        self.apply_parameters_to_template(poi=poi, params=parameters)
+        self.poi = poi
 
         if not self.nb:
             if self.nb_template:
@@ -256,11 +310,16 @@ class NBRun:
             if e.ename == 'CancelledError':
                 self.log.info("Execution cancelled running notebook on poi {}".format(self.poi))
                 self.run_out.append_stdout("Execution cancelled running notebook on poi {}".format(self.poi))
+                self.fill_status('CANCELLED')
+            elif e.ename == 'AbortExperiment':
+                self.log.warning("Aborting running on poi {} as {}".format(self.poi, e.evalue))
+                self.fill_status('ABORTED')
+                raise AbortRun(e.evalue)
             else:
                 self.log.error("Exception in cell execution {}({})".format(e.ename, e.evalue))
                 self.log.error(e.traceback)
+                self.fill_status('ERROR')
                 self.run_out.append_stderr("Exception {}({})\n".format(e.ename, e.evalue) + e.traceback)
-
                 raise
         except Exception as e:
             self.log.debug("Exception {}".format(e))
@@ -272,3 +331,8 @@ class NBRun:
             # save notebook
             self.save(force=True)
             self.poi = None
+
+    def fill_status(self, state):
+        for stage, status in self.status[self.poi].items():
+            if status != 'DONE':
+                self.status[self.poi][stage] = state

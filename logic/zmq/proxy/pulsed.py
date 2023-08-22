@@ -37,9 +37,22 @@ class PulsedProxy(ZmqProxy):
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
         self._timer = None
-        self._measurement = None
-        self._loaded_predef = None
-        self._pending_predef = None
+        self._loaded_predefined_parameters = None
+        self._pending_predefined_parameters = None
+
+    @property
+    def loaded_measurement(self):
+        if self._loaded_predefined_parameters:
+            return self._loaded_predefined_parameters[0]
+        else:
+            return ''
+
+    @property
+    def loaded_predefined_parameters(self):
+        if self._loaded_predefined_parameters:
+            return self._loaded_predefined_parameters[1]
+        else:
+            return {}
 
     def on_activate(self):
         # get hold of a handle to optimizer_logic, load if necessary
@@ -67,10 +80,6 @@ class PulsedProxy(ZmqProxy):
         else:
             duration = 60
 
-        if self.storage().attached():
-            tc: TablesContext = self.storage().tables_context()
-            self._measurement = PulsedMeasurement.new_measurement(tc, name, self._predefined_parameters())
-
         # only connect signal when the measurement is started via zmq, otherwise
         # results in errors due to measurement being None if started manually
         # self.pulsed_measurement().sigMeasurementDataUpdated.connect(self._data_updated)
@@ -92,12 +101,12 @@ class PulsedProxy(ZmqProxy):
         self.pulsed_measurement().continue_pulsed_measurement()
 
     def handle_generate_predefined(self, msg: Message):
-        predef_name = msg.body['name']
-        predef_parameters = msg.body['parameters']
-        self._pending_predef = (predef_name, predef_parameters)
-        if 'rabi_period' in predef_parameters:
-            self.pulsed_master_logic().sequencegeneratorlogic().set_generation_parameters({'rabi_period': predef_parameters['rabi_period']})
-        self.pulsed_master_logic().generate_predefined_sequence(predef_name, predef_parameters, sample_and_load=True)
+        measurement_name = msg.body['name']
+        predefined_parameters = msg.body['parameters']
+        self._pending_predefined_parameters = measurement_name, predefined_parameters
+        if 'rabi_period' in self.predefined_parameters:
+            self.pulsed_master_logic().sequencegeneratorlogic().set_generation_parameters({'rabi_period': predefined_parameters['rabi_period']})
+        self.pulsed_master_logic().generate_predefined_sequence(measurement_name, predefined_parameters, sample_and_load=True)
 
     def handle_perform_fit(self, msg: Message):
         fit_name = msg.body['fit_name']
@@ -110,25 +119,29 @@ class PulsedProxy(ZmqProxy):
     def handle_set_microwave_settings(self, msg: Message):
         self.pulsed_measurement().set_microwave_settings(settings_dict=msg.body)
 
-    def _save_data(self):
-        with self.storage().tables_context() as h:
+    def handle_save_hdf5(self, msg: Message):
+        tag = msg.body.get('tag', '')
+        location = self._save_data(tag=tag)
+        self.reply(msg, body=location)
 
+    def _save_data(self, tag=''):
+        settings = self.gather(self.pulsed_measurement(), {'elapsed_sweeps': 'elapsed_sweeps',
+                                                           'elapsed_time': 'elapsed_time',
+                                                           'alternating': '_alternating',
+                                                           'analysis_settings': 'analysis_settings',
+                                                           'extraction_settings': 'extraction_settings',
+                                                           'number_of_lasers': '_number_of_lasers'})
 
-            attrs = self.gather(self.pulsed_measurement(), {'elapsed_sweeps': 'elapsed_sweeps',
-                                                            'elapsed_time': 'elapsed_time',
-                                                            'alternating': '_alternating',
-                                                            'analysis_settings': 'analysis_settings',
-                                                            'extraction_settings': 'extraction_settings',
-                                                            'number_of_lasers': '_number_of_lasers'})
-            self._measurement.save_data(h, self._extracted(), self.logic().laser_data, self.logic().raw_data, attrs)
-
-    def _predefined_parameters(self):
-        if self._loaded_predef:
-            (predef_name, predef_params) = self._loaded_predef
-            return { 'predefined_name': predef_name,
-                     'predefined_params': predef_params }
-        else:
-            return {}
+        measurement = PulsedMeasurement(extracted=self._extracted(),
+                                        laser=self.logic().laser_data,
+                                        raw=self.logic().raw_data,
+                                        measurement=self.measurement_name,
+                                        predefined_parameters=self.predefined_parameters,
+                                        settings=settings,
+                                        tag=tag,
+                                        roi=self.poimanager().roi_name,
+                                        poi=self.poimanager().active_poi)
+        return measurement.store(self.storage().tables_context, snapshot=True)
 
     def _extracted(self):
         x = self.logic().signal_data[0]
@@ -136,15 +149,15 @@ class PulsedProxy(ZmqProxy):
         y_err = self.logic().measurement_error[1]
         alt = self.logic().signal_data[2] if self.logic()._alternating else itertools.repeat(0)
         alt_err = self.logic().measurement_error[2] if self.logic()._alternating else itertools.repeat(0)
-        return zip(x, y, y_err, alt, alt_err)
+        return PulsedMeasurement.extracted_from_fields(x, y, y_err, alt, alt_err)
 
     def _sequence_generated(self, name, type):
         # the first sequence generated event after this module evokes it is expected to be "pending"
-        if self._pending_predef:
-            self._loaded_predef = self._pending_predef
+        if self._pending_predefined_parameters:
+            self._loaded_predefined_parameters = self._pending_predefined_parameters
         else:
             # if another is loaded by the user after, we don't know about it
-            self._loaded_predef = None
+            self._loaded_predefined_parameters = None
 
         self.notify_sequence_generated(name)
 
@@ -153,7 +166,9 @@ class PulsedProxy(ZmqProxy):
         self.notify_data_updated()
 
     def notify_data_updated(self):
-        self.notify('data', body={'variable': self.pulsed_measurement().signal_data[0], 'signal': self.pulsed_measurement().signal_data[1:], 'error': self.pulsed_measurement().measurement_error[1:]})
+        self.notify('data', body={'variable': self.pulsed_measurement().signal_data[0],
+                                  'signal': self.pulsed_measurement().signal_data[1:],
+                                  'error': self.pulsed_measurement().measurement_error[1:]})
 
     def notify_sequence_generated(self, name):
         self.notify('sequence_generated', name)

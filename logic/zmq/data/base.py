@@ -34,7 +34,7 @@ class DataBase:
 
     @property
     def path(self):
-        return '/'.join([self.root, self.node_name])
+        return '/'.join([self.group_path, self.node_name])
 
     @property
     def group_path(self):

@@ -38,7 +38,7 @@ class PoiManagerProxy(ZmqProxy):
 
     def handle_list_pois(self, msg: Message):
         self.log.debug("Listing POIs")
-        pois = list(self.poimanager().poi_positions.items())
+        pois = [x[0] for x in self.poimanager().poi_positions.items()]
         self.reply(msg, pois)
 
     def handle_poi_dict(self, msg: Message):
@@ -47,10 +47,29 @@ class PoiManagerProxy(ZmqProxy):
         self.reply(msg, pois)
 
     def handle_goto_poi(self, msg: Message):
-        self.poimanager().go_to_poi(name=msg.body)
+        poi = msg.body.get('poi', None)
+        if not poi:
+            active_poi = self.poimanager().active_poi
+            self.log.debug("Going to active poi {}".format(active_poi))
+            self.poimanager().go_to_poi(name=None)
+        else:
+            self.log.debug("Going to poi {}".format(poi))
+            self.poimanager().go_to_poi(name=poi)
 
     def handle_set_active_poi(self, msg: Message):
-        self.poimanager().active_poi = msg.body
+        poi = msg.body
+        self.log.debug("Setting active poi to {}".format(poi))
+        self.poimanager().active_poi = poi
+
+    def handle_update_poi_position(self, msg: Message):
+        active_poi = self.poimanager().active_poi
+        self.log.info("Updating POI position {} in ROI".format(active_poi))
+        self.poimanager().set_poi_anchor_from_position()
+
+    def handle_update_roi_position(self, msg: Message):
+        active_poi = self.poimanager().active_poi
+        self.log.info("Updating ROI shift from poi {}".format(active_poi))
+        self.poimanager().move_roi_from_poi_position()
 
     def handle_optimize_poi(self, msg: Message):
         name = msg.body['name']

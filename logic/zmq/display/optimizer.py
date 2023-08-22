@@ -11,11 +11,13 @@ class NoTablesContext(Exception):
 class RefocusDisplay:
 
     def __init__(self, tc=None, qc=None):
-        self.output = Output()
         self.tc = tc
-        self.qc = qc.optimizer
+        if qc:
+            self.qc = qc.optimizer
+        else:
+            self.qc = None
         self.update_task = None
-        self.on_update = None
+        self.latest_fig = None
 
     def display_inline(self, datasource):
         if isinstance(datasource, str):
@@ -26,12 +28,6 @@ class RefocusDisplay:
         else:
             data = datasource
         self._display_inline(data)
-
-    def get_image(self):
-        try:
-            return self.output.outputs[0]['data']
-        except (KeyError, IndexError):
-            return None
 
     def _display_inline(self, data: OptimizerImage):
 
@@ -53,16 +49,10 @@ class RefocusDisplay:
         ax2.set_xlabel(r'Z (um)')
         ax2.set_ylabel(r'Counts (kc/s)')
 
-        # clear_output with context_manager should get fixed sometime, has problems with threads?
-        # clear the old output in a nasty way so that inline updates don't make the sheet unreadable
-        #clear_output(wait=True)
-        self.output.outputs = []
-        self.output.append_display_data(fig)
+        self.latest_fig = fig
+        return fig
 
-        if self.on_update:
-            self.on_update()
-
-    def update_on_save(self):
+    def update_on_save(self, handler=None):
 
         # forever (or until this kernel is shutdown) in the background, update on save
         async def listen_for_save():
@@ -70,7 +60,9 @@ class RefocusDisplay:
             while True:
                 save_location = await s.receive()
                 try:
-                    self.display_inline(save_location.body['path'])
+                    fig = self.display_inline(save_location.body['path'])
+                    if handler:
+                        handler(fig)
                 except KeyError:
                     pass
                 except asyncio.CancelledError:
@@ -79,4 +71,5 @@ class RefocusDisplay:
         self.update_task = asyncio.create_task(listen_for_save(), name="update_refocus_display")
 
     def __del__(self):
-        self.update_task.cancel()
+        if self.update_task:
+            self.update_task.cancel()

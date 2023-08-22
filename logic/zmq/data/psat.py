@@ -1,6 +1,7 @@
 from tables import *
 from .tables_context import TablesContext
 from .base import DataBase
+import numpy as np
 
 
 class Psat(DataBase):
@@ -27,19 +28,29 @@ class Psat(DataBase):
             dataset.append(list(zip(self.power, self.count_rate)))
             dataset.attrs['timestamp'] = self.timestamp
             dataset.attrs['tag'] = self.tag
-            self._make_poi_link(th.tables, dataset)
             th.flush()
+
+            self.log.info("Saving psat data to {}:/{}".format(tc.filepath, self.path))
+            location = {'file': tc.filepath, 'path': self.path}
+            return location
 
     @classmethod
     def load(cls, tc: TablesContext, node_path: str):
+
+        def get_attr(attr, default):
+            try:
+                return dataset._v_attrs[attr]
+            except (AttributeError, KeyError):
+                return default
+
         with tc as th:
             dataset = th.tables.get_node(node_path, classname='Table')
-            roi = dataset.attrs.get('roi', None)
-            poi = dataset.attrs.get('poi', None)
-            power = dataset.read('power')
-            count_rate = dataset.read('count_rate')
-            tag = dataset.attrs.get('tag', '')
-            timestamp = dataset.attrs.get('timestamp', '')
+            roi = get_attr('roi', None)
+            poi = get_attr('poi', None)
+            power = np.array(dataset.read(field='power')).astype(float)
+            count_rate = np.array(dataset.read(field='count_rate')).astype(float)
+            tag = get_attr('tag', '')
+            timestamp = get_attr('timestamp', '')
             return Psat(power=power, count_rate=count_rate, tag=tag, timestamp=timestamp, roi=roi, poi=poi)
 
     @classmethod

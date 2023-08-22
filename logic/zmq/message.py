@@ -136,8 +136,8 @@ class PubMessage:
             if body == '':
                 self.body = ''
             else:
+                self.encoded_body = body
                 self.body = pickle.loads(body)
-
         else:
             # from params
             self.topic = topic

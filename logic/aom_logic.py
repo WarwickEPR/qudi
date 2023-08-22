@@ -44,7 +44,7 @@ class AomLogic(GenericLogic):
 
     psat_updated = QtCore.Signal()
     psat_done = QtCore.Signal()
-    psat_fit_updated = QtCore.Signal()
+    psat_fit_updated = QtCore.Signal(float, float, float)
     _psat_save = QtCore.Signal(str)
     psat_saved = QtCore.Signal(str)
     aom_updated = QtCore.Signal()
@@ -95,8 +95,11 @@ class AomLogic(GenericLogic):
         # self.laser.sigPower.connect(self.update_aom)
 
     def on_deactivate(self):
-        self.psat_updated.disconnect(self.fit_data)
-        self._psat_save.disconnect()
+        try:
+            self.psat_updated.disconnect(self.fit_data)
+            self._psat_save.disconnect()
+        except TypeError:
+            pass
 
     def clear(self):
         self.set_psat_points(points=100)
@@ -110,7 +113,7 @@ class AomLogic(GenericLogic):
         self.psat_fitted = False
         self.psat_colllected = False
         self.psat_updated.emit()
-        self.psat_fit_updated.emit()
+        self.psat_fit_updated.emit(0, 0, 0)
 
     def psat_available(self):
         return self.psat_available
@@ -237,14 +240,14 @@ class AomLogic(GenericLogic):
         self.fitted_Psat = P_sat
         self.fitted_offset = bg
 
-        self.psat_fit_updated.emit()
+        self.psat_fit_updated.emit(I_sat, P_sat, bg)
 
     def set_to_psat(self):
         if self.fitted_Psat:
             self.set_power(self.fitted_Psat)
 
     def save_psat(self, tag=''):
-        self._psat_save.emit(tag)
+        return self._psat_save.emit(tag)
 
     def _save_psat(self, tag):
 
@@ -272,7 +275,7 @@ class AomLogic(GenericLogic):
 
         self.psat_saved.emit(filepath)
 
-        return 0
+        return filepath
 
     def set_clock_frequency(self, clock_frequency):
         """Sets the frequency of the clock

@@ -5,16 +5,18 @@ from .wait import InterruptableWaitManager, InterruptableWaitHandle
 from asyncio import CancelledError
 from logic.zmq.client import *
 from .. data.tables_context import TablesContext
-from .. data.psat import Psat
-from .. data.hbt import Hbt
+from .. data.psat import Psat as PsatData
+from .. data.hbt import Hbt as HbtData
 from .. data.optimizer import OptimizerTrack, OptimizerImage
 from .. client.optimizer import RefocusFailed, ZRefocusFailed
+import asyncio
 from . track import TrackProgress
 from ipywidgets import Output
 from IPython.display import display
-import numpy as np
+
 import matplotlib.pyplot as plt
 import matplotlib
+import numpy as np
 
 from ..display.optimizer import RefocusDisplay
 
@@ -74,6 +76,18 @@ class Experiment:
             cls.qc.log.warning("No HDF5 file attached: you should probably set hdf5_file if storing data")
 
     @classmethod
+    def expand_parameters(cls, pois: list, name: str, hdf5_file: str, additional=None):
+        if additional is None:
+            additional = {}
+        params = {}
+        for poi in pois:
+            params[poi] = additional.copy()
+            params[poi].update({'poi': poi,
+                                'name': name,
+                                'hdf5_file': hdf5_file})
+        return params
+
+    @classmethod
     async def setup_top(cls, name="anon", hdf5_file=None):
         cls.run_name = "{}_runner".format(name)
         logging.basicConfig(filename="logs/{}.log".format(cls.run_name), filemode="w", level=logging.DEBUG)
@@ -87,52 +101,42 @@ class Experiment:
             cls.qc.log.warning("No HDF5 file attached: you should probably set hdf5_file if storing data")
 
 
-class Runner:
-
-    track = TrackProgress()
-    stopper = None
-
-    @classmethod
-    def track_latest(cls):
-        from ipywidgets import Label, link
-        from IPython.display import display
-        lbl = Label("")
-        link((cls.track, 'latest_message'), (lbl, 'value'))
-        display(lbl)
-
-
-    # add comm handler for stop
-    @classmethod
-    def update_stopper(cls, stop_file=None):
-        cls.stopper = InterruptableWaitHandle(stop_file=stop_file)
-
-
 class Refocus:
 
     # make an instance to hold an output
-    def __init__(self, min_count_threshold=np.inf, on_update=None):
+    def __init__(self, min_count_threshold=np.inf):
+        self._display_output = Output()
         self.min_count_threshold = min_count_threshold
         self._display = RefocusDisplay(Experiment.tables_context, Experiment.qc)
         # start a background async task to listen for saving
-        self._display.update_on_save()
-        # call back on update
-        if on_update:
-            self._display.on_update = on_update
+        self._display.update_on_save(handler=self.update_latest)
 
     def display_latest(self):
-        return self._display.output
+        return self._display_output
 
-    async def refocus(self, poi=None, settings=None, min_count_threshold=None):
+    def update_latest(self):
+        self._display_output.outputs = []
+        self._display_output.append_display_data(self._display.latest_fig)
+
+    async def refocus(self, poi=None, refine_poi=False, settings=None, min_count_threshold=None):
         min_count_threshold = min_count_threshold if min_count_threshold is not None else self.min_count_threshold
         if settings is not None:
             # e.g. to set span of optimizer image appropriately
             Experiment.qc.optimizer.setup(settings)
         refocus_done = Experiment.qc.optimizer.pending_refocus()
-        await Experiment.qc.optimizer.refocus(poi=poi)
+        if poi is not None:
+            await Experiment.qc.poimanager.set_active_poi(poi)
+            await Experiment.qc.poimanager.goto_poi()
+            await asyncio.sleep(1)
+        await Experiment.qc.optimizer.refocus()
         try:
             aw = self._result(refocus_done, min_count_threshold)
             x, y, z = await Experiment.iwm.wait_for(aw, 'refocus')
-            await self.save()
+            if poi is not None:
+                if refine_poi:
+                    await Experiment.qc.poimanager.update_poi_position()
+                else:
+                    await Experiment.qc.poimanager.update_roi_position()
             return x, y, z
         except CancelledError:
             await Experiment.qc.optimizer.stop_refocus()
@@ -147,81 +151,78 @@ class Refocus:
             # add heuristics
             # are the max counts reasonable
             try:
-                if refocus_result['fitted_z_counts'] < min_count_threshold:
+                if refocus_result['fitted_counts'] < min_count_threshold:
                     raise RefocusWentDark
                 if not refocus_result['in_bounds']:
-                    return False
+                    raise RefocusOutOfBounds
             except KeyError:
-                pass
+                print("Warning: missing information about refocus")
 
             return refocus_result['x'], refocus_result['y'], refocus_result['z']
         else:
-            if xy_fitted:
+            if not z_fitted and xy_fitted:
                 raise ZRefocusFailed
             else:
                 raise RefocusFailed
 
     @classmethod
     async def save(cls):
-        await Experiment.qc.optimizer.save_hdf5()
+        return await Experiment.qc.optimizer.save_hdf5()
 
+    @classmethod
+    def load(cls, path):
+        return OptimizerImage.load(Experiment.tables_context, path)
 
-class PsatExperiment:
-
-    def __init__(self):
-        self.hdf5_path = None
-        self.qudi_path = None
-
-    @staticmethod
-    async def run(self):
-        done = Experiment.qc.aom.pending_psat_done()
-        fitted = Experiment.qc.aom.pending_psat_fit()
-        await Experiment.qc.aom.take_psat()
-        await done
-        fit = await fitted
-        await self.save()
-
-    async def save(self):
-        # ask the Qudi end to save the data
-        saved = Experiment.qc.aom.pending_psat_saved()
-        self.hdf5_path = await Experiment.qc.aom.save_hdf5()
-        self.qudi_path = await Experiment.qc.aom.save_qudi()
-        await saved
-
-    def load(self):
-        # retrieve the data from HDF5 - ensuring we know we actually have it stored!
-        return Psat.load(self.hdf5_path)
-
-
-class HbtExperiment:
-
-    def __init__(self):
-        self.hdf5_path = None
-        self.qudi_path = None
+class Hbt:
 
     @staticmethod
-    async def run(self, time=300):
+    async def run(time=300):
         done = Experiment.qc.hbt.pending_done()
         await Experiment.qc.hbt.start_timed(time=time)
-        await done
-        await self.save()
+        await Experiment.iwm.wait_for(done, 'Hbt')
 
-    async def save(self):
+    @staticmethod
+    async def save():
         # ask the Qudi end to save the data
-        saved = Experiment.qc.hbt.pending_hbt_saved()
-        self.hdf5_path = await Experiment.qc.hbt.save_hdf5()
-        self.qudi_path = await Experiment.qc.hbt.save_qudi()
-        await saved
+        hdf5_location = await Experiment.qc.hbt.save_hdf5()
+        qudi_path = await Experiment.qc.hbt.save_qudi()
+        return hdf5_location
 
-    def load(self):
+    @staticmethod
+    def load(path):
         # retrieve the data from HDF5 - ensuring we know we actually have it stored!
-        return Hbt.load(self.hdf5_path)
+        return HbtData.load(Experiment.tables_context, path)
+
+
+
+class Psat:
+
+    @staticmethod
+    async def take_psat():
+        fitted = Experiment.qc.aom.pending_psat_fit()
+        await Experiment.qc.aom.take_psat()
+        fit = await Experiment.iwm.wait_for(fitted, 'Psat')
+        print('Psat fit received: {}'.format(fit))
+        return fit
+
+    @staticmethod
+    async def save():
+        # ask the Qudi end to save the data
+        hdf5_location = await Experiment.qc.aom.save_hdf5()
+        qudi_path = await Experiment.qc.aom.save_qudi()
+        return hdf5_location
+
+    @staticmethod
+    def load(path):
+        # retrieve the data from HDF5 - ensuring we know we actually have it stored!
+        return PsatData.load(Experiment.tables_context, path)
+
 
 
 class RabiExperiment:
 
     def __init__(self, tau_start=0, tau_step=1, tau_points=100, measurement_time=300):
-        self.tau_sta.rt = tau_start
+        self.tau_start = tau_start
         self.tau_step = tau_step
         self.tau_points = tau_points
         self.measurement_time = measurement_time

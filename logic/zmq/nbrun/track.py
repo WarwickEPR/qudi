@@ -1,3 +1,4 @@
+import json
 import logging
 
 import comm
@@ -85,46 +86,66 @@ class Track(Magics):
 
     def __init__(self, ip: IPython):
         super(Track, self).__init__(ip)
-        self.current = None
-        self.state = {}
-        self.status = {}
-        self.summary = {}
+        self.stage = None
+        self._saved_state = {}
+        self._status = {}
+        self._summary = {}
         self.shell = ip
         self.log = logging.getLogger('track')
         self.comm_progress = comm.create_comm(target_name='progress')
+        self.comm_status = comm.create_comm(target_name='status')
         self.comm_stop = comm.create_comm(target_name='stop_file')
         self.log.info("Started progress tracker")
 
     def send_progress_message(self, msg):
-        self.log.debug("Sending progress msg: {} in stage {}".format(msg, self.current))
-        self.comm_progress.send({'message': msg, 'stage': self.current})
+        self.log.debug("Sending progress msg: {} in stage {}".format(msg, self.stage))
+        self.comm_progress.send({'message': msg, 'stage': self.stage})
 
     def send_progress(self, msg: dict):
-        msg['stage'] = self.current
+        msg['stage'] = self.stage
         self.log.debug("Sending progress: {}".format(msg))
         self.comm_progress.send(msg)
 
+    # tell the outer kernel where to put a stop file to cancel this kernel
     def send_stop_file(self, stop_file):
         self.log.debug("Sending stop_file: {}".format(stop_file))
         self.comm_stop.send(stop_file)
 
+    def _encode_json(self, data, context=''):
+        try:
+            return json.dumps(data)
+        except TypeError as e:
+            self.log.warning("Failed to encode {} as json: {}".format(context, e.args))
+
+    def send_status(self):
+        status = self._encode_json(self._status, "<status for {}>".format(self.stage))
+        summary = self._encode_json(self._summary, "<summary for {}>".format(self.stage))
+        saved_state = self._encode_json(self._saved_state, "<saved_state for {}>".format(self.stage))
+        self.comm_status.send({'status': status, 'summary': summary, 'saved_state': saved_state})
+
+    # get variable value from this kernel context
     def _get(self, name, default_value=None):
         return self.shell.user_ns.get(name, default_value)
 
+    # after every cell, peek into the variables and save state
     def _save(self):
         for k, v in self.shell.user_ns.items():
-            if k.startswith(self.current + '_'):
-                self.state[k] = v
+            if k.startswith(self.stage + '_'):
+                self._saved_state[k] = v
+
+        # transfer from <stage>_status to dict
         status_key = self._status_key()
-        self.status[status_key] = self._get(status_key, 'INCOMPLETE')
+        self._status[self.stage] = self._get(status_key, 'INCOMPLETE')
+
+        # transfer from <stage>_summary to dict
         summary_key = self._summary_key()
-        self.summary[summary_key] = self._get(summary_key, ' ')
+        self._summary[self.stage] = self._get(summary_key, ' ')
 
     def _status_key(self):
-        return '{}_status'.format(self.current)
+        return '{}_status'.format(self.stage)
 
     def _summary_key(self):
-        return '{}_status'.format(self.current)
+        return '{}_summary'.format(self.stage)
 
     @classmethod
     def setup(cls):
@@ -135,45 +156,60 @@ class Track(Magics):
         return mt
 
     def post_run_cell(self, result):
-        if self.current is not None:
+        if self.stage is not None:
             self._save()
+            self.send_status()
 
     @line_magic
-    def start(self, line):
-        self.current = line
-        self.shell.user_ns['track_current'] = line
-        self.send_progress_message("Starting stage <{}>".format(line))
+    def start(self, stage):
+        self.stage = stage
+        self.shell.user_ns['track_stage'] = stage
+        self._status[stage] = 'STARTED'
+        self.send_status()
+        self.send_progress_message("Starting stage <{}>".format(stage))
 
     @line_magic
-    def status(self, line):
-        if self.current:
-            self.shell.user_ns[self._status_key()] = line
+    def status(self, status):
+        if self.stage:
+            self._status[self.stage] = status
+            self.shell.user_ns[self._status_key()] = status
+            self.send_status()
 
     @line_magic
-    def summary(self, line):
-        if self.current:
-            self.shell.user_ns[self._summary_key()] = line
-
-    @line_magic
-    def checkpoint(self, line):
-        if line:
-            checkpoint = line
-        else:
-            checkpoint = self.current
-        return JSON({'checkpoint': checkpoint,
-                     'state': self.state,
-                     'status': self.status,
-                     'summary': self.summary},
-                    expanded=False,
-                    metadata={'type': 'checkpoint', 'root': 'checkpoint-{}'.format(self.current)})
+    def summary(self, summary):
+        if self.stage:
+            self._summary[self.stage] = summary
+            self.shell.user_ns[self._summary_key()] = summary
+            self.send_status()
 
     @line_magic
     def progress(self, line):
+        if not line.startswith("Waiting for "):
+            # suppress the timer repeating lines
+            print(line)
         self.send_progress_message(line)
+
+    @line_magic
+    def checkpoint(self, stage):
+        if not stage:
+            stage = self.stage
+
+        self._save()
+        self.status('DONE')
+        self.send_progress_message("Done")
+
+        checkpoint = JSON({'checkpoint': stage,
+                           'saved_state': self._saved_state,
+                           'status' : self._status,
+                           'summary': self._summary},
+                          expanded=False,
+                          metadata={'type': 'checkpoint', 'root': 'checkpoint-{}'.format(self.stage)})
+        return checkpoint
 
     def __del__(self):
         self.comm_progress.close()
         self.comm_stop.close()
+        self.comm_status.close()
 
 
 # Handler for the receiving end

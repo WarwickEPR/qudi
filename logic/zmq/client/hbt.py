@@ -32,9 +32,9 @@ class HbtClient(QudiClient):
         return awaitable()
 
     async def save_hdf5(self, tag=''):
-        response = await self.send_command('save_hdf5', {'tag': tag})
-        return response.body
+        location = await self.query('save_hdf5', {'tag': tag})
+        return location
 
     async def save_qudi(self, tag=''):
-        response = await self.send_command('save_qudi', {'tag': tag})
-        return response.body
+        path = await self.query('save_qudi', {'tag': tag})
+        return path

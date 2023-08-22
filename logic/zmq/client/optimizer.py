@@ -43,8 +43,9 @@ class OptimizerClient(QudiClient):
         await self.send_command('emit_refocused')
 
     async def save_hdf5(self):
-        self.log.info("Saving to ")
-        await self.send_command('save_hdf5')
+        location = await self.query('save_hdf5')
+        self.log.info("Saved to {}".format(location))
+        return location
 
     def pending_refocus(self):
         refocused = self.subscribe('optimizer.refocused')

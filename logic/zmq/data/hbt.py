@@ -1,6 +1,7 @@
 from tables import *
 from .tables_context import TablesContext
 from .base import DataBase
+import numpy as np
 
 
 class Hbt(DataBase):
@@ -29,20 +30,30 @@ class Hbt(DataBase):
             dataset.append(list(zip(self.bin_times, self.g2_raw, self.g2_normalized)))
             dataset.attrs['timestamp'] = self.timestamp
             dataset.attrs['tag'] = self.tag
-            self._make_poi_link(th.tables, dataset)
             th.flush()
+
+            self.log.info("Saving hbt data to {}:/{}".format(tc.filepath, self.path))
+            location = {'file': tc.filepath, 'path': self.path}
+            return location
 
     @classmethod
     def load(cls, tc: TablesContext, node_path: str):
         with tc as th:
             dataset = th.tables.get_node(node_path, classname='Table')
-            roi = dataset.attrs.get('roi', None)
-            poi = dataset.attrs.get('poi', None)
-            bin_times = dataset.read('bin_times')
-            g2_raw = dataset.read('g2_raw')
-            g2_normalized = dataset.read('g2_normalized')
-            tag = dataset.attrs.get('tag', '')
-            timestamp = dataset.attrs.get('timestamp', '')
+
+            def get_attr(attr, default):
+                try:
+                    return dataset._v_attrs[attr]
+                except (AttributeError, KeyError):
+                    return default
+
+            roi = get_attr('roi', None)
+            poi = get_attr('poi', None)
+            bin_times = np.array(dataset.read(field='bin_times')).astype(float)
+            g2_raw = np.array(dataset.read(field='g2_raw')).astype(float)
+            g2_normalized = np.array(dataset.read(field='g2_normalized')).astype(float)
+            tag = get_attr('tag', '')
+            timestamp = get_attr('timestamp', '')
             return Hbt(bin_times=bin_times, g2_raw=g2_raw, g2_normalized=g2_normalized, tag=tag, timestamp=timestamp, roi=roi, poi=poi)
 
     @classmethod

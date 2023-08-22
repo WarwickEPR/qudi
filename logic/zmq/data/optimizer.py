@@ -39,32 +39,36 @@ class OptimizerImage(DataBase):
 
         with tc as th:
             self.log.info("Saving optimizer data to {}".format(self.path))
-            group = th.tables.create_group(self.group_path, self.node_name, createparents=True)
+            try:
+                group = th.tables.create_group(self.group_path, self.node_name, createparents=True)
 
-            # save xy image
-            xy_dataset = th.tables.create_array(group, 'XY', self.xy_data)
-            for k in self.setup_keys:
-                xy_dataset._v_attrs[k] = self.setup.get(k, .0)
-            xy_dataset.flush()
+                # save xy image
+                xy_dataset = th.tables.create_array(group, 'XY', self.xy_data)
+                for k in self.setup_keys:
+                    xy_dataset._v_attrs[k] = self.setup.get(k, .0)
+                xy_dataset.flush()
 
-            # save z line profile
-            z_dataset = th.tables.create_table(group, 'Z', self.ZDescription)
-            z_dataset.append(list(zip(self.z_data['z'], self.z_data['counts'])))
-            z_dataset._v_attrs['z_resolution'] = self.setup['z_resolution']
-            z_dataset._v_attrs['z_span'] = self.setup['z_span']
-            z_dataset.flush()
+                # save z line profile
+                z_dataset = th.tables.create_table(group, 'Z', self.ZDescription)
+                z_dataset.append(list(zip(self.z_data['z'], self.z_data['counts'])))
+                z_dataset._v_attrs['z_resolution'] = self.setup['z_resolution']
+                z_dataset._v_attrs['z_span'] = self.setup['z_span']
+                z_dataset.flush()
 
-            group._v_attrs['timestamp'] = self.timestamp
-            group._v_attrs['tag'] = self.tag
-            group._v_attrs['version'] = self.version
-            for k in self.setup_keys:
-                group._v_attrs[k] = self.setup[k]
-            for k in self.fit_keys:
-                group._v_attrs[k] = self.fit[k]
+                group._v_attrs['timestamp'] = self.timestamp
+                group._v_attrs['tag'] = self.tag
+                group._v_attrs['version'] = self.version
+                for k in self.setup_keys:
+                    group._v_attrs[k] = self.setup[k]
+                for k in self.fit_keys:
+                    group._v_attrs[k] = self.fit[k]
 
-            self._make_poi_link(th.tables, group)
-            th.flush()
-            return self.path
+                self._make_poi_link(th.tables, group)
+                th.flush()
+                return self.path
+            except NodeError:
+                # most likely already saved, return where it should be
+                return self.path
 
     @classmethod
     def load(cls, tc: TablesContext, path: str):
@@ -74,10 +78,8 @@ class OptimizerImage(DataBase):
             poi = img_group._v_attrs['poi']
 
             xy_data = np.array(img_group.XY[:])
+            z_data = img_group.Z.read().astype(dtype=[('z', float), ('counts', float)])
 
-            z = img_group.Z.col('z')
-            counts = img_group.Z.col('counts')
-            z_data = unstructured_to_structured(np.vstack((z, counts)).T, names=['z', 'counts'])
             tag = img_group._v_attrs['tag']
             timestamp = img_group._v_attrs['timestamp']
 

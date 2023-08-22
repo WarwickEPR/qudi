@@ -14,8 +14,8 @@ class PoiManagerClient(QudiClient):
     async def save_roi(self, name=None):
         return await self.query('save_hdf5', {'name': name})
 
-    async def goto_poi(self, name):
-        await self.send_command('goto_poi', name)
+    async def goto_poi(self, poi=None):
+        await self.send_command('goto_poi', body={'poi': poi})
 
     async def optimize_poi(self, name, update=True):
         await self.send_command('optimize_poi', body={'name': name, 'update': update})
@@ -31,6 +31,12 @@ class PoiManagerClient(QudiClient):
 
     async def set_active_poi(self, poi):
         await self.send_command('set_active_poi', poi)
+
+    async def update_poi_position(self):
+        await self.send_command('update_poi_position')
+
+    async def update_roi_position(self):
+        await self.send_command('update_roi_position')
 
     async def start_tracking(self, poi=None):
         return await self.query('start_tracking', poi)
