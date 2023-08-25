@@ -105,12 +105,15 @@ class PDMRCounterMicrowaveInterfuse(GenericLogic, PDMRCounterInterface,
         @return bool, float[]: is Error?, the photon counts per second
         """
 
+        import time
         counts = np.zeros((len(self.get_pdmr_channels()), length))
         # self.trigger()
+        a = time.time()
         for i in range(length):
             self.trigger()
             counts[0,i] = abs(float(self._picoammeter_hardware.read_current().split(',')[0][:-1]))
             counts[1:,i] = self._sc_device.get_counter(samples=1)[1:,0]
+            #print('{}'.format(time.time() - a))
         self.trigger()
         return False, counts
 
