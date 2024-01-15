@@ -17,6 +17,7 @@ class ConfocalProxy(ZmqProxy):
     frontend = Connector(interface='ZmqFrontend')
     storage = Connector(interface='TablesStorage')
     confocal = Connector(interface='ConfocalLogic')
+    scanning_device = Connector(interface='ConfocalScannerInterface')  # physical device, no interfuse
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -36,7 +37,7 @@ class ConfocalProxy(ZmqProxy):
         self.confocal().sigImageDepthInitialized.connect(self._starting_depth_image, Qt.QueuedConnection)
         # scan stopped
         self.confocal().signal_stop_scanning.connect(self._stopping, Qt.QueuedConnection)
-        #self.confocal().signal_change_position.connect(self._changed_position, Qt.QueuedConnection)
+        self.confocal().signal_change_position.connect(self._changed_position, Qt.QueuedConnection)
 
     def on_deactivate(self):
         super().on_deactivate()
@@ -44,7 +45,22 @@ class ConfocalProxy(ZmqProxy):
         self.confocal().sigImageXYInitialized.disconnect(self._starting_xy_image)
         self.confocal().sigImageDepthInitialized.disconnect(self._starting_depth_image)
         self.confocal().signal_stop_scanning.disconnect(self._stopping)
-        #self.confocal().signal_change_position.disconnect(self._changed_position)
+        self.confocal().signal_change_position.disconnect(self._changed_position)
+
+    def _get_scanner_position(self):
+        p = self.scanning_device().get_scanner_position()
+        self._x = x = p[0]
+        self._y = y = p[1]
+        self._z = z = p[2]
+        return x, y, z
+
+    def _set_scanner_position(self, x, y, z, a=None):
+        status = self.scanning_device().scanner_set_position(x=x, y=y, z=z, a=a)
+        if status == -1:
+            # failed
+            return False
+        else:
+            return True
 
     # For convenience, keep note of the path to latest images saved
     @property
@@ -64,11 +80,9 @@ class ConfocalProxy(ZmqProxy):
     def _notify_state_change(self, e):
         self.notify('state_change')
 
+    # fetch the stage position, not the ambiguous tilted position
     def _changed_position(self, _):
-        x, y, z = self.confocal().get_position()
-        self._x = x
-        self._y = y
-        self._z = z
+        x, y, z = self._get_scanner_position()
         self.notify('position_changed_to', {'x': x, 'y': y, 'z': z})
 
     def _notify_scan_stopped(self):
@@ -130,14 +144,18 @@ class ConfocalProxy(ZmqProxy):
         else:
             return Orientation.XY
 
+    def handle_get_position(self, msg: Message):
+        x, y, z = self._get_scanner_position()
+        self.reply(msg, body=(x, y, z))
+
     def handle_set_position(self, msg: Message):
         x = y = z = a = None
         if 'x' in msg.body: x = msg.body['x']
         if 'y' in msg.body: y = msg.body['y']
         if 'z' in msg.body: z = msg.body['z']
         if 'a' in msg.body: a = msg.body['a']
-
-        self.confocal().set_position('zmq', x=x, y=y, z=z, a=a)
+        self._set_scanner_position(x, y, z, a)
+        self._changed_position(None)  # as we instruct the scanner directly, miss the signal
 
     def handle_set_tilt(self, msg: Message):
         tilt_x = msg.body.get('tilt_x', 0)
@@ -148,10 +166,6 @@ class ConfocalProxy(ZmqProxy):
         self.confocal()._scanning_device.tilt_variable_ay = tilt_y
         self.confocal()._scanning_device.tilt_reference_x = reference_x
         self.confocal()._scanning_device.tilt_reference_y = reference_y
-
-    def handle_get_position(self, msg: Message):
-        position = self.confocal().get_position()
-        self.reply(msg, body=position)
 
     def handle_stop(self, _):
         self.confocal().stop_scanning()
@@ -232,7 +246,7 @@ class ConfocalProxy(ZmqProxy):
         attrs = dict()
 
         # copy everything serialize uses into attributes
-        position = cf.get_position()
+        position = self._get_scanner_position()
         x, y, z = position
         attrs['x_range_start'] = cf.image_x_range[0]
         attrs['x_range_end'] = cf.image_x_range[1]
@@ -254,7 +268,7 @@ class ConfocalProxy(ZmqProxy):
         cf = self.confocal()
 
         h_points, z_points, d_points = cf.depth_image.shape
-        position = cf.get_position()
+        position = self._get_scanner_position()
         x, y, z = position
 
         if cf.depth_img_is_xz:
