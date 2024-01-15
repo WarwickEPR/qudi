@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from logic.zmq.data.tables_context import TablesContext
+from logic.zmq.data.timestamp import Timestamp
 import logic.scan_patterns.general_scan as scan
 from queue import Queue
 from tables.atom import Float64Atom
@@ -8,8 +9,8 @@ from tables.atom import Float64Atom
 
 # not the most efficient way but the flat iterator doesn't seem to be fully implemented for tables.Array as ndarray
 def write_to_h5array_3d(target, indices, data):
-    for i, j, d, c in zip(*np.unravel_index(indices, shape=target.shape), data):
-        target[i, j, 1, d] = c
+    for i, j, _, d, c in zip(*np.unravel_index(indices, shape=target.shape), data):
+        target[i, j, 0, d] = c
 
 
 def write_to_h5array_4d(target, indices, data):
@@ -35,7 +36,7 @@ class ParallelepipedScan(scan.ParallelepipedScan):
 
     def initialise_data(self):
         with self._tc as th:
-            ts = self._tc.timestamp()
+            ts = Timestamp.get_timestamp()
             name = 'ABC_{}'.format(ts)
             arr = th.tables.create_array("/Confocal/ABC",
                                          name,
@@ -102,7 +103,7 @@ class ParallelogramScan(scan.ParallelogramScan):
 
     def initialise_data(self):
         with self._tc as th:
-            ts = self._tc.timestamp()
+            ts = Timestamp.get_timestamp()
             name = 'AB_{}'.format(ts)
             arr = th.tables.create_array("/Confocal/AB",
                                          name,

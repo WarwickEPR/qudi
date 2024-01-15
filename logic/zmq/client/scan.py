@@ -12,7 +12,10 @@ class Tilt:
 
         # rotation axis and angle between stage z and tilted z
         z0 = np.array([0, 0, 1])
-        p, q, r = axis = self._rotation_axis = np.cross(z0, self._norm)
+        axis = np.cross(z0, self._norm)
+        if axis[0] < 0 or axis[1] < 0:
+            axis = -axis
+        p, q, r = self._rotation_axis = axis
         c = np.dot(z0, self._norm)
         s = np.sqrt(1-c*c)
         self._rotation_angle = np.arccos(c)
