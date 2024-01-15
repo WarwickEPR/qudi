@@ -59,8 +59,9 @@ class ImageWidget(HasTraits):
 
         self._image_selector = widgets.Dropdown(options=self.images_dictionary(),
                                                 description='Image',
-                                                layout=Layout(flex='2 0 0%'),
-                                                value=self.image)
+                                                layout=Layout(flex='2 0 0%'))
+        if self.image in self.images_dictionary():
+            self._image_selector.value = self.image
 
         self._image_slice = widgets.Dropdown(options=[],
                                              description='Slice',
@@ -90,7 +91,8 @@ class ImageWidget(HasTraits):
                                 flex_flow='column',
                                 align_items='flex-start')
         self._controls = widgets.Box([self._image_selector, self._image_slice], layout=control_layout)
-        widgets.link((self, 'image'), (self._image_selector, 'value'))
+        if self.image:
+            widgets.link((self, 'image'), (self._image_selector, 'value'))
 
         if save:
             self._save_fig = SaveFig(self.fig).display()
@@ -125,7 +127,7 @@ class ImageWidget(HasTraits):
         if image_nodes:
             return image_nodes[-1]
         else:
-            return None
+            return ''
 
     def update_contrast(self, change):
         (min_c, max_c) = change['new']
@@ -164,16 +166,16 @@ class ImageWidget(HasTraits):
         elif image_type == 'AB':
             img = image_hdf.xy_image_data()
             attrs = image_hdf.attrs
-            self.axes.set_xlabel(r'X\'($\mu$m)')
-            self.axes.set_ylabel(r'Y\'($\mu$m)')
+            self.axes.set_xlabel(r"X'($\mu$m)")
+            self.axes.set_ylabel(r"Y'($\mu$m)")
             x = np.linalg.norm(attrs['a'] - attrs['o'])*1e6
             y = np.linalg.norm(attrs['b'] - attrs['o'])*1e6
             extents = [0, x, 0, y]
         elif image_type == 'ABC':
             img = image_hdf.xy_image_data(z_slice=1)
             attrs = image_hdf.attrs
-            self.axes.set_xlabel(r'X\'($\mu$m)')
-            self.axes.set_ylabel(r'Y\'($\mu$m)')
+            self.axes.set_xlabel(r"X'($\mu$m)")
+            self.axes.set_ylabel(r"Y'($\mu$m)")
             x = np.linalg.norm(attrs['a'] - attrs['o'])*1e6
             y = np.linalg.norm(attrs['b'] - attrs['o'])*1e6
             extents = [0, x, 0, y]

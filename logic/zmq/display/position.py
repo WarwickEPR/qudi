@@ -27,7 +27,8 @@ class PositionWidget(HasTraits):
         traitlets.link((self, 'p'), (self._y, 'value'), transform=[(lambda p: p[1]*1e6), (lambda y: (self.p[0], y*1e-6, self.p[2]))])
         traitlets.link((self, 'p'), (self._z, 'value'), transform=[(lambda p: p[2]*1e6), (lambda z: (self.p[0], self.p[1], z*1e-6))])
         self._button = Button(description='Get position')
-        self._button.on_click(self._click)
+        self._button.on_click(self._click_get_position)
+
 
     @property
     def button(self):
@@ -45,7 +46,8 @@ class PositionWidget(HasTraits):
     def entry_z(self):
         return self._z
 
-    def _click(self, _):
+    def _click_get_position(self, _):
+        # get the current _stage_ position
         async def update_position():
             x, y, z = await self._qc.confocal.get_position()
             self.p = (x, y, z)

@@ -290,12 +290,13 @@ class RoiWidget(HasTraits):
             a = c['new']
             self._skew_rs.rotation = a
 
+        s = {'description_width': 'initial'}
         self._skew_angle = FloatSlider(descriptio='Angle: ', min=-45, max=45)
         self._skew_angle.observe(angle, names='value')
-        self._xy_resolution = BoundedIntText(description="XY points max", min=0)
-        self._z_resolution = BoundedIntText(description="Z points", min=0)
-        self._z_up = BoundedFloatText(description="Z up (um)", min=0, max=300)
-        self._z_down = BoundedFloatText(description="Z down (um)", min=0, max=300)
+        self._xy_resolution = BoundedIntText(description="XY points max", style=s, min=1, value=100, max=2000)
+        self._z_resolution = BoundedIntText(description="Z points", style=s, min=1)
+        self._z_up = BoundedFloatText(description="Z up (um)", style=s, min=0, max=300)
+        self._z_down = BoundedFloatText(description="Z down (um)", style=s, min=0, max=300)
         self._skew_take_rectangle = Button(description="Image skew rectangle")
         self._skew_take_cuboid = Button(description="Image skew cuboid")
 
@@ -322,6 +323,16 @@ class RoiWidget(HasTraits):
             else:
                 sx = self._xy_resolution.value
                 sy = int(sx * yd/xd)
+
+            self._latest_rectangle_scan = {'pivot': pivot,
+                                           'tilt_form': tilt_norm,
+                                           'o0': ox,
+                                           'o1': oy,
+                                           'a0': ax,
+                                           'a1': ay,
+                                           'b0': bx,
+                                           'b1': by,
+                                           'si': (sx, sy)}
 
             task = self._qc.scan.start_rectangle_scan(pivot=pivot,
                                                       tilt_norm=tilt_norm,
@@ -382,13 +393,10 @@ class RoiWidget(HasTraits):
         self._skew_take_rectangle.on_click(take_rectangle)
         self._skew_take_cuboid.on_click(take_cuboid)
 
-        left = VBox((self._xy_resolution, self._z_resolution, self._z_up, self._z_down))
-        right = VBox((self._skew_take_rectangle, self._skew_take_cuboid))
+        right = VBox((self._xy_resolution, self._z_resolution, self._z_up, self._z_down, self._skew_angle, self._skew_take_rectangle, self._skew_take_cuboid))
 
         return AppLayout(center=self._skew_iw.display(),
-                         left_sidebar=left,
-                         right_sidebar=right,
-                         footer=self._skew_angle)
+                         right_sidebar=right)
 
     def _new_roi_action(self, _):
         pass
