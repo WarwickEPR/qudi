@@ -3,6 +3,7 @@ import asyncio
 from .. client.QudiControl import QudiControl
 from .. data.tables_context import TablesContext
 from .. data.image import ImageHDF
+from logic.zmq.data.timestamp import Timestamp
 
 import ipywidgets as widgets
 import matplotlib.pyplot as plt
@@ -116,7 +117,7 @@ class ImageWidget(HasTraits):
         with self._tc as th:
             filtered_nodes = filter(filter_function, th.nodes_of_type(root="/Confocal", data_type_prefix="Image"))
             filtered_nodes2 = filter(filter_function, th.nodes_of_type(root="/Confocal", data_type_prefix="AB"))
-            n = sorted(chain(filtered_nodes, filtered_nodes2), key=TablesContext.extract_timestamp)
+            n = sorted(chain(filtered_nodes, filtered_nodes2), key=Timestamp.extract_timestamp)
             return dict(map(lambda x: (x.name, x._v_pathname), n))
 
     def latest_image(self, filter_function=lambda _: True):

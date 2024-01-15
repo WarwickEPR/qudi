@@ -1,5 +1,8 @@
 import filelock
 import tables
+from tables import NoSuchNodeError
+
+from . timestamp import Timestamp
 
 
 class TablesHandle:
@@ -33,7 +36,11 @@ class TablesHandle:
                     return False
             return True
 
-        yield from filter(filter_nodes, self.tables.walk_nodes(root, **kwargs))
+        try:
+            n = self.tables.get_node(root)
+            yield from filter(filter_nodes, self.tables.walk_nodes(root, **kwargs))
+        except NoSuchNodeError:
+            pass
 
     @property
     def poi(self):
@@ -128,6 +135,10 @@ class TablesContext:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.tables_handle.close()
+
+    @staticmethod
+    def timestamp():
+        return Timestamp.get_timestamp()
 
     # @classmethod
     # def dataset_site_folder(cls, site, measurement):

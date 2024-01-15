@@ -5,7 +5,7 @@ from PyQt5.QtCore import Qt
 from .. data.image import Orientation
 from .. data.tables_context import TablesContext
 import numpy as np
-from .. data.timestamp import get_timestamp
+from .. data.timestamp import Timestamp
 
 from ..storage import NoDataFileSpecified
 
@@ -213,7 +213,7 @@ class ConfocalProxy(ZmqProxy):
             tc: TablesContext = self.storage().tables_context()
             with tc as th:
                 group = '/Confocal/' + image_type
-                image_name = '{0}_{1}'.format(image_type, get_timestamp())
+                image_name = '{0}_{1}'.format(image_type, Timestamp.get_timestamp())
                 data_type = 'Image_{}_v1.0'.format(image_type)
                 self.log.debug('Saving image to {} {}/{}'.format(self.storage().data_file_path, group, image_name))
                 node = th.create_array(group, image_name, image, data_type)

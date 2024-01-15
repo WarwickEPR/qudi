@@ -2,7 +2,6 @@ from . base import ZmqProxy
 from core.connector import Connector
 from logic.zmq.message import Message
 from logic.zmq.data.psat import Psat
-from logic.zmq.data.timestamp import get_timestamp
 
 
 class AomProxy(ZmqProxy):

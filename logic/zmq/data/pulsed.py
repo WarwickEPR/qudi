@@ -3,7 +3,7 @@ import logging
 import numpy as np
 from tables import *
 from . tables_context import TablesContext, TablesHandle
-from . timestamp import get_timestamp
+from . timestamp import Timestamp
 from . base import DataBase
 from tables.exceptions import NodeError, NoSuchNodeError
 
@@ -38,7 +38,7 @@ class PulsedMeasurement(DataBase):
     @classmethod
     def node(cls, tag='', timestamp=None):
         if timestamp is None:
-            timestamp = get_timestamp()
+            timestamp = Timestamp.get_timestamp()
         if tag != '':
             return 'pulsed_{}_{}'.format(tag, timestamp)
         else:
@@ -62,7 +62,7 @@ class PulsedMeasurement(DataBase):
         return '_'.join([self._measurement, self.tag, self.timestamp])
 
     def _save_snapshot(self, group):
-        snapshot_name = 'snapshot_' + get_timestamp()
+        snapshot_name = 'snapshot_' + Timestamp.get_timestamp()
         try:
             # copy current to snapshot_<timestamp> under this path
             group._f_copy(newparent=self.path, newname=snapshot_name, createparents=True, recursive=True)
@@ -135,7 +135,7 @@ class PulsedMeasurement(DataBase):
                 self._set_attrs(group, self._settings, prefix='settings_')
 
                 # mark the last update time
-                group._v_attrs['update_time'] = get_timestamp()
+                group._v_attrs['update_time'] = Timestamp.get_timestamp()
 
                 # Update or create extracted table
                 try:

@@ -1,17 +1,24 @@
 import time
 import re
+from tables.node import Node
 
 
-def get_timestamp():
-    return time.strftime("%Y%m%d_%H%M%S", time.gmtime())
+class Timestamp:
 
+    TIMESTAMP = re.compile(r"\d{8}_\d{6}")
 
-TIMESTAMP = re.compile(r"\d{8}_\d{6}")
+    @classmethod
+    def get_timestamp(cls):
+        return time.strftime("%Y%m%d_%H%M%S", time.gmtime())
 
+    @classmethod
+    def extract_timestamp(cls, x):
+        n = x
+        if isinstance(x, Node):
+            n = x._v_name
 
-def extract_timestamp(cls, x):
-    m = re.search(cls.TIMESTAMP, x)
-    if m:
-        return m[0]
-    else:
-        return ''
+        m = re.search(cls.TIMESTAMP, n)
+        if m:
+            return m[0]
+        else:
+            return ''

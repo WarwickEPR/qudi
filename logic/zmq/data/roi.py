@@ -3,14 +3,15 @@ import logging
 from tables import *
 import numpy as np
 from .tables_context import TablesContext
-from .timestamp import get_timestamp
+from .timestamp import Timestamp
 from .base import DataBase
 
 
 class ROI(DataBase):
 
-    root = '/ROI'
-    version = 'ROI_v1.0'
+    _root = '/ROI'
+    _stem = 'roi'
+    _version = 'ROI_v1.0'
 
     class Description(IsDescription):
         name = StringCol(128, pos=0)  # limits POI name length but this is ample
@@ -20,7 +21,7 @@ class ROI(DataBase):
 
     log = logging.getLogger('roi.data')
 
-    def __init__(self, timestamp=None, roi=None, roi_version=None, pois={}, tag=None,
+    def __init__(self, timestamp=None, roi='anon', roi_version=None, pois={}, tag='',
                  origin=(.0, .0, .0), reference_image='', stage_x=.0, stage_y=.0):
         super(ROI, self).__init__(tag=tag, timestamp=timestamp, roi=roi)
         self.roi_name = roi
@@ -37,10 +38,10 @@ class ROI(DataBase):
             try:
                 if roi_version is None:
                     # get list of versions
-                    versions = [x._v_name for x in th.tables.list_nodes(cls.root, name=roi_name, classname=Table)].sort()
+                    versions = [x._v_name for x in th.tables.list_nodes(cls.root(), name=roi_name, classname=Table)].sort()
                     roi_version = versions[-1]    # latest by default
                 pois = {}
-                roi_table = th.tables.get_node('/'.join([cls.root, roi_name]), name=roi_version, classname=Table)
+                roi_table = th.tables.get_node('/'.join([cls.root(), roi_name]), name=roi_version, classname=Table)
                 for poi, x, y, z in roi_table:
                     pois[poi] = x, y, z
                 origin = roi_table.attrs.get('origin', (.0, .0, .0))
@@ -57,17 +58,18 @@ class ROI(DataBase):
 
     def store(self, tc: TablesContext):
         if not self.roi_version:
-            self.roi_version = get_timestamp()
+            self.roi_version = Timestamp.get_timestamp()
 
         with tc as th:
-            roi_table = th.tables.create_table('/'.join([self.root, self.roi_name]),
+            roi_table = th.tables.create_table('/'.join([self.root(), self.roi_name]),
                                                name=self.roi_version,
                                                description=self.Description,
                                                createparents=True)
             pois = [(poi, *self.pois[poi]) for poi in self.pois.keys()]
-            roi_table.append(pois)
+            if len(pois) > 0:
+                roi_table.append(pois)
             roi_table.attrs['roi_name'] = self.roi_name
-            roi_table.attrs['origin'] = self.origin if self.origin else (.0, .0, .0)
+            roi_table.attrs['origin'] = self.origin
             roi_table.attrs['reference_image'] = self.reference_image if self.reference_image else ''
             roi_table.attrs['stage_x'] = self.stage_x if self.stage_x else 0.0
             roi_table.attrs['stage_y'] = self.stage_y if self.stage_y else 0.0

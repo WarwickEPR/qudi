@@ -2,7 +2,7 @@ from . base import ZmqProxy, ZmqTimer
 from core.connector import Connector
 from logic.zmq.message import PubMessage, Message
 from logic.zmq.data.pulsed import PulsedMeasurement
-from logic.zmq.data.timestamp import get_timestamp
+from logic.zmq.data.timestamp import Timestamp
 from logic.zmq.data.tables_context import TablesContext
 import itertools
 
@@ -69,7 +69,7 @@ class PulsedProxy(ZmqProxy):
             self._timer.stop()
 
     def handle_start(self, msg: Message):
-        t = get_timestamp()
+        t = Timestamp.get_timestamp()
         if 'name' in msg.body:
             name = '{}_{}'.format(msg.body['name'], t)
         else:

@@ -5,6 +5,7 @@ from PyQt5.QtCore import Qt
 from logic.zmq.data.roi import ROI
 import numpy as np
 from .. data.tables_context import TablesContext
+from .. data.timestamp import Timestamp
 
 
 class PoiManagerProxy(ZmqProxy):

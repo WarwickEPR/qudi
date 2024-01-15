@@ -1,6 +1,6 @@
 import logging
 
-from .timestamp import get_timestamp
+from .timestamp import Timestamp
 import tables
 import logging
 from time import strptime
@@ -9,28 +9,32 @@ from calendar import timegm
 
 class DataBase:
 
+    _root = '/undefined'
+    _stem = 'undefined'
+    _version = ''
+
     def __init__(self, tag='', timestamp=None, roi=None, poi=None):
         self.tag = tag
-        self.timestamp = timestamp if timestamp is not None else get_timestamp()
+        self.timestamp = timestamp if timestamp is not None else Timestamp.get_timestamp()
         self.roi = roi
         self.poi = poi
         self.log = logging.getLogger('data')
 
     @classmethod
     def root(cls):
-        return cls.root
+        return cls._root
 
     @classmethod
     def stem(cls):
-        return cls.stem
+        return cls._stem
 
     @classmethod
     def version(cls):
-        return cls.version
+        return cls._version
 
     @property
     def node_name(self):
-        return '_'.join([self.stem, self.tag, self.timestamp])
+        return '_'.join([self.stem(), self.tag, self.timestamp])
 
     @property
     def path(self):
@@ -38,12 +42,12 @@ class DataBase:
 
     @property
     def group_path(self):
-        return self.root
+        return self.root()
 
     @property
     def poi_group_path(self):
         if self.poi is not None and self.roi is not None:
-            return '/'.join(['/ROI', self.roi, self.poi]) + self.root
+            return '/'.join(['/ROI', self.roi, self.poi]) + self.root()
         else:
             return None
 
