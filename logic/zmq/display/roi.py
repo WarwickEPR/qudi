@@ -1,6 +1,9 @@
 import asyncio
 
 from traitlets import HasTraits, Unicode, List
+
+from .background import BgTask
+from ..data.image import Rectangle, Cuboid
 from .. data.tables_context import TablesContext
 import time as tm
 import numpy as np
@@ -10,9 +13,12 @@ from ipywidgets import TwoByTwoLayout, Button, Text, Label, Dropdown, Accordion,
 from matplotlib.widgets import RectangleSelector
 from . tilt import TiltWidget
 from . cfm import ImageWidget
+import logging
 
 
 class RoiWidget(HasTraits):
+
+    log = logging.getLogger('widget.roi')
 
     current_roi = Unicode()
     available_roi = List(Unicode())
@@ -295,110 +301,106 @@ class RoiWidget(HasTraits):
         self._skew_angle.observe(angle, names='value')
         self._xy_resolution = BoundedIntText(description="XY points max", style=s, min=1, value=100, max=2000)
         self._z_resolution = BoundedIntText(description="Z points", style=s, min=1)
+        self._z_centre = BoundedFloatText(description="Z centre (um)", style=s, min=0, max=300)
         self._z_up = BoundedFloatText(description="Z up (um)", style=s, min=0, max=300)
         self._z_down = BoundedFloatText(description="Z down (um)", style=s, min=0, max=300)
-        self._skew_take_rectangle = Button(description="Image skew rectangle")
-        self._skew_take_cuboid = Button(description="Image skew cuboid")
+        self._skew_rectangle_height = Button(description="Z from rectangle centre", style=s)
+        self._skew_take_rectangle = Button(description="Image skew rectangle", style=s)
+        self._skew_take_cuboid = Button(description="Image skew cuboid", style=s)
+
+        def hello(_):
+            self.log.debug("Hello")
 
         def take_rectangle(_):
-            pivot = self._tilt_widget.pivot
-            tilt_norm = self._tilt_widget.xy_norm
-            g = self._skew_rs.geometry * 1e-6
+            tilt = self._tilt_widget.tilt
+            rectangle = check_offset(Rectangle(skew_rectangle=self._skew_rs.geometry * 1e-6, tilt=tilt))
+            sx, sy = rectangle.fixed_aspect_resolution(self._xy_resolution.value)
+            self.log.info("Starting scan of rectangle {} size {}".format(rectangle, (sx, sy)))
+            scan = self._qc.scan.start_rectangle_scan(rectangle=rectangle, size=(sx, sy))
+            asyncio.create_task(scan)
+            #bg_scan = BgScan(self._qc, scan, sx*sy)
+            #app.footer = bg_scan.display_progress()
+            #bg_scan.start()
 
-            ox = g[0][0]
-            oy = g[1][0]
-            ax = g[0][1]
-            ay = g[1][1]
-            bx = g[0][2]
-            by = g[1][2]
+        self._skew_take_rectangle.on_click(take_rectangle)
 
-            o = self._tilt_widget.point_from_xy(ox, oy)
-            a = self._tilt_widget.point_from_xy(ax, ay)
-            b = self._tilt_widget.point_from_xy(bx, by)
-            xd = np.linalg.norm(a-o)
-            yd = np.linalg.norm(b-o)
-            if xd < yd:
-                sy = self._xy_resolution.value
-                sx = int(sy * xd/yd)
+        right = VBox((self._xy_resolution, self._z_resolution,
+                      self._z_centre, self._z_up, self._z_down,
+                      self._skew_angle,
+                      self._skew_rectangle_height,
+                      self._skew_take_rectangle, self._skew_take_cuboid))
+        app = AppLayout(center=self._skew_iw.display(), right_sidebar=right, pane_widths=[1, 4, 2])
+
+        def rectangle_centre_z(_):
+            tilt = self._tilt_widget.tilt
+            rectangle = Rectangle(skew_rectangle=self._skew_rs.geometry * 1e-6, tilt=tilt)
+            z = rectangle.centre[2] * 1e6
+            self._z_centre.value = z
+            #self.log.debug("Getting centre z: {} {} {}".format(z, rectangle.o, rectangle.centre))
+
+        self._skew_rectangle_height.on_click(rectangle_centre_z)
+
+        def check_offset(rectangle):
+            if self._z_centre.value > 0:
+                z_centre = self._z_centre.value * 1e-6
+                z_offset = z_centre - rectangle.centre[2]
+                return rectangle.displaced(z_offset)
             else:
-                sx = self._xy_resolution.value
-                sy = int(sx * yd/xd)
-
-            self._latest_rectangle_scan = {'pivot': pivot,
-                                           'tilt_form': tilt_norm,
-                                           'o0': ox,
-                                           'o1': oy,
-                                           'a0': ax,
-                                           'a1': ay,
-                                           'b0': bx,
-                                           'b1': by,
-                                           'si': (sx, sy)}
-
-            task = self._qc.scan.start_rectangle_scan(pivot=pivot,
-                                                      tilt_norm=tilt_norm,
-                                                      o0=ox,
-                                                      o1=oy,
-                                                      a0=ax,
-                                                      a1=ay,
-                                                      b0=bx,
-                                                      b1=by,
-                                                      size=(sx, sy))
-
-            # Shoudl use BgTask but under time pressure!
-            asyncio.create_task(task)
+                return rectangle
 
         def take_cuboid(_):
-            pivot = self._tilt_widget.pivot
-            tilt_norm = self._tilt_widget.xy_norm
-            g = self._skew_rs.geometry * 1e-6
-
-            ox = g[0][0]
-            oy = g[1][0]
-            ax = g[0][1]
-            ay = g[1][1]
-            bx = g[0][2]
-            by = g[1][2]
-
-            o = self._tilt_widget.point_from_xy(ox, oy)
-            a = self._tilt_widget.point_from_xy(ax, ay)
-            b = self._tilt_widget.point_from_xy(bx, by)
-            xd = np.linalg.norm(a-o)
-            yd = np.linalg.norm(b-o)
-            if xd < yd:
-                sy = self._xy_resolution.value
-                sx = int(sy * xd/yd)
-            else:
-                sx = self._xy_resolution.value
-                sy = int(sx * yd/xd)
+            tilt = self._tilt_widget.tilt
+            z_up = self._z_up.value * 1e-6
+            z_down = self._z_down.value * 1e-6
+            height = z_up + z_down
+            cuboid = check_offset(Cuboid(skew_rectangle=self._skew_rs.geometry * 1e-6, height=height, tilt=tilt)).displaced(-z_down)
+            sx, sy = cuboid.fixed_aspect_resolution(self._xy_resolution)
             sz = self._z_resolution.value
+            self.log.info("Starting scan of cuboid {} size {}".format(cuboid, (sx, sy, sz)))
+            scan = self._qc.scan.start_cuboid_scan(cuboid=cuboid, size=(sx, sy, sz))
+            asyncio.create_task(scan)
 
-            zup = self._z_up.value * 1e-6
-            zdown = self._z_down.value * 1e-6
-
-            task = self._qc.scan.start_cuboid_scan(pivot=pivot,
-                                                   tilt_norm=tilt_norm,
-                                                   o0=ox,
-                                                   o1=oy,
-                                                   a0=ax,
-                                                   a1=ay,
-                                                   b0=bx,
-                                                   b1=by,
-                                                   up=zup,
-                                                   down=zdown,
-                                                   size=(sx, sy, sz))
-
-            # Shoudl use BgTask but under time pressure!
-            asyncio.create_task(task)
+#            bg_scan = BgScan(self._qc, scan, sx*sy)
+#            app.footer = bg_scan.display_progress()
+#            bg_scan.start()
 
         self._skew_take_rectangle.on_click(take_rectangle)
         self._skew_take_cuboid.on_click(take_cuboid)
 
-        right = VBox((self._xy_resolution, self._z_resolution, self._z_up, self._z_down, self._skew_angle, self._skew_take_rectangle, self._skew_take_cuboid))
-
-        return AppLayout(center=self._skew_iw.display(),
-                         right_sidebar=right)
+        return app
 
     def _new_roi_action(self, _):
         pass
 
+
+class BgScan(BgTask):
+    # Specialisation of BgTask to run a scan and allow cancellation
+    def __init__(self, qc, scan, points, after=None):
+        super(BgScan).__init__(scan, on_done=after, on_cancel=self.stop)
+        self.qc = qc
+        self.points = points
+        self.points_done = 0
+
+        async def updates():
+            s = self.qc.scan.subscribe('scan.update')
+            while not self.task.done():
+                data = await s.receive()
+                self.points_done = int(data['done'])
+
+        #self._update_handling = asyncio.create_task(updates())
+
+    def progress_str(self):
+        return '{}/{}'.format(self.points_done, self.points)
+
+    def update_progress(self):
+        self.progress.description = self.progress_str()
+        self.progress.value = self.points_done
+
+    def setup_progress_bar(self):
+        self.progress.min = 0
+        self.progress.max = self.points
+        self.update_progress()
+
+    async def stop(self):
+        await self.qc.scan.stop()
 

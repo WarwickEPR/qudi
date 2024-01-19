@@ -1,8 +1,9 @@
 # An iPython widget for use with Jupyter Lab to display and interact with confocal imaging
 # recorded to HDF5 by the Qudi extension
 from .savefig import SaveFig
-from .. client.QudiControl import QudiControl, BgTask
+from .. client.QudiControl import QudiControl
 from .. data.tables_context import TablesContext
+from background import BgTask
 import logging
 
 import ipywidgets as widgets
@@ -15,7 +16,6 @@ from IPython.display import Math, display
 from scipy.optimize import curve_fit
 #from .savefig import SaveFig
 from ..data import image as imgdata
-
 
 
 class ConfocalWidget:
@@ -95,7 +95,6 @@ class ConfocalImageHdf(HasTraits):
             self.image = image
         else:
             self.image = self.latest_image
-
 
     def images_dictionary(self, filter_function=lambda _: True):
         with self._tc as th:

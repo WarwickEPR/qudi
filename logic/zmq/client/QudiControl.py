@@ -1,14 +1,7 @@
-import datetime
-import threading
-import time
 
 import zmq
 import asyncio
 import zmq.asyncio
-
-import math
-
-from ipywidgets import Layout
 
 from logic.zmq.message import Message, PubMessage
 import logging
@@ -50,101 +43,7 @@ class Subscription:
         return PubMessage(frames=(topic, body))
 
 
-# holder for a running background Task and an associated cancellation button
-
-class BgTask:
-
-    log = logging.getLogger('core.bg')
-
-    def __init__(self, coroutine, on_done=None):
-        self.log.debug("Scheduling coroutine {} as task".format(coroutine))
-        self.task = asyncio.create_task(coroutine)
-        if on_done is not None:
-            self.task.add_done_callback(on_done)
-
-    def cancel(self):
-        self.task.cancel()
-
-    def cancel_button(self):
-        cancel_button = widgets.Button(description='',
-                                            disabled=False,
-                                            button_style='',
-                                            tooltip='Stop',
-                                            icon='window-close')
-        cancel_button.style.button_color = 'transparent'
-
-        def cancel(btn):
-            self.task.cancel()
-            self.cancel_button.disabled = True
-
-        cancel_button.on_click(cancel)
-        return cancel_button
-
-    def cancel_button_right(self, out):
-        return widgets.HBox(children=[out, self.cancel_button()],
-                            layout=widgets.Layout(display='flex', justify_content='space-between'))
-
-
-class BgWait(BgTask):
-
-    def __init__(self, duration, after_wait):
-        async def bg_wait():
-            await asyncio.sleep(duration)
-            if after_wait is not None:
-                await after_wait
-            self._done = True
-        super().__init__(bg_wait())
-        self._done = False
-        self._duration = duration
-        self._start_time = time.time()
-        self._progress_task = None
-        self._progress_bar = None
-        self._update_thread = None
-
-    def time_remaining(self):
-        remaining = self._end_time - time.time()
-        if remaining < 0:
-            remaining = 0
-        return remaining
-
-    def time_elapsed(self):
-        return time.time() - self._start_time
-
-    @classmethod
-    def seconds_to_string(cls, secs):
-        return str(datetime.timedelta(seconds=math.floor(secs)))
-
-    def remaining_str(self):
-        return '{} remaining of {}'.format(self.seconds_to_string(self.time_remaining()),
-                                           self.seconds_to_string(self._duration))
-
-    def update(self):
-        self._progress_bar.description = self.remaining_str()
-        self._progress_bar.value = self.time_remaining()
-
-    def add_progress_bar(self):
-
-        self._progress_bar = widgets.FloatProgress(value=self.time_remaining(),
-                                                   description=self.remaining_str(),
-                                                   min=0.0,
-                                                   max=self._duration,
-                                                   orientation='horizontal',
-                                                   bar_style='',
-                                                   layout=Layout(width='500px'))
-
-        def bgloop():
-            while not self._done:
-                self.update()
-                time.sleep(0.4)
-
-        self._update_thread = threading.Thread(target=bgloop)
-        self._update_thread.start()
-
-        return self._progress_bar
-
-
 # The interface for users to use
-
 class QudiControl:
 
     channel_client = {}
@@ -208,6 +107,24 @@ class QudiControl:
     def display_all_notifications(self):
         s = self.control.subscribe_all()
         return self.control.display_notifications(s)
+
+    @classmethod
+    def setup_logging(cls, logfile='logs/qc.log'):
+        logging.basicConfig(format='%(asctime)s %(name)s:%(levelname)s %(message)s',
+                            filename=logfile, encoding='utf-8', filemode='w', level=logging.DEBUG)
+        logger = logging.getLogger()
+        logger.addFilter(QudiControlLogFilter)
+
+
+class QudiControlLogFilter(logging.Filter):
+
+    prefix = ['core', 'broadcast', 'client']
+
+    def filter(self, record):
+        for p in self.prefix:
+            if record.name.startswith(p):
+                return True
+        return False
 
 
 class Plugin(type):

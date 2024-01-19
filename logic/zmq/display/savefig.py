@@ -11,9 +11,11 @@ class SaveFig(HasTraits):
         super().__init__(*args, **kwargs)
         self._fig = fig
 
-    def display(self):
+    def displayables(self):
         formats = self._fig.canvas.get_supported_filetypes()
-        save_format = widgets.SelectMultiple(options=list(sorted(formats)), descrption='Save format')
+        save_format = widgets.SelectMultiple(options=list(sorted(formats)),
+                                             descrption='Save format',
+                                             layout=widgets.Layout(width='auto'))
         dir_chooser = FileChooser(title="Save directory")
         dir_chooser.show_only_dirs = True
         save_stem = widgets.Text(description="Save filename stem")
@@ -25,5 +27,5 @@ class SaveFig(HasTraits):
                 self._fig.savefig(path, format=form)
 
         save_button.on_click(save_figure)
-        layout = widgets.HBox([dir_chooser, save_stem, save_format, save_button])
-        return layout
+        outputs = widgets.HBox([save_stem, save_format, save_button])
+        return dir_chooser, outputs

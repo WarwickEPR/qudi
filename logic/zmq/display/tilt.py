@@ -1,11 +1,11 @@
 import asyncio
 
 from traitlets import HasTraits, Float, Tuple
-from ipywidgets import BoundedFloatText, HBox, VBox, Label, HTMLMath, Layout, GridspecLayout, Button
+from ipywidgets import Label, Layout, GridspecLayout, Button
 import traitlets
 import numpy as np
-from numpy.linalg import norm
 from .position import PositionWidget
+from .. data.tilt import Tilt
 
 
 class TiltWidget(HasTraits):
@@ -64,7 +64,7 @@ class TiltWidget(HasTraits):
         traitlets.link((self, 'p1_t'), (self._p1, 'p'))
         traitlets.link((self, 'p2_t'), (self._p2, 'p'))
 
-        self.xy_norm = np.array([0, 0, 0])
+        self.tilt = Tilt()
         self._update_tilt(None)
 
     @traitlets.default('p0_t')
@@ -116,33 +116,20 @@ class TiltWidget(HasTraits):
         self.pivot_t = tuple(v)
 
     def _update_tilt(self, _):
-        zp = np.cross(self.p1 - self.p0, self.p2 - self.p0)
-        n = norm(zp)
-        if n == 0:
-            self.xy_norm = np.array([0, 0, 1])
-        else:
-            if zp[2] < 0:
-                # tilted plane has upwards normal regardless of point order
-                zp = -zp
-            self.xy_norm = zp / n   # normalized z' unit vector
-        theta_x = np.arccos(np.dot(self.xy_norm, np.array([1, 0, 0]))) - np.pi / 2
-        theta_y = np.arccos(np.dot(self.xy_norm, np.array([0, 1, 0]))) - np.pi / 2
-        self.tilt_x.value = '{:.3f}'.format(theta_x * 1e3)
-        self.tilt_y.value = '{:.3f}'.format(theta_y * 1e3)
-        #self.tilt_x.value = r'$$\theta_x={:.3f}$$ mrad'.format(theta_x * 1e3)
-        #self.tilt_y.value = r'$$\theta_y={:.3f}$$ mrad'.format(theta_y * 1e3)
+        self.tilt = Tilt(pivot=self.pivot, p0=self.p0, p1=self.p1, p2=self.p2)
+        self.tilt_x.value = '{:.3f}'.format(self.tilt.theta_x * 1e3)
+        self.tilt_y.value = '{:.3f}'.format(self.tilt.theta_y * 1e3)
 
     def point_from_xy(self, x, y):
-        z = (x - self.pivot[0]) * self.xy_norm[0] + (y - self.pivot[1]) * self.xy_norm[1]
-        return np.array([x, y, z])
+        return self.tilt.point_from_xy(x, y)
 
     def _set_tilt(self, _):
 
         async def send_tilt():
-            await self._qc.confocal.set_tilt(tilt_x=self.xy_norm[0],
-                                             tilt_y=self.xy_norm[1],
-                                             reference_x=self.pivot[0],
-                                             reference_y=self.pivot[1])
+            await self._qc.confocal.set_tilt(tilt_x=self.tilt.xy_norm[0],
+                                             tilt_y=self.tilt.xy_norm[1],
+                                             reference_x=self.tilt.pivot[0],
+                                             reference_y=self.tilt.pivot[1])
 
         if self._qc:
             asyncio.create_task(send_tilt())

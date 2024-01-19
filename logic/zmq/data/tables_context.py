@@ -25,7 +25,7 @@ class TablesHandle:
     def filepath(self):
         return self.tables.filename
 
-    def nodes_of_type(self, root='/', data_type_prefix='', **kwargs):
+    def list(self, root='/', data_type_prefix='', **kwargs):
 
         def filter_nodes(n):
             if data_type_prefix:
@@ -41,6 +41,13 @@ class TablesHandle:
             yield from filter(filter_nodes, self.tables.walk_nodes(root, **kwargs))
         except NoSuchNodeError:
             pass
+
+    def list_concise(self, **kwargs):
+        return map(lambda x: x._v_pathname, self.list(**kwargs))
+
+    def get(self, where='/'):
+        node = self.tables.get_node(where=where)
+        return node
 
     @property
     def poi(self):

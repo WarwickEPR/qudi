@@ -67,6 +67,13 @@ class ImageWidget(HasTraits):
                                              description='Slice',
                                              layout=Layout(flex='2 0 0%'),
                                              disabled=True)
+        self._image_title = widgets.Text(value='', description='Title:', continuous_update=False)
+
+        def set_title(v):
+            image_hdf = ImageHDF(self._tc, self.image)
+            image_hdf.title = self._image_title.value
+            self._image_selector.options = self.images_dictionary()
+        self._image_title.observe(set_title, 'value')
 
         self._plot_pane = widgets.Output()
         with self._plot_pane:
@@ -87,24 +94,23 @@ class ImageWidget(HasTraits):
         if qc:
             self._bg_images_update = asyncio.create_task(self._update_options(qc))
 
-        control_layout = Layout(display='flex',
-                                flex_flow='column',
-                                align_items='flex-start')
-        self._controls = widgets.Box([self._image_selector, self._image_slice], layout=control_layout)
         if self.image:
             widgets.link((self, 'image'), (self._image_selector, 'value'))
 
+        image_with_slider = widgets.AppLayout(center=self._plot_pane, right_sidebar=self._count_range_control,
+                                              grid_gap='20px', layout=Layout(align_items='center'))
+
+        self._full_pane = widgets.GridspecLayout(10, 2)
+        self._full_pane[:, 0] = image_with_slider
+        self._full_pane[0, 1] = self._image_selector
+        self._full_pane[1, 1] = self._image_slice
+        self._full_pane[2, 1] = self._image_title
         if save:
-            self._save_fig = SaveFig(self.fig).display()
+            dirchoose, filechoose = SaveFig(self.fig).displayables()
+            self._full_pane[3, 1] = dirchoose
+            self._full_pane[4, 1] = filechoose
         else:
             self._save_fig = None
-
-        self._full_pane = widgets.AppLayout(center=self._plot_pane,
-                                            left_sidebar=self._controls,
-                                            right_sidebar=self._count_range_control,
-                                            pane_widths=[1, 3, 1],
-                                            layout=Layout(align_items='center'),
-                                            footer=self._save_fig)
 
     def display(self):
         return self._full_pane
@@ -117,10 +123,17 @@ class ImageWidget(HasTraits):
 
     def images_dictionary(self, filter_function=lambda _: True):
         with self._tc as th:
-            filtered_nodes = filter(filter_function, th.nodes_of_type(root="/Confocal", data_type_prefix="Image"))
-            filtered_nodes2 = filter(filter_function, th.nodes_of_type(root="/Confocal", data_type_prefix="AB"))
+            filtered_nodes = filter(filter_function, th.list(root="/Confocal", data_type_prefix="Image"))
+            filtered_nodes2 = filter(filter_function, th.list(root="/Confocal", data_type_prefix="AB"))
             n = sorted(chain(filtered_nodes, filtered_nodes2), key=Timestamp.extract_timestamp)
-            return dict(map(lambda x: (x.name, x._v_pathname), n))
+
+            def opt_label(x):
+                if x._v_title:
+                    return "{} ({})".format(x.name, x._v_title), x._v_pathname
+                else:
+                    return x.name, x._v_pathname
+
+            return dict(map(opt_label, n))
 
     def latest_image(self, filter_function=lambda _: True):
         image_nodes = list(self.images_dictionary(filter_function).values())
@@ -139,6 +152,8 @@ class ImageWidget(HasTraits):
         image_type = image_hdf.image_type
         img = None
         extents = None
+
+        self._image_title.value = image_hdf.title
 
         if image_type == 'ABC':
             slices = image_hdf.data.shape[2]
