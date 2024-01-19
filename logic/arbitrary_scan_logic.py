@@ -100,11 +100,16 @@ class ArbitraryScanLogic(GenericLogic):
             self._scan = scan
             self._clock_frequency = clock_frequency
             self._return_speed = return_speed
+            self.log.info("Scan starting")
             self._sigStartScan.emit()
             return 0
 
     def _stop_scan(self):
         self._stopRequested = True
+
+    def stop_scan(self):
+        self.log.info("Scan stopped")
+        self._sigStopScan.emit()
 
     def _check_in_bounds(self, scan):
         bounds = np.array(self._scanning_device.get_position_range())

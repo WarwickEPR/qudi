@@ -24,6 +24,10 @@ class ArbitraryScan(ABC):
     def length(self):
         return 0
 
+    @abstractmethod
+    def done(self):
+        return 0
+
 
 class ParallelepipedScan(ArbitraryScan):
 
@@ -38,6 +42,7 @@ class ParallelepipedScan(ArbitraryScan):
         self.data_dim = data_dim
 
         self._data = self.initialise_data()
+        self._done = 0
 
     def initialise_data(self):
         return np.zeros((self.a_px*self.b_px*self.c_px, self.data_dim))
@@ -64,6 +69,10 @@ class ParallelepipedScan(ArbitraryScan):
                 for w in np.linspace(0, 1, self.c_px):
                     yield self.o + (self.a-self.o) * u + (self.b-self.o) * v + (self.c-self.o) * w
 
+    def done(self):
+        return self._done
+        return self._done
+
     def extremal_points(self):
         return [self.o, self.a, self.b, self.c]
 
@@ -72,6 +81,7 @@ class ParallelepipedScan(ArbitraryScan):
 
     def record(self, indices, count_data):
         np.put_along_axis(self._data, indices, count_data, 0)
+        self._done = max(indices)
 
     def length(self):
         return self.a_px * self.b_px * self.c_px
@@ -97,6 +107,7 @@ class ParallelogramScan(ArbitraryScan):
         self.b_px = b_px
         self.data_dim = data_dim
         self._data = self.initialise_data()
+        self._done = 0
 
     def initialise_data(self):
         return np.zeros((self.a_px*self.b_px, self.data_dim))
@@ -105,6 +116,9 @@ class ParallelogramScan(ArbitraryScan):
         for u in np.linspace(0, 1, self.a_px):
             for v in np.linspace(0, 1, self.b_px):
                 yield self.o + (self.a-self.o) * u + (self.b-self.o) * v
+
+    def done(self):
+        return self._done
 
     @property
     def points_a(self):
@@ -126,6 +140,7 @@ class ParallelogramScan(ArbitraryScan):
 
     def record(self, indices, count_data):
         np.put_along_axis(self._data, indices, count_data, 0)
+        self._done = max(indices)
 
     def length(self):
         return self.a_px * self.b_px

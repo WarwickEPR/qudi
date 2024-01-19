@@ -1,10 +1,11 @@
-import tables
-import traitlets
-import traittypes
 import numpy as np
 from enum import Enum
-from . tables_context import TablesContext
+from copy import copy
 
+from numpy.linalg import norm
+
+from . tables_context import TablesContext
+from . tilt import Tilt
 
 class Orientation(Enum):
     XY = 0
@@ -61,7 +62,7 @@ class FileHDF:
 class ImageHDF(NodeHDF):
 
     def __init__(self, tc: TablesContext, path: str):
-        super(ImageHDF,self).__init__(tc, path)
+        super(ImageHDF, self).__init__(tc, path)
         self.tc = tc
         self.path = path
         self._node = None
@@ -76,6 +77,16 @@ class ImageHDF(NodeHDF):
     @NodeHDF.access
     def attrs(self):
         return dict([(k, self._node.attrs[k]) for k in self._node.attrs._f_list()])
+
+    @property
+    @NodeHDF.access
+    def title(self):
+        return self._node._v_title
+
+    @title.setter
+    @NodeHDF.access
+    def title(self, title):
+        self._node._v_title = title
 
     # get a 2d image as a 2d array
 
@@ -153,3 +164,79 @@ class ImageHDF(NodeHDF):
         data = dict([(x, self._node.attrs[x]) for x in self._node.attrs._v_attrnamesuser])
         data['image'] = image
         return data
+
+
+class Rectangle:
+
+    # stored as an origin point and two side vectors
+
+    def __init__(self, skew_rectangle=None, tilt: Tilt = None):
+        if skew_rectangle is not None and tilt is not None:
+            g = skew_rectangle  # 10x2 geometry in m
+            ox = g[0][0]
+            oy = g[1][0]
+            ax = g[0][1]
+            ay = g[1][1]
+            bx = g[0][2]
+            by = g[1][2]
+            self.o = tilt.point_from_xy(ox, oy)
+            self.a = tilt.point_from_xy(ax, ay)
+            self.b = tilt.point_from_xy(bx, by)
+            self.A = self.a-self.o
+            self.B = self.b-self.o
+
+    @property
+    def centre(self):
+        return self.o + self.A * .5 + self.B * .5
+
+    @property
+    def norm(self):
+        n = np.cross(self.A, self.B)
+        if n[2] < 0:
+            # reverse if "down"
+            n = -n
+        return n / norm(n)
+
+    @property
+    def side_lengths(self):
+        return norm(self.A), norm(self.B)
+
+    def extents(self):
+        return self.side_lengths
+
+    def fixed_aspect_resolution(self, resolution):
+        xd, yd = self.side_lengths
+        if xd < yd:
+            sy = resolution
+            sx = int(sy * xd / yd)
+        else:
+            sx = resolution
+            sy = int(sx * yd / xd)
+        return sx, sy
+
+    def displaced(self, z):
+        r = copy(self)
+        r.o = self.o + self.norm * z
+        return r
+
+    def __str__(self):
+        return "Rectangle o={}, a={}, b={}, extent={}".format(self.o, self.a, self.b, self.extents())
+
+    def __repr__(self):
+        return str(self)
+
+
+class Cuboid(Rectangle):
+
+    def __init__(self, height=0, **kwargs):
+        super(Cuboid).__init__(**kwargs)
+        self.height = height
+        self.C = self.norm * height
+        self.c = self.o + self.C
+
+    def extents(self):
+        x, y = self.side_lengths
+        return x, y, self.height
+
+    def __str__(self):
+        return "Cuboid o={}, a={}, b={}, c={}, extent={}".format(self.o, self.a, self.b, self.c, self.extents())

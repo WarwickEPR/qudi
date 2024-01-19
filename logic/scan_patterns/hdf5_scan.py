@@ -9,12 +9,12 @@ from tables.atom import Float64Atom
 
 # not the most efficient way but the flat iterator doesn't seem to be fully implemented for tables.Array as ndarray
 def write_to_h5array_3d(target, indices, data):
-    for i, j, _, d, c in zip(*np.unravel_index(indices, shape=target.shape), data):
+    for i, j, _, d, c in zip(*np.unravel_index(indices, shape=target.shape, order='F'), data):
         target[i, j, 0, d] = c
 
 
 def write_to_h5array_4d(target, indices, data):
-    for i, j, k, d, c in zip(*np.unravel_index(indices, shape=target.shape), data):
+    for i, j, k, d, c in zip(*np.unravel_index(indices, shape=target.shape, order='F'), data):
         target[i, j, k, d] = c
 
 
@@ -32,6 +32,7 @@ class ParallelepipedScan(scan.ParallelepipedScan):
                  data_dim=1):
         self._tc = tc
         self._queue = Queue()
+        self._done = 0
         super(ParallelepipedScan, self).__init__(o, a, b, c, a_px, b_px, c_px, data_dim)
 
     def initialise_data(self):
@@ -75,6 +76,7 @@ class ParallelepipedScan(scan.ParallelepipedScan):
                 # documentation says None is valid and means an implicit reshape
                 #np.put_along_axis(node, indices, count_data, axis=None)
                 write_to_h5array_4d(node, indices, count_data)
+                self._done = max(indices)
 
 
 class XYZScan(ParallelepipedScan):
@@ -139,3 +141,4 @@ class ParallelogramScan(scan.ParallelogramScan):
                 node = th.tables.get_node(self._data)
                 # insert the data into the array as if it was flattened
                 write_to_h5array_3d(node, indices, count_data)
+                self._done = max(indices)

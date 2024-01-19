@@ -29,7 +29,7 @@ class ScanProxy(ZmqProxy):
     def _new_data(self):
         if self._scan:
             self._scan.flush()
-            self.notify('scan.update')
+            self.notify('scan.update', body={'done': self._scan.done()})
 
     def _scan_finished(self):
         if self._scan:
@@ -75,3 +75,7 @@ class ScanProxy(ZmqProxy):
         self.log.info("Starting parallelogram scan over {} points".format(a_px*b_px))
         self._scan = scan.ParallelogramScan(self.storage().tables_context(), origin, a, b, a_px, b_px)
         self.arbscan().start_scan(self._scan, clock_frequency=clock_frequency, return_speed=return_speed)
+
+    def handle_stop(self, m: Message):
+        self.log.info("Stopping scan")
+        self.arbscan().stop()
