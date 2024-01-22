@@ -1,5 +1,7 @@
 import asyncio
 
+from IPython.core.display import display
+
 from .. client.QudiControl import QudiControl
 from .. data.tables_context import TablesContext
 from .. data.image import ImageHDF
@@ -85,7 +87,6 @@ class ImageWidget(HasTraits):
             self._im_ax = self.axes.imshow([[0]], origin='lower', interpolation='gaussian', cmap='inferno', extent=(0, 100, 0, 100))
             # Attach colour bar scale to RHS of image axes
             self.fig.colorbar(self._im_ax, ax=self.axes, shrink=0.6, label='Counts (kc/s)', pad=0.1)
-            self.fig.get_layout_engine().set(w_pad=4 / 72, h_pad=4 / 72, hspace=0.2, wspace=0.2)
             self.axes.autoscale_on = True
             self.update_image(self.image)
             plt.ion()
@@ -97,14 +98,14 @@ class ImageWidget(HasTraits):
         if self.image:
             widgets.link((self, 'image'), (self._image_selector, 'value'))
 
-        image_with_slider = widgets.AppLayout(center=self._plot_pane, right_sidebar=self._count_range_control,
-                                              grid_gap='20px', layout=Layout(align_items='center'))
+        self._image_with_slider = widgets.AppLayout(center=self._plot_pane, right_sidebar=self._count_range_control,
+                                                    grid_gap='20px', layout=Layout(align_items='center'))
 
-        self._full_pane = widgets.GridspecLayout(10, 2)
-        self._full_pane[:, 0] = image_with_slider
-        self._full_pane[0, 1] = self._image_selector
-        self._full_pane[1, 1] = self._image_slice
-        self._full_pane[2, 1] = self._image_title
+        self._full_pane = widgets.GridspecLayout(10, 3, )
+        self._full_pane[:, 0:2] = self._image_with_slider
+        self._full_pane[0, 2] = self._image_selector
+        self._full_pane[1, 2] = self._image_slice
+        self._full_pane[2, 2] = self._image_title
         if save:
             dirchoose, filechoose = SaveFig(self.fig).displayables()
             self._full_pane[3, 1] = dirchoose
@@ -152,6 +153,7 @@ class ImageWidget(HasTraits):
         image_type = image_hdf.image_type
         img = None
         extents = None
+        aspect_ratio = 1
 
         self._image_title.value = image_hdf.title
 
@@ -167,17 +169,23 @@ class ImageWidget(HasTraits):
             img = image_hdf.xy_image_data()
             self.axes.set_xlabel(r'X ($\mu$m)')
             self.axes.set_ylabel(r'Y ($\mu$m)')
-            extents = [img[x] * 1e6 for x in ['x_range_start', 'x_range_end', 'y_range_start', 'y_range_end']]
+            x0, x1, y0, y1 = [img[x] * 1e6 for x in ['x_range_start', 'x_range_end', 'y_range_start', 'y_range_end']]
+            extents = [x0, x1, y0, y1]
+            aspect_ratio = (y1-y0)/(x1-x0)
         elif image_type == 'XZ':
             img = image_hdf.xz_image_data()
             self.axes.set_xlabel(r'X ($\mu$m)')
             self.axes.set_ylabel(r'Z ($\mu$m)')
-            extents = [img[x] * 1e6 for x in ['x_range_start', 'x_range_end', 'z_range_start', 'z_range_end']]
+            x0, x1, y0, y1 = [img[x] * 1e6 for x in ['x_range_start', 'x_range_end', 'y_range_start', 'y_range_end']]
+            extents = [x0, x1, y0, y1]
+            aspect_ratio = (y1-y0)/(x1-x0)
         elif image_type == 'YZ':
             img = image_hdf.yz_image_data()
             self.axes.set_xlabel(r'Y($\mu$m)')
             self.axes.set_ylabel(r'Z ($\mu$m)')
-            extents = [img[x] * 1e6 for x in ['y_range_start', 'y_range_end', 'z_range_start', 'z_range_end']]
+            x0, x1, y0, y1 = [img[x] * 1e6 for x in ['x_range_start', 'x_range_end', 'y_range_start', 'y_range_end']]
+            extents = [x0, x1, y0, y1]
+            aspect_ratio = (y1-y0)/(x1-x0)
         elif image_type == 'AB':
             img = image_hdf.xy_image_data()
             attrs = image_hdf.attrs
@@ -186,6 +194,7 @@ class ImageWidget(HasTraits):
             x = np.linalg.norm(attrs['a'] - attrs['o'])*1e6
             y = np.linalg.norm(attrs['b'] - attrs['o'])*1e6
             extents = [0, x, 0, y]
+            aspect_ratio = y/x
         elif image_type == 'ABC':
             img = image_hdf.xy_image_data(z_slice=1)
             attrs = image_hdf.attrs
@@ -194,6 +203,7 @@ class ImageWidget(HasTraits):
             x = np.linalg.norm(attrs['a'] - attrs['o'])*1e6
             y = np.linalg.norm(attrs['b'] - attrs['o'])*1e6
             extents = [0, x, 0, y]
+            aspect_ratio = y/x
         else:
             # unsupported
             return
@@ -203,7 +213,8 @@ class ImageWidget(HasTraits):
         self._count_range_control.max = np.max(np.ravel(image_data))
         self._count_range_control.value = (0.0, self._count_range_control.max)
         self._im_ax.set_extent(extents)
-        self._im_ax.set_data(image_data)
+        self._im_ax.set_data(image_data.T)
+        self._im_ax.axes.set_aspect(1/aspect_ratio)
         self.fig.canvas.flush_events()
 
     def label_pois(self, pois, offset=(0, 0, 0)):

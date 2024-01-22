@@ -36,6 +36,9 @@ class ParallelepipedScan(ArbitraryScan):
         self.a = a
         self.b = b
         self.c = c
+        self.A = self.a - self.o
+        self.B = self.b - self.o
+        self.C = self.c - self.o
         self.a_px = a_px
         self.b_px = b_px
         self.c_px = c_px
@@ -67,10 +70,9 @@ class ParallelepipedScan(ArbitraryScan):
         for u in np.linspace(0, 1, self.a_px):
             for v in np.linspace(0, 1, self.b_px):
                 for w in np.linspace(0, 1, self.c_px):
-                    yield self.o + (self.a-self.o) * u + (self.b-self.o) * v + (self.c-self.o) * w
+                    yield self.o + self.A * u + self.B * v + self.C * w
 
     def done(self):
-        return self._done
         return self._done
 
     def extremal_points(self):
@@ -103,6 +105,11 @@ class ParallelogramScan(ArbitraryScan):
         self.o = o
         self.a = a
         self.b = b
+        self.A = self.a - self.o
+        self.B = self.b - self.o
+        print("b, o in PS: {} {}".format(self.o, self.b))
+        print("A in PS: {}".format(self.A))
+        print("B in PS: {}".format(self.B))
         self.a_px = a_px
         self.b_px = b_px
         self.data_dim = data_dim
@@ -115,7 +122,7 @@ class ParallelogramScan(ArbitraryScan):
     def points(self):
         for u in np.linspace(0, 1, self.a_px):
             for v in np.linspace(0, 1, self.b_px):
-                yield self.o + (self.a-self.o) * u + (self.b-self.o) * v
+                yield self.o + self.A * u + self.B * v
 
     def done(self):
         return self._done

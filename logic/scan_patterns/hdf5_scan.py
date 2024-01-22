@@ -9,12 +9,12 @@ from tables.atom import Float64Atom
 
 # not the most efficient way but the flat iterator doesn't seem to be fully implemented for tables.Array as ndarray
 def write_to_h5array_3d(target, indices, data):
-    for i, j, _, d, c in zip(*np.unravel_index(indices, shape=target.shape, order='F'), data):
+    for i, j, _, d, c in zip(*np.unravel_index(indices, shape=target.shape), data):
         target[i, j, 0, d] = c
 
 
 def write_to_h5array_4d(target, indices, data):
-    for i, j, k, d, c in zip(*np.unravel_index(indices, shape=target.shape, order='F'), data):
+    for i, j, k, d, c in zip(*np.unravel_index(indices, shape=target.shape), data):
         target[i, j, k, d] = c
 
 

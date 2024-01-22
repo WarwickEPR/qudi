@@ -173,12 +173,13 @@ class Rectangle:
     def __init__(self, skew_rectangle=None, tilt: Tilt = None):
         if skew_rectangle is not None and tilt is not None:
             g = skew_rectangle  # 10x2 geometry in m
-            ox = g[0][0]
-            oy = g[1][0]
-            ax = g[0][1]
-            ay = g[1][1]
-            bx = g[0][2]
-            by = g[1][2]
+            ox = g[0][3]
+            oy = g[1][3]
+            ax = g[0][2]
+            ay = g[1][2]
+            bx = g[0][0]
+            by = g[1][0]
+
             self.o = tilt.point_from_xy(ox, oy)
             self.a = tilt.point_from_xy(ax, ay)
             self.b = tilt.point_from_xy(bx, by)
