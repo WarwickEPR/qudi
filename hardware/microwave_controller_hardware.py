@@ -7,6 +7,7 @@ from core.module import Base
 from core.configoption import ConfigOption
 from interface.microwave_controller_interface import MicrowaveControllerInterface
 from interface.picoammeter_interface import VoltageState, VoltageRange, CurrentRange
+from qtpy import QtWidgets
 
 
 class MicrowaveControllerHardware(Base, MicrowaveControllerInterface):
@@ -21,20 +22,23 @@ class MicrowaveControllerHardware(Base, MicrowaveControllerInterface):
     def on_activate(self):
         """ Activate module.
         """
-        rm = visa.ResourceManager()
-        print(self._address)
-        print(self._address)
-        self.inst = rm.open_resource(self._address)
-        self.inst.chunk_size = 102400
-        self.inst.write("*CLS")  # clear error bank
-        self.inst.baud_rate = 115200
-        self.model = self.inst.query('*IDN?').split(',')[1]  # get unit identification
-        self.inst.write("*RST;*CLS")  # reset device to default conditions and clear registers/error queues
-        time.sleep(3)
-        """
-        operation complete query - places ASCII '1' into output queue when all pending operations are completed
-        """
-        self.inst.query("*OPC?")
+        try:
+            rm = visa.ResourceManager()
+            print(self._address)
+            print(self._address)
+            self.inst = rm.open_resource(self._address)
+            self.inst.chunk_size = 102400
+            self.inst.write("*CLS")  # clear error bank
+            self.inst.baud_rate = 115200
+            self.model = self.inst.query('*IDN?').split(',')[1]  # get unit identification
+            self.inst.write("*RST;*CLS")  # reset device to default conditions and clear registers/error queues
+            time.sleep(3)
+            """
+            operation complete query - places ASCII '1' into output queue when all pending operations are completed
+            """
+            self.inst.query("*OPC?")
+        except:
+            print("could not connect")
 
     def on_deactivate(self):
         """ Deactivate module.
