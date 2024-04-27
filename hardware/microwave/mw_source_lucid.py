@@ -23,9 +23,9 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
 
-import visa
 import time
-import numpy as np
+import comtypes
+import comtypes.client
 
 from core.module import Base
 from core.configoption import ConfigOption
@@ -34,23 +34,22 @@ from interface.microwave_interface import MicrowaveLimits
 from interface.microwave_interface import MicrowaveMode
 from interface.microwave_interface import TriggerEdge
 
+# not sure why the first three here don't seem to be needed...
+# comtypes.client.GetModule("IviDriverTypeLib.dll")
+# comtypes.client.GetModule("IviRFSiggenTypeLib.dll")
+# comtypes.client.GetModule("ls129x_64.dll")
+# from comtypes.gen import LS129xLib
+
 
 class MicrowaveLucid(Base, MicrowaveInterface):
     """ Hardware file to control a Tabor Lucid microwave device.
 
     Example config for copy-paste:
 
-    mw_source_smbv:
+    mw_source_lucid:
         module.Class: 'microwave.mw_source_lucid.MicrowaveLucid'
-        gpib_address: 'TCPIP0::192.168.1.101::inst0::INSTR'
-        gpib_timeout: 10
         max_power: 0
     """
-
-    # visa address of the hardware : this can be over ethernet, the name is here for
-    # backward compatibility
-    _address = ConfigOption('gpib_address', missing='error')
-    _timeout = ConfigOption('gpib_timeout', 10, missing='warn')
 
     # to limit the power to a lower value that the hardware can provide
     _max_power = ConfigOption('max_power', missing='error')
@@ -60,28 +59,24 @@ class MicrowaveLucid(Base, MicrowaveInterface):
 
     def on_activate(self):
         """ Initialisation performed during activation of the module. """
-        self._timeout = self._timeout * 1000
-        # trying to load the visa connection to the module
-        self.rm = visa.ResourceManager()
         try:
-            self._connection = self.rm.open_resource(self._address,
-                                                          timeout=self._timeout)
+            self.lucid = comtypes.client.CreateObject("LS129x.LS129x")
+            self.lucid.Initialize('', False, False, '')
+            self.lucid.RF.RFConfigure(0.5e9, -30)
         except:
-            self.log.error('Could not connect to the address >>{}<<.'.format(self._address))
+            self.log.error('Could not connect to the lucid microwave generator')
             raise
 
-        self.model = self._connection.query('*IDN?').split(',')[1]
-        self.log.info('MW {} initialised and connected.'.format(self.model))
-        self._command_wait('*CLS')
-        self._command_wait('*RST')
+        self.log.info('Lucid generator initialised and connected.')
 
         limits = self.get_limits()
-        self.set_cw(limits.min_power)
+        self.set_cw(power=limits.min_power)
         return
 
     def on_deactivate(self):
         """ Cleanup performed during deactivation of the module. """
-        self.rm.close()
+        self.off()
+        self.lucid.Close()
         return
 
     def _command_wait(self, command_str):
@@ -138,9 +133,8 @@ class MicrowaveLucid(Base, MicrowaveInterface):
         if not is_running:
             return 0
 
-        self._connection.write('OUTP:STAT OFF')
-        self._connection.write('*WAI')
-        while int(float(self._connection.query('OUTP:STAT?'))) != 0:
+        self.lucid.RF.OutputEnabled = False
+        while self.lucid.RF.OutputEnabled is True:
             time.sleep(0.2)
         return 0
 
@@ -151,13 +145,10 @@ class MicrowaveLucid(Base, MicrowaveInterface):
 
         @return str, bool: mode ['cw', 'list', 'sweep'], is_running [True, False]
         """
-        is_running = bool(int(float(self._connection.query('OUTP:STAT?'))))
-        is_sweep = bool(int(float(self._connection.query(':FRSW?'))))
-        is_list = bool(int(float(self._connection.query(':LIST?'))))
+        is_running = self.lucid.RF.OutputEnabled
+        is_sweep = self.lucid.Sweep.FrequencySweep.Enabled
         if is_sweep is True:
             mode = 'sweep'
-        elif is_list is True:
-            mode = 'list'
         else:
             mode = 'cw'
         return mode, is_running
@@ -169,7 +160,7 @@ class MicrowaveLucid(Base, MicrowaveInterface):
         @return float: the power set at the device in dBm
         """
         # This case works for cw AND sweep mode
-        return float(self._connection.query(':POW?'))
+        return self.lucid.RF.Level
 
     def get_frequency(self):
         """
@@ -182,13 +173,13 @@ class MicrowaveLucid(Base, MicrowaveInterface):
         """
         mode, _ = self.get_status()
         if 'cw' in mode:
-            return_val = float(self._connection.query(':FREQ?'))
+            return_val = self.lucid.RF.Frequency
         elif 'sweep' in mode:
-            start = float(self._connection.query(':FRSW:STAR?'))
-            stop = float(self._connection.query(':FRSW:STOP?'))
-            n_steps = int(self._connection.query(':FRSW:STEP?'))
-            step = (stop-start)/(float(n_steps-1))
-            return_val = [start, stop, step]     
+            start = self.lucid.Sweep.FrequencySweep.Start
+            stop = self.lucid.Sweep.FrequencySweep.Stop
+            n_steps = self.lucid.Sweep.FrequencySweep.Step
+            step = (stop - start) / (float(n_steps - 1))
+            return_val = [start, stop, step]
 
         return return_val
 
@@ -207,11 +198,9 @@ class MicrowaveLucid(Base, MicrowaveInterface):
                 self.off()
 
         if current_mode != 'cw':
-            self._command_wait(':LIST OFF')
-            self._command_wait(':FRSW OFF')
+            self.lucid.Sweep.FrequencySweep.Enabled = False
 
-        self._connection.write(':OUTP:STAT ON')
-        self._connection.write('*WAI')
+        self.lucid.RF.OutputEnabled = True
         _, is_running = self.get_status()
         while not is_running:
             time.sleep(0.2)
@@ -236,16 +225,15 @@ class MicrowaveLucid(Base, MicrowaveInterface):
 
         # Activate CW mode
         if mode != 'cw':
-            self._command_wait(':LIST OFF')
-            self._command_wait(':FRSW OFF')
+            self.lucid.Sweep.FrequencySweep.Enabled = False
 
         # Set CW frequency
         if frequency is not None:
-            self._command_wait(':FREQ {0:f}'.format(frequency))
+            self.lucid.RF.Frequency = frequency
 
         # Set CW power
         if power is not None:
-            self._command_wait(':POW {0:f}'.format(power))
+            self.lucid.RF.Level = power
 
         # Return actually set values
         mode, _ = self.get_status()
@@ -301,9 +289,9 @@ class MicrowaveLucid(Base, MicrowaveInterface):
                 self.off()
 
         if current_mode != 'sweep':
-            self._command_wait(':FRSW:STAT ON')
+            self.lucid.Sweep.FrequencySweep.Enabled = True
 
-        self._connection.write(':OUTP:STAT ON')
+        self.lucid.RF.OutputEnabled = True
         _, is_running = self.get_status()
         while not is_running:
             time.sleep(0.2)
@@ -326,20 +314,18 @@ class MicrowaveLucid(Base, MicrowaveInterface):
             self.off()
 
         if mode != 'sweep':
-            self._command_wait(':FRSW:STAT ON')
+            self.lucid.Sweep.FrequencySweep.Enabled = True
 
         if (start is not None) and (stop is not None) and (step is not None):
-            self._connection.write(':FRSW:START {0:f}'.format(start))
-            self._connection.write(':FRSW:STOP {0:f}'.format(stop))
-            n_steps = int((stop-start)/step)+1
-            self._connection.write(':FRSW {0:d}'.format(n_steps))
-            self._connection.write('*WAI')
+            self.lucid.Sweep.FrequencySweep.Start = start
+            self.lucid.Sweep.FrequencySweep.Stop = stop
+            n_steps = int((stop - start) / step) + 1
+            self.lucid.Sweep.FrequencySweep.Step = n_steps
 
         if power is not None:
-            self._connection.write(':POW {0:f}'.format(power))
-            self._connection.write('*WAI')
+            self.lucid.RF.Level = power
 
-        self._command_wait(':TRIG:SOUR EXT')
+        self.lucid.Trigger.Advance = 1 #frequency step per trigger
 
         actual_power = self.get_power()
         freq_list = self.get_frequency()
@@ -352,7 +338,7 @@ class MicrowaveLucid(Base, MicrowaveInterface):
 
         @return int: error code (0:OK, -1:error)
         """
-        self._command_wait(':FRSW:STAT OFF')
+        self.lucid.Sweep.FrequencySweep.Enabled = False
         return 0
 
     def set_ext_trigger(self, pol, timing):
@@ -369,18 +355,17 @@ class MicrowaveLucid(Base, MicrowaveInterface):
             self.off()
 
         if pol == TriggerEdge.RISING:
-            edge = 'POS'
+            self.lucid.Trigger.Edge = 0
         elif pol == TriggerEdge.FALLING:
-            edge = 'NEG'
+            self.lucid.Trigger.Edge = 1
         else:
             self.log.warning('No valid trigger polarity passed to microwave hardware module.')
             edge = None
 
-        if edge is not None:
-            self._command_wait(':TRIG:EDG {0}'.format(edge))
+        self.lucid.Trigger.Source = 0 #external
 
-        polarity = self._connection.query(':TRIG:EDG')
-        if 'NEG' in polarity:
+        polarity = self.lucid.Trigger.Edge
+        if polarity == 1:
             return TriggerEdge.FALLING, timing
         else:
             return TriggerEdge.RISING, timing
@@ -397,7 +382,6 @@ class MicrowaveLucid(Base, MicrowaveInterface):
         # WARNING:
         # The manual trigger functionality was not tested for this device!
         # Might not work well! Please check that!
-
-        self._connection.write('*TRG')
+        self.lucid.Trigger.SendSoftwareTrigger()
         time.sleep(self._FREQ_SWITCH_SPEED)  # that is the switching speed
         return 0
