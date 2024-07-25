@@ -59,6 +59,7 @@ class PulseStreamer(Base, PulserInterface):
 
 
     def __init__(self, config, **kwargs):
+        
         super().__init__(config=config, **kwargs)
 
         self.__current_status = -1
@@ -615,6 +616,10 @@ class PulseStreamer(Base, PulserInterface):
 
     
     def write_waveform(self, name, analog_samples, digital_samples, is_first_chunk, is_last_chunk,
+
+
+
+                       
                        total_number_of_samples):
         """
         Write a new waveform or append samples to an already existing waveform on the device memory.

@@ -49,6 +49,7 @@ class PicoammeterHardware(Base, PicoammeterInterface):
 
         try:
             self.inst = rm.open_resource(self._address)
+            #self.inst.baud_rate = 57600
             self.inst.timeout = 5000
             self.write("*RST;*CLS")
             time.sleep(3)
@@ -108,7 +109,7 @@ class PicoammeterHardware(Base, PicoammeterInterface):
         step = (end-start)/float(points-1)
         self.write('*RST')
         self.write('CURR:NPLC 1')
-        self.write('RANGE 0.02')
+        self.write('RANGE 2e-9')
         self.write('SOURCE:VOLT:SWEEP:START {}'.format(start))
         self.write('SOURCE:VOLT:SWEEP:STOP {}'.format(end))
         self.write('SOURCE:VOLT:SWEEP:STEP {}'.format(step))
@@ -168,7 +169,7 @@ class PicoammeterHardware(Base, PicoammeterInterface):
         self.write('INIT')
         self.write('SYST:ZCOR:STAT OFF')
         self.write('SYST:ZCOR:ACQ')
-        self.write('SYST:ZCOR ON')
-        self.write('CURR:RANG:AUTO ON')
         self.write('SYST:ZCH OFF')
+        self.write('SYST:ZCOR ON')
+        #self.write('CURR:RANG:AUTO ON')
         
