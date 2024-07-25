@@ -33,6 +33,7 @@ class PicoammeterGUI(GUIBase):
     sigVoltageRange = QtCore.Signal(int)
     sigReadCurrent = QtCore.Signal(bool)
     sigZeroCheck = QtCore.Signal()
+    sigStartVoltageSweep = QtCore.Signal(int, int, int, int, bool)
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -59,6 +60,9 @@ class PicoammeterGUI(GUIBase):
         self.mw.ZeroButton.clicked.connect(self.zerocheck)
         self.sigZeroCheck.connect(self._picoammeterlogic.zero_check)
 
+        self.mw.SymmetricSweepBox.stateChanged.connect(self.togglesymmetricsweep)
+        self.mw.SweepVoltageButton.clicked.connect(self.startvoltagesweep)
+        self.sigStartVoltageSweep.connect(self._picoammeterlogic.begin_voltage_sweep)
 
         #setting up plot
         self._pw = self.mw.trace_PlotWidget
@@ -91,6 +95,14 @@ class PicoammeterGUI(GUIBase):
         self.mw.CurrentMeasure.setText(self.to_si(self._picoammeterlogic.currentmeasurement) + 'A')
         self.curve.setData(x=self._picoammeterlogic.timearray, y=self._picoammeterlogic.currentarray)
 
+    def togglesymmetricsweep(self):
+        self.mw.SweepMinVoltage.setEnabled(not self.mw.SymmetricSweepBox.isChecked())
+
+    def startvoltagesweep(self):
+        self.mw.SetVoltage.setValue(0)
+        self.mw.OperateVoltage.setCheckState(True)
+        self.mw.Measurement.setCheckState(True)
+        self.sigStartVoltageSweep.emit(self.mw.SweepMinVoltage.value(), self.mw.SweepMaxVoltage.value(), self.mw.SweepStepVoltage.value(), 1000*self.mw.SweepDwellTimeS.value(), self.mw.SymmetricSweepBox.isChecked())
 
     def zerocheck(self):
         self.sigZeroCheck.emit()

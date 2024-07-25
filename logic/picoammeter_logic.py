@@ -21,6 +21,11 @@ class PicoammeterLogic(GenericLogic):
         self.timearray = []
         self.currentarray = []
         self.initialtime = None
+
+        self.sweepTimer = QtCore.QTimer()
+        self.sweepTimer.setInterval(30000)
+        self.sweepTimer.timeout.connect(self._update_sweep_voltage, QtCore.Qt.QueuedConnection)
+        self.sweep_voltages = None
         return
 
     def on_deactivate(self):
@@ -48,6 +53,38 @@ class PicoammeterLogic(GenericLogic):
         if value == 2:
             self._picoammeter.set_voltage_range(500)
 
+    def begin_voltage_sweep(self, voltage_start, voltage_stop, voltage_step, step_interval_in_ms, symmetric_sweep):
+        """
+        Sweeps the voltage and measures for the given dwell time at each voltage. If symmetric_sweep is true,
+        the voltage will run from 0 to -voltage_stop to 0 to + voltage_stop to 0. Voltage_stop should be positive.
+        If symmetric_sweep is false, the voltage will run from voltage_start to voltage_stop.
+        """
+        voltage_stop: int = round(np.abs(voltage_stop))
+        if symmetric_sweep is False:
+            self.sweep_voltages = np.linspace(voltage_start, voltage_stop, int((voltage_stop-voltage_stop)/voltage_step + 1))
+        else:
+            sweep_down_from_zero = np.linspace(0, -voltage_stop, int((voltage_stop) / voltage_step + 1))
+            sweep_up_to_zero = np.flip(sweep_down_from_zero, 0)[1:-1]
+            sweep_up_from_zero = -sweep_down_from_zero
+            sweep_down_to_zero = np.flip(sweep_up_from_zero, 0)[1:]
+            self.sweep_voltages = np.concatenate((sweep_down_from_zero, sweep_up_to_zero, sweep_up_from_zero, sweep_down_to_zero))
+
+        self.sweepTimer.setInterval(step_interval_in_ms)
+        self.sweep_index = 0
+
+        self.stop_measurement_loop()
+        self.set_voltage(self.sweep_voltages[0])
+        self.start_measurement_loop()
+        self.sweepTimer.start()
+
+    def _update_sweep_voltage(self):
+        if self.sweep_index + 1 > len(self.sweep_voltages):
+            self.stop_measurement_loop()
+        else:
+            self.sweep_index += 1
+            self.set_voltage(self.sweep_voltages[self.sweep_index])
+
+
     def start_measurement_loop(self):
         self.initialtime = time.time()
         self.currentarray = []
@@ -57,6 +94,7 @@ class PicoammeterLogic(GenericLogic):
 
     def stop_measurement_loop(self):
         self.stopRequest = True
+        self.sweepTimer.stop()
         for i in range(10):
             if not self.stopRequest:
                 return

@@ -163,13 +163,22 @@ class PicoammeterHardware(Base, PicoammeterInterface):
 
     def zero(self):
         self.write('*RST')
+        time.sleep(0.1)
         self.write("FUNC 'CURR'")
+        time.sleep(0.1)
         self.write('SYST:ZCH ON')
+        time.sleep(0.1)
         self.write('CURR:RANG 2e-9')
+        time.sleep(0.1)
         self.write('INIT')
+        time.sleep(0.1)
         self.write('SYST:ZCOR:STAT OFF')
+        time.sleep(0.1)
         self.write('SYST:ZCOR:ACQ')
+        time.sleep(0.1)
         self.write('SYST:ZCH OFF')
+        time.sleep(0.1)
         self.write('SYST:ZCOR ON')
+        time.sleep(0.1)
         #self.write('CURR:RANG:AUTO ON')
         
