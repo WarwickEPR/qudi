@@ -24,6 +24,7 @@ class PicoammeterLogic(GenericLogic):
 
         self.sweepTimer = QtCore.QTimer()
         self.sweepTimer.setInterval(30000)
+        self.sweepTimer.setSingleShot(True)
         self.sweepTimer.timeout.connect(self._update_sweep_voltage, QtCore.Qt.QueuedConnection)
         self.sweep_voltages = None
         return
@@ -59,10 +60,10 @@ class PicoammeterLogic(GenericLogic):
         the voltage will run from 0 to -voltage_stop to 0 to + voltage_stop to 0. Voltage_stop should be positive.
         If symmetric_sweep is false, the voltage will run from voltage_start to voltage_stop.
         """
-        voltage_stop: int = round(np.abs(voltage_stop))
         if symmetric_sweep is False:
-            self.sweep_voltages = np.linspace(voltage_start, voltage_stop, int((voltage_stop-voltage_stop)/voltage_step + 1))
+            self.sweep_voltages = np.linspace(voltage_start, voltage_stop, int((voltage_stop-voltage_start)/voltage_step + 1))
         else:
+            voltage_stop: int = round(np.abs(voltage_stop))
             sweep_down_from_zero = np.linspace(0, -voltage_stop, int((voltage_stop) / voltage_step + 1))
             sweep_up_to_zero = np.flip(sweep_down_from_zero, 0)[1:-1]
             sweep_up_from_zero = -sweep_down_from_zero
@@ -78,11 +79,12 @@ class PicoammeterLogic(GenericLogic):
         self.sweepTimer.start()
 
     def _update_sweep_voltage(self):
-        if self.sweep_index + 1 > len(self.sweep_voltages):
+        if self.sweep_index + 1 == len(self.sweep_voltages):
             self.stop_measurement_loop()
         else:
             self.sweep_index += 1
             self.set_voltage(self.sweep_voltages[self.sweep_index])
+            self.sweepTimer.start()
 
 
     def start_measurement_loop(self):
@@ -94,7 +96,6 @@ class PicoammeterLogic(GenericLogic):
 
     def stop_measurement_loop(self):
         self.stopRequest = True
-        self.sweepTimer.stop()
         for i in range(10):
             if not self.stopRequest:
                 return
