@@ -81,6 +81,8 @@ class PicoammeterLogic(GenericLogic):
     def _update_sweep_voltage(self):
         if self.sweep_index + 1 == len(self.sweep_voltages):
             self.stop_measurement_loop()
+            self.set_voltage(0)
+            self.toggle_voltage(False)
         else:
             self.sweep_index += 1
             self.set_voltage(self.sweep_voltages[self.sweep_index])
@@ -96,6 +98,7 @@ class PicoammeterLogic(GenericLogic):
 
     def stop_measurement_loop(self):
         self.stopRequest = True
+        self.sweepTimer.stop()
         for i in range(10):
             if not self.stopRequest:
                 return

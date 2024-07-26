@@ -100,8 +100,8 @@ class PicoammeterGUI(GUIBase):
 
     def startvoltagesweep(self):
         self.mw.SetVoltage.setValue(0)
-        self.mw.OperateVoltage.setCheckState(True)
-        self.mw.Measurement.setCheckState(True)
+        self.mw.OperateVoltage.setChecked(True)
+        self.mw.Measurement.setChecked(True)
         self.sigStartVoltageSweep.emit(self.mw.SweepMinVoltage.value(), self.mw.SweepMaxVoltage.value(), self.mw.SweepStepVoltage.value(), 1000*self.mw.SweepDwellTimeS.value(), self.mw.SymmetricSweepBox.isChecked())
 
     def zerocheck(self):

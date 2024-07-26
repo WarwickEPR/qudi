@@ -88,6 +88,7 @@ class PicoammeterHardware(Base, PicoammeterInterface):
         self.write(self.SourceVolt + f':RANG {value}')
 
     def operate_voltage_on(self):
+        self.write("SOUR:VOLT:ILIM 250e-6")
         self.write(self.SourceVolt + ':STAT ON')
 
     def operate_voltage_off(self):
