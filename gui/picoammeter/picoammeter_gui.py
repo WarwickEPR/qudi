@@ -63,6 +63,7 @@ class PicoammeterGUI(GUIBase):
         self.mw.SymmetricSweepBox.stateChanged.connect(self.togglesymmetricsweep)
         self.mw.SweepVoltageButton.clicked.connect(self.startvoltagesweep)
         self.sigStartVoltageSweep.connect(self._picoammeterlogic.begin_voltage_sweep)
+        self._picoammeterlogic.sigSweepFinished.connect(self.sweepfinished)
 
         #setting up plot
         self._pw = self.mw.trace_PlotWidget
@@ -103,6 +104,11 @@ class PicoammeterGUI(GUIBase):
         self.mw.OperateVoltage.setChecked(True)
         self.mw.Measurement.setChecked(True)
         self.sigStartVoltageSweep.emit(self.mw.SweepMinVoltage.value(), self.mw.SweepMaxVoltage.value(), self.mw.SweepStepVoltage.value(), 1000*self.mw.SweepDwellTimeS.value(), self.mw.SymmetricSweepBox.isChecked())
+
+    def sweepfinished(self):
+        self.mw.SetVoltage.setValue(0)
+        self.mw.OperateVoltage.setChecked(False)
+        self.mw.Measurement.setChecked(False)
 
     def zerocheck(self):
         self.sigZeroCheck.emit()

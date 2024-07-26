@@ -9,6 +9,7 @@ from logic.generic_logic import GenericLogic
 class PicoammeterLogic(GenericLogic):
     picoammeter = Connector(interface='PicoammeterInterface')
     sigUpdate = QtCore.Signal()
+    sigSweepFinished = QtCore.Signal()
     def on_activate(self):
         self._picoammeter = self.picoammeter()
         self.stopRequest = False
@@ -75,17 +76,23 @@ class PicoammeterLogic(GenericLogic):
 
         self.stop_measurement_loop()
         self.set_voltage(self.sweep_voltages[0])
+        # throw away first measurement after changing voltage
+        self._picoammeter.read_current()
         self.start_measurement_loop()
         self.sweepTimer.start()
 
     def _update_sweep_voltage(self):
         if self.sweep_index + 1 == len(self.sweep_voltages):
             self.stop_measurement_loop()
-            self.set_voltage(0)
-            self.toggle_voltage(False)
+            self.sigSweepFinished.emit()
         else:
+            self.timer.stop()
+            time.sleep(self.timer.interval()/1000)
             self.sweep_index += 1
             self.set_voltage(self.sweep_voltages[self.sweep_index])
+            # throw away first measurement after changing voltage
+            self._picoammeter.read_current()
+            self.timer.start()
             self.sweepTimer.start()
 
 
