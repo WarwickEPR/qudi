@@ -282,6 +282,7 @@ class MicrowaveLucid(Base, MicrowaveInterface):
         @return int: error code (0:OK, -1:error)
         """
         current_mode, is_running = self.get_status()
+
         if is_running:
             if current_mode == 'sweep':
                 return 0
@@ -339,6 +340,7 @@ class MicrowaveLucid(Base, MicrowaveInterface):
         @return int: error code (0:OK, -1:error)
         """
         self.lucid.Sweep.FrequencySweep.Enabled = False
+        self.lucid.Sweep.FrequencySweep.Enabled = True
         return 0
 
     def set_ext_trigger(self, pol, timing):
