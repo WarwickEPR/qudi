@@ -93,6 +93,7 @@ class PicoammeterHardware(Base, PicoammeterInterface):
 
     def operate_voltage_off(self):
         self.write(self.SourceVolt + ':STAT OFF')
+        
 
     def set_voltage(self, value):
         self.write(self.SourceVolt + f' {value}')
