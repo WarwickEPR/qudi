@@ -33,7 +33,7 @@ class PicoammeterGUI(GUIBase):
     sigVoltageRange = QtCore.Signal(int)
     sigReadCurrent = QtCore.Signal(bool)
     sigZeroCheck = QtCore.Signal()
-    sigStartVoltageSweep = QtCore.Signal(int, int, int, int, bool)
+    sigStartVoltageSweep = QtCore.Signal(float, float, float, int, bool)
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 

@@ -64,8 +64,8 @@ class PicoammeterLogic(GenericLogic):
         if symmetric_sweep is False:
             self.sweep_voltages = np.linspace(voltage_start, voltage_stop, int((voltage_stop-voltage_start)/voltage_step + 1))
         else:
-            voltage_stop: int = round(np.abs(voltage_stop))
-            sweep_down_from_zero = np.linspace(0, -voltage_stop, int((voltage_stop) / voltage_step + 1))
+            voltage_stop = np.abs(voltage_stop)
+            sweep_down_from_zero = np.linspace(0, -voltage_stop, int(voltage_stop / voltage_step + 1))
             sweep_up_to_zero = np.flip(sweep_down_from_zero, 0)[1:-1]
             sweep_up_from_zero = -sweep_down_from_zero
             sweep_down_to_zero = np.flip(sweep_up_from_zero, 0)[1:]
@@ -100,6 +100,7 @@ class PicoammeterLogic(GenericLogic):
         self.initialtime = time.time()
         self.currentarray = []
         self.timearray = []
+        self.stopRequest = False
         self.module_state.run()
         self.timer.start(100)
 

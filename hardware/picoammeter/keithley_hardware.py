@@ -93,7 +93,6 @@ class PicoammeterHardware(Base, PicoammeterInterface):
 
     def operate_voltage_off(self):
         self.write(self.SourceVolt + ':STAT OFF')
-        
 
     def set_voltage(self, value):
         self.write(self.SourceVolt + f' {value}')
@@ -182,5 +181,5 @@ class PicoammeterHardware(Base, PicoammeterInterface):
         time.sleep(0.1)
         self.write('SYST:ZCOR ON')
         time.sleep(0.1)
-        #self.write('CURR:RANG:AUTO ON')
+        self.write('CURR:RANG:AUTO ON')
         

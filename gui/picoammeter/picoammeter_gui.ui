@@ -205,7 +205,7 @@
             <string>Sweep Voltage</string>
            </property>
           </widget>
-          <widget class="QSpinBox" name="SweepMinVoltage">
+          <widget class="QDoubleSpinBox" name="SweepMinVoltage">
            <property name="geometry">
             <rect>
              <x>10</x>
@@ -215,16 +215,16 @@
             </rect>
            </property>
            <property name="minimum">
-            <number>-500</number>
+            <double>-500.000000000000000</double>
            </property>
            <property name="maximum">
-            <number>500</number>
+            <double>500.000000000000000</double>
            </property>
            <property name="value">
-            <number>-10</number>
+            <double>-1.000000000000000</double>
            </property>
           </widget>
-          <widget class="QSpinBox" name="SweepMaxVoltage">
+          <widget class="QDoubleSpinBox" name="SweepMaxVoltage">
            <property name="geometry">
             <rect>
              <x>80</x>
@@ -234,16 +234,16 @@
             </rect>
            </property>
            <property name="minimum">
-            <number>-500</number>
+            <double>-500.000000000000000</double>
            </property>
            <property name="maximum">
-            <number>500</number>
+            <double>500.000000000000000</double>
            </property>
            <property name="value">
-            <number>10</number>
+            <double>1.000000000000000</double>
            </property>
           </widget>
-          <widget class="QSpinBox" name="SweepStepVoltage">
+          <widget class="QDoubleSpinBox" name="SweepStepVoltage">
            <property name="geometry">
             <rect>
              <x>150</x>
@@ -252,14 +252,11 @@
              <height>41</height>
             </rect>
            </property>
-           <property name="minimum">
-            <number>-1000</number>
-           </property>
            <property name="maximum">
-            <number>1000</number>
+            <double>500.000000000000000</double>
            </property>
            <property name="value">
-            <number>2</number>
+            <double>0.100000000000000</double>
            </property>
           </widget>
           <widget class="QCheckBox" name="SymmetricSweepBox">
