@@ -350,7 +350,11 @@ class ScienDSpinBoxItemDelegate(QtGui.QStyledItemDelegate):
         if 'unit' in self.item_dict:
             widget.setSuffix(self.item_dict['unit'])
         widget.setGeometry(r)
-        widget.setValue(index.data(self._access_role))
+        tmp = index.data(self._access_role)
+        if np.size(tmp) == 1 and type(tmp) == np.ndarray:
+            widget.setValue(float(tmp))
+        else:
+            widget.setValue(tmp)
         widget.render(painter)
         painter.restore()
 
